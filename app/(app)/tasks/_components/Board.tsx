@@ -1,0 +1,208 @@
+"use client";
+
+import { useMemo, useState, useTransition } from "react";
+import { useDebouncedCallback } from "use-debounce";
+import { KanbanBoard, type KanbanColumnData } from "@/components/kanban/KanbanBoard";
+import { TASK_PRIORITIES, TASK_PRIORITY_LABEL } from "@/lib/constants";
+import { createTask, moveTask } from "@/lib/actions/tasks";
+import { TaskCard, type TaskCardData } from "./TaskCard";
+import { TaskModal } from "./TaskModal";
+
+type ColumnData = { id: string; title: string; tasks: TaskCardData[] };
+
+export function TasksBoard({
+  columns,
+  users,
+  projects,
+}: {
+  columns: ColumnData[];
+  users: { id: string; name: string }[];
+  projects: { id: string; name: string }[];
+}) {
+  const [activeTask, setActiveTask] = useState<TaskCardData | null>(null);
+  const [activeColumnName, setActiveColumnName] = useState("");
+  const [creatingIn, setCreatingIn] = useState<string | null>(null);
+  const [newTitle, setNewTitle] = useState("");
+  const [, startTransition] = useTransition();
+
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const debouncedSetSearch = useDebouncedCallback((v: string) => setSearch(v), 250);
+
+  const [projectId, setProjectId] = useState("");
+  const [assigneeId, setAssigneeId] = useState("");
+  const [priority, setPriority] = useState("");
+  const [onlyBugs, setOnlyBugs] = useState(false);
+  const [onlyOverdue, setOnlyOverdue] = useState(false);
+
+  function openTask(task: TaskCardData, columnName: string) {
+    setActiveTask(task);
+    setActiveColumnName(columnName);
+  }
+
+  const filteredColumns = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return columns.map((c) => ({
+      ...c,
+      tasks: c.tasks.filter((t) => {
+        if (q && !t.title.toLowerCase().includes(q) && !t.description?.toLowerCase().includes(q))
+          return false;
+        if (projectId && (t as unknown as { projectId?: string }).projectId !== projectId)
+          return false;
+        if (assigneeId && t.assigneeId !== assigneeId) return false;
+        if (priority && t.priority !== priority) return false;
+        if (onlyBugs && !t.isBug) return false;
+        if (onlyOverdue && !(t.dueDate && new Date(t.dueDate) < new Date())) return false;
+        return true;
+      }),
+    }));
+  }, [columns, search, projectId, assigneeId, priority, onlyBugs, onlyOverdue]);
+
+  const kanbanColumns: KanbanColumnData<TaskCardData>[] = filteredColumns.map((c) => ({
+    id: c.id,
+    title: c.title,
+    items: c.tasks,
+  }));
+
+  function handleMove(taskId: string, toColumnId: string, toIndex: number) {
+    startTransition(() => {
+      moveTask(taskId, toColumnId, toIndex);
+    });
+  }
+
+  async function handleCreate(columnId: string) {
+    if (!newTitle.trim()) return;
+    await createTask({ columnId, title: newTitle.trim(), projectId: projectId || undefined });
+    setNewTitle("");
+    setCreatingIn(null);
+  }
+
+  return (
+    <div className="min-h-0 flex-1">
+      <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
+        <input
+          value={searchInput}
+          onChange={(e) => {
+            setSearchInput(e.target.value);
+            debouncedSetSearch(e.target.value);
+          }}
+          placeholder="Поиск по названию и описанию…"
+          className="w-64 rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-sm text-foreground outline-none focus:border-accent"
+        />
+        <select
+          value={projectId}
+          onChange={(e) => setProjectId(e.target.value)}
+          className="rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-sm text-foreground outline-none focus:border-accent"
+        >
+          <option value="">Все проекты</option>
+          {projects.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+        <select
+          value={assigneeId}
+          onChange={(e) => setAssigneeId(e.target.value)}
+          className="rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-sm text-foreground outline-none focus:border-accent"
+        >
+          <option value="">Все исполнители</option>
+          {users.map((u) => (
+            <option key={u.id} value={u.id}>
+              {u.name}
+            </option>
+          ))}
+        </select>
+        <select
+          value={priority}
+          onChange={(e) => setPriority(e.target.value)}
+          className="rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-sm text-foreground outline-none focus:border-accent"
+        >
+          <option value="">Все приоритеты</option>
+          {TASK_PRIORITIES.map((p) => (
+            <option key={p} value={p}>
+              {TASK_PRIORITY_LABEL[p]}
+            </option>
+          ))}
+        </select>
+        <button
+          onClick={() => setOnlyBugs((v) => !v)}
+          className={`rounded-lg border px-3 py-1.5 text-sm transition ${
+            onlyBugs
+              ? "border-danger bg-danger/10 text-danger"
+              : "border-border text-muted hover:text-foreground"
+          }`}
+        >
+          Баги
+        </button>
+        <button
+          onClick={() => setOnlyOverdue((v) => !v)}
+          className={`rounded-lg border px-3 py-1.5 text-sm transition ${
+            onlyOverdue
+              ? "border-accent bg-accent-soft text-accent"
+              : "border-border text-muted hover:text-foreground"
+          }`}
+        >
+          Просрочено
+        </button>
+      </div>
+
+      <KanbanBoard
+        columns={kanbanColumns}
+        onMove={handleMove}
+        renderCard={(task, dragging) => {
+          const col = columns.find((c) => c.tasks.some((t) => t.id === task.id));
+          return (
+            <TaskCard
+              task={task}
+              dragging={dragging}
+              onOpen={() => openTask(task, col?.title ?? "")}
+            />
+          );
+        }}
+      />
+
+      <div className="flex gap-4 px-4 pb-4">
+        {columns.map((c) => (
+          <div key={c.id} className="w-72 shrink-0">
+            {creatingIn === c.id ? (
+              <div className="flex gap-2">
+                <input
+                  autoFocus
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleCreate(c.id)}
+                  placeholder="Название задачи"
+                  className="flex-1 rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-sm text-foreground outline-none focus:border-accent"
+                />
+                <button
+                  onClick={() => handleCreate(c.id)}
+                  className="rounded-lg bg-accent px-2 py-1.5 text-xs font-medium text-white hover:bg-accent-hover"
+                >
+                  ОК
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setCreatingIn(c.id)}
+                className="w-full rounded-lg border border-dashed border-border py-1.5 text-xs text-muted hover:text-foreground"
+              >
+                + Добавить задачу
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {activeTask && (
+        <TaskModal
+          task={activeTask}
+          columnName={activeColumnName}
+          users={users}
+          projects={projects}
+          onClose={() => setActiveTask(null)}
+        />
+      )}
+    </div>
+  );
+}

@@ -1,0 +1,203 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  EMPLOYEE
+}
+
+enum LeadStage {
+  SCHEDULED_CALL
+  CALL_DONE
+  SECOND_TOUCH_KP
+  KP_SENT
+  APPROVED
+  PAID
+  IN_PROGRESS
+  POSTPAY
+}
+
+enum TaskPriority {
+  P0
+  P1
+  P2
+  P3
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(EMPLOYEE)
+  isBlocked    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  leads          Lead[]
+  leadActivity   LeadActivity[]
+  tasks          Task[]          @relation("TaskAssignee")
+  taskComments   TaskComment[]
+  transactions   Transaction[]
+  projectAccess  ProjectMember[]
+}
+
+model Project {
+  id    String @id @default(cuid())
+  name  String
+  order Int    @default(0)
+
+  tasks   Task[]
+  members ProjectMember[]
+}
+
+model ProjectMember {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+}
+
+model Lead {
+  id          String    @id @default(cuid())
+  title       String
+  company     String?
+  contact     String?
+  link        String?
+  stage       LeadStage @default(SCHEDULED_CALL)
+  prepay      Decimal   @default(0) @db.Decimal(12, 2)
+  postpay     Decimal   @default(0) @db.Decimal(12, 2)
+  monthlySub  Decimal   @default(0) @db.Decimal(12, 2)
+  expenses    Decimal   @default(0) @db.Decimal(12, 2)
+  notes       String?
+  order       Int       @default(0)
+  ownerId     String
+  owner       User      @relation(fields: [ownerId], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  activity     LeadActivity[]
+  transactions Transaction[]
+
+  @@index([stage])
+}
+
+model LeadActivity {
+  id        String   @id @default(cuid())
+  leadId    String
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  message   String
+  createdAt DateTime @default(now())
+}
+
+model TaskBoard {
+  id      String       @id @default(cuid())
+  name    String
+  columns TaskColumn[]
+}
+
+model TaskColumn {
+  id      String @id @default(cuid())
+  boardId String
+  board   TaskBoard @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  name    String
+  order   Int
+  tasks   Task[]
+}
+
+model Task {
+  id             String       @id @default(cuid())
+  columnId       String
+  column         TaskColumn   @relation(fields: [columnId], references: [id], onDelete: Cascade)
+  projectId      String?
+  project        Project?     @relation(fields: [projectId], references: [id])
+  title          String
+  description    String?
+  assigneeId     String?
+  assignee       User?        @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  priority       TaskPriority @default(P2)
+  isBug          Boolean      @default(false)
+  estimateHours  Decimal?     @db.Decimal(6, 1)
+  dueDate        DateTime?
+  order          Int          @default(0)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  comments TaskComment[]
+  nodes    TaskNode[]
+
+  @@index([projectId])
+  @@index([assigneeId])
+}
+
+model TaskComment {
+  id            String   @id @default(cuid())
+  taskId        String
+  task          Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  text          String
+  attachmentUrl String?
+  createdAt     DateTime @default(now())
+}
+
+model TaskNode {
+  id        String    @id @default(cuid())
+  taskId    String
+  task      Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  parentId  String?
+  parent    TaskNode? @relation("NodeChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  children  TaskNode[] @relation("NodeChildren")
+  title     String
+  dueDate   DateTime?
+  done      Boolean   @default(false)
+  x         Float     @default(0)
+  y         Float     @default(0)
+  createdAt DateTime  @default(now())
+}
+
+model Settings {
+  id                     String @id @default("singleton")
+  morningSummaryTime     String @default("09:00")
+  eveningSummaryTime     String @default("19:00")
+  deadlineCheckInterval  Int    @default(60)
+  timezone               String @default("Europe/Moscow")
+}
+
+model TransactionCategory {
+  id          String            @id @default(cuid())
+  name        String
+  type        TransactionType
+  isRecurring Boolean           @default(false)
+  transactions Transaction[]
+}
+
+model Transaction {
+  id          String               @id @default(cuid())
+  categoryId  String
+  category    TransactionCategory  @relation(fields: [categoryId], references: [id])
+  leadId      String?
+  lead        Lead?                @relation(fields: [leadId], references: [id])
+  amount      Decimal              @db.Decimal(12, 2)
+  type        TransactionType
+  description String?
+  date        DateTime             @default(now())
+  createdById String
+  createdBy   User                 @relation(fields: [createdById], references: [id])
+  createdAt   DateTime             @default(now())
+}
