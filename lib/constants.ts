@@ -2,11 +2,12 @@ export const LEAD_STAGES = [
   { id: "SCHEDULED_CALL", title: "Назначили созвон", accent: "#3b82f6" },
   { id: "CALL_DONE", title: "Прошел созвон", accent: "#3b82f6" },
   { id: "SECOND_TOUCH_KP", title: "Назначено второе касание и КП", accent: "#eab308" },
-  { id: "KP_SENT", title: "КП и ТЗ отправлено", accent: "#eab308" },
-  { id: "APPROVED", title: "Одобрено", accent: "#22c55e" },
-  { id: "PAID", title: "Оплата", accent: "#22c55e" },
+  { id: "KP_SENT", title: "КП подтверждено", accent: "#eab308" },
+  { id: "APPROVED", title: "Одобрено / Работаем", accent: "#22c55e" },
+  { id: "PAID", title: "Оплата (предоплата)", accent: "#22c55e" },
   { id: "IN_PROGRESS", title: "В работе", accent: "#a855f7" },
   { id: "POSTPAY", title: "Постоплата", accent: "#22c55e" },
+  { id: "SUPPORT", title: "Поддержка", accent: "#0ea5e9" },
 ] as const;
 
 export type LeadStageId = (typeof LEAD_STAGES)[number]["id"];
@@ -51,6 +52,20 @@ export const INCOME_CATEGORIES = [
   { name: "Предоплата", isRecurring: false },
   { name: "Постоплата", isRecurring: false },
   { name: "Подписка", isRecurring: true },
+];
+
+export type KpiDirection = "min" | "max";
+
+export const KPI_METRICS: { key: string; label: string; direction: KpiDirection; isMoney?: boolean }[] = [
+  { key: "totalLeads", label: "Всего сделок", direction: "min" },
+  { key: "openTasks", label: "Открытые задачи", direction: "min" },
+  { key: "overdueTasks", label: "Просрочено задач", direction: "max" },
+  { key: "cashBalance", label: "Касса", direction: "min", isMoney: true },
+  ...LEAD_STAGES.map((s) => ({
+    key: `stage_${s.id}`,
+    label: s.title,
+    direction: "min" as const,
+  })),
 ];
 
 export function formatMoney(value: number | string) {

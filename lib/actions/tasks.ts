@@ -24,10 +24,6 @@ export async function createTask(data: {
     },
   });
 
-  await prisma.taskNode.create({
-    data: { taskId: task.id, title: data.title, x: 0, y: 0 },
-  });
-
   revalidatePath("/tasks");
   revalidatePath("/my");
   return task;

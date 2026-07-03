@@ -5,7 +5,13 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/roles";
 import type { LeadStageId } from "@/lib/constants";
 
-export async function createLead(data: { title: string; company?: string }) {
+export async function createLead(data: {
+  title: string;
+  company?: string;
+  description?: string;
+  contactName?: string;
+  contact?: string;
+}) {
   const user = await requireUser();
   const last = await prisma.lead.findFirst({
     where: { stage: "SCHEDULED_CALL" },
@@ -16,6 +22,9 @@ export async function createLead(data: { title: string; company?: string }) {
     data: {
       title: data.title,
       company: data.company,
+      description: data.description,
+      contactName: data.contactName,
+      contact: data.contact,
       stage: "SCHEDULED_CALL",
       order: (last?.order ?? 0) + 1,
       ownerId: user.id,
@@ -80,6 +89,8 @@ export async function updateLead(
   data: {
     title?: string;
     company?: string;
+    description?: string;
+    contactName?: string;
     contact?: string;
     link?: string;
     prepay?: number;
@@ -108,6 +119,27 @@ export async function updateLead(
 
   revalidatePath("/crm");
   revalidatePath("/accounting");
+}
+
+export async function setLeadLost(leadId: string, lost: boolean, lostReason?: string) {
+  const user = await requireUser();
+
+  await prisma.lead.update({
+    where: { id: leadId },
+    data: { lost, lostReason: lost ? lostReason : null },
+  });
+
+  await prisma.leadActivity.create({
+    data: {
+      leadId,
+      userId: user.id,
+      message: lost
+        ? `Сделка отмечена как отказ${lostReason ? `: ${lostReason}` : ""}`
+        : `Отметка об отказе снята`,
+    },
+  });
+
+  revalidatePath("/crm");
 }
 
 async function syncLeadIncome(leadId: string) {

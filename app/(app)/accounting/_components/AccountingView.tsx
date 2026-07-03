@@ -110,10 +110,30 @@ export function AccountingView({
   return (
     <div className="flex-1 overflow-y-auto p-5">
       <div className="grid grid-cols-4 gap-4">
-        <StatTile label="Касса" value={formatMoney(cashBalance)} accent="accent" />
-        <StatTile label="Доход в этом месяце" value={formatMoney(monthIncome)} accent="accent-2" />
-        <StatTile label="Расход в этом месяце" value={formatMoney(monthExpense)} accent="danger" />
-        <StatTile label="Прогноз recurring-трат" value={formatMoney(recurringTotal)} accent="warning" />
+        <StatTile
+          label="Касса"
+          value={formatMoney(cashBalance)}
+          accent="accent"
+          hint="Всё, что накопилось с самого начала: сумма всех доходов минус все расходы за всё время"
+        />
+        <StatTile
+          label="Доход в этом месяце"
+          value={formatMoney(monthIncome)}
+          accent="accent-2"
+          hint="Сумма поступлений (предоплаты, постоплаты, подписки) с 1-го числа текущего месяца"
+        />
+        <StatTile
+          label="Расход в этом месяце"
+          value={formatMoney(monthExpense)}
+          accent="danger"
+          hint="Сумма расходов, добавленных вручную в этом месяце (налоги, реклама, зарплаты и т.д.)"
+        />
+        <StatTile
+          label="Прогноз повторяющихся трат"
+          value={formatMoney(recurringTotal)}
+          accent="warning"
+          hint="Сумма всех расходов с пометкой «регулярный» (зарплаты, подписки) — ориентир, сколько уйдёт в следующий раз"
+        />
       </div>
 
       <div className="mt-6 grid grid-cols-2 gap-4">
@@ -239,10 +259,12 @@ function StatTile({
   label,
   value,
   accent,
+  hint,
 }: {
   label: string;
   value: string;
   accent: string;
+  hint?: string;
 }) {
   return (
     <div className="rounded-xl border border-border bg-surface p-4">
@@ -250,6 +272,7 @@ function StatTile({
       <div className="mt-1 text-xl font-semibold" style={{ color: `var(--${accent})` }}>
         {value}
       </div>
+      {hint && <div className="mt-1 text-[11px] leading-snug text-muted">{hint}</div>}
     </div>
   );
 }

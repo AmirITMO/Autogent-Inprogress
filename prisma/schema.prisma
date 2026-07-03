@@ -21,6 +21,7 @@ enum LeadStage {
   PAID
   IN_PROGRESS
   POSTPAY
+  SUPPORT
 }
 
 enum TaskPriority {
@@ -75,6 +76,8 @@ model Lead {
   id          String    @id @default(cuid())
   title       String
   company     String?
+  description String?
+  contactName String?
   contact     String?
   link        String?
   stage       LeadStage @default(SCHEDULED_CALL)
@@ -83,6 +86,8 @@ model Lead {
   monthlySub  Decimal   @default(0) @db.Decimal(12, 2)
   expenses    Decimal   @default(0) @db.Decimal(12, 2)
   notes       String?
+  lost        Boolean   @default(false)
+  lostReason  String?
   order       Int       @default(0)
   ownerId     String
   owner       User      @relation(fields: [ownerId], references: [id])
@@ -169,6 +174,14 @@ model TaskNode {
   x         Float     @default(0)
   y         Float     @default(0)
   createdAt DateTime  @default(now())
+}
+
+model Kpi {
+  id        String   @id @default(cuid())
+  metricKey String   @unique
+  target    Decimal  @db.Decimal(14, 2)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Settings {

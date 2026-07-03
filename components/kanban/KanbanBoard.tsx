@@ -26,6 +26,7 @@ export type KanbanColumnData<T extends KanbanItem> = {
   items: T[];
   accent?: string;
   summary?: string;
+  headerExtra?: React.ReactNode;
 };
 
 export function KanbanBoard<T extends KanbanItem>({

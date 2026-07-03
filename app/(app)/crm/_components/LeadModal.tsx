@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { updateLead, getLeadActivity } from "@/lib/actions/leads";
+import { updateLead, getLeadActivity, setLeadLost } from "@/lib/actions/leads";
 import { formatMoney } from "@/lib/constants";
 import type { LeadCardData } from "./LeadCard";
 
@@ -17,6 +17,8 @@ export function LeadModal({
   const [form, setForm] = useState({
     title: lead.title,
     company: lead.company ?? "",
+    description: lead.description ?? "",
+    contactName: lead.contactName ?? "",
     contact: lead.contact ?? "",
     link: lead.link ?? "",
     prepay: lead.prepay,
@@ -27,6 +29,8 @@ export function LeadModal({
   });
   const [saving, setSaving] = useState(false);
   const [activity, setActivity] = useState<Activity[]>([]);
+  const [lostReason, setLostReason] = useState(lead.lostReason ?? "");
+  const [lostBusy, setLostBusy] = useState(false);
 
   useEffect(() => {
     getLeadActivity(lead.id).then((a) => setActivity(a as unknown as Activity[]));
@@ -60,11 +64,32 @@ export function LeadModal({
     onClose();
   }
 
+  async function handleMarkLost() {
+    setLostBusy(true);
+    await setLeadLost(lead.id, true, lostReason.trim() || undefined);
+    setLostBusy(false);
+    onClose();
+  }
+
+  async function handleUnmarkLost() {
+    setLostBusy(true);
+    await setLeadLost(lead.id, false);
+    setLostBusy(false);
+    onClose();
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
       <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-border bg-surface p-6">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-foreground">Карточка лида</h2>
+          <h2 className="text-lg font-semibold text-foreground">
+            Карточка лида
+            {lead.lost && (
+              <span className="ml-2 rounded bg-danger/10 px-2 py-0.5 text-xs font-medium text-danger">
+                Отказ
+              </span>
+            )}
+          </h2>
           <button onClick={onClose} className="text-muted hover:text-foreground">
             ✕
           </button>
@@ -73,12 +98,23 @@ export function LeadModal({
         <div className="grid grid-cols-2 gap-3">
           {field("title", "Название сделки")}
           {field("company", "Компания")}
-          {field("contact", "Контакт (ЛПР)")}
+          {field("contactName", "Имя ЛПР")}
+          {field("contact", "Контакт ЛПР")}
           {field("link", "Ссылка")}
           {field("prepay", "Предоплата", "number")}
           {field("postpay", "Постоплата", "number")}
           {field("monthlySub", "Ежемес. подписка", "number")}
           {field("expenses", "Растраты", "number")}
+        </div>
+
+        <div className="mt-3 flex flex-col gap-1">
+          <label className="text-xs text-muted">Дополнительное описание</label>
+          <textarea
+            value={form.description}
+            onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+            rows={2}
+            className="rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-foreground outline-none focus:border-accent"
+          />
         </div>
 
         <div className="mt-3 flex flex-col gap-1">
@@ -95,6 +131,39 @@ export function LeadModal({
         <div className="mt-4 flex items-center justify-between rounded-lg bg-surface-2 px-4 py-2">
           <span className="text-sm text-muted">Чистыми</span>
           <span className="text-sm font-semibold text-accent">{formatMoney(net)}</span>
+        </div>
+
+        <div className="mt-4 rounded-lg border border-border p-3">
+          {lead.lost ? (
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-sm text-muted">
+                Причина отказа: <span className="text-foreground">{lead.lostReason || "не указана"}</span>
+              </div>
+              <button
+                onClick={handleUnmarkLost}
+                disabled={lostBusy}
+                className="shrink-0 rounded-lg border border-border px-3 py-1.5 text-xs text-foreground hover:bg-surface-2 disabled:opacity-50"
+              >
+                Снять отметку
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <input
+                value={lostReason}
+                onChange={(e) => setLostReason(e.target.value)}
+                placeholder="Причина отказа (например: КП не одобрено)"
+                className="flex-1 rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-sm text-foreground outline-none focus:border-danger"
+              />
+              <button
+                onClick={handleMarkLost}
+                disabled={lostBusy}
+                className="shrink-0 rounded-lg border border-danger px-3 py-1.5 text-xs text-danger hover:bg-danger/10 disabled:opacity-50"
+              >
+                Отметить как отказ
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="mt-5 flex justify-end gap-2">

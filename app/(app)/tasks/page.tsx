@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/roles";
-import { TasksBoard } from "./_components/Board";
+import { TasksView } from "./_components/TasksView";
 
 export default async function TasksPage() {
   await requireUser();
@@ -53,13 +53,25 @@ export default async function TasksPage() {
     })),
   }));
 
+  const treeTasks = columns.flatMap((c) =>
+    c.tasks.map((t) => ({
+      id: t.id,
+      title: t.title,
+      priority: t.priority,
+      isBug: t.isBug,
+      dueDate: t.dueDate,
+      columnName: c.title,
+      projectName: t.projectName,
+      assigneeName: t.assigneeName,
+    }))
+  );
+
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-border px-5 py-4">
         <h1 className="text-lg font-semibold text-foreground">Задачи</h1>
-        <p className="text-sm text-muted">Доска «{board.name}»</p>
       </div>
-      <TasksBoard columns={columns} users={users} projects={projects} />
+      <TasksView columns={columns} users={users} projects={projects} treeTasks={treeTasks} />
     </div>
   );
 }

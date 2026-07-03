@@ -33,11 +33,18 @@ beforeEach(async () => {
 });
 
 describe("createTaskNode", () => {
-  it("creates a child node attached to the task's root node", async () => {
-    const root = (await listTaskNodes(taskId)).find((n) => n.parentId === null)!;
-    const child = await createTaskNode({ taskId, parentId: root.id, title: "Подзадача 1", x: 100, y: 160 });
+  it("creates a task starting with no mind-map nodes (the root is virtual, not a DB row)", async () => {
+    const nodes = await listTaskNodes(taskId);
+    expect(nodes).toHaveLength(0);
+  });
 
-    expect(child.parentId).toBe(root.id);
+  it("creates a node directly under the virtual root when parentId is null", async () => {
+    const node = await createTaskNode({ taskId, parentId: null, title: "Подзадача 1", x: 100, y: 160 });
+    expect(node.parentId).toBeNull();
+
+    const child = await createTaskNode({ taskId, parentId: node.id, title: "Подзадача 1.1", x: 100, y: 260 });
+    expect(child.parentId).toBe(node.id);
+
     const nodes = await listTaskNodes(taskId);
     expect(nodes).toHaveLength(2);
   });
@@ -86,8 +93,8 @@ describe("moveTaskNode", () => {
 
 describe("deleteTaskNode", () => {
   it("cascades deletion to child nodes (grandchildren too)", async () => {
-    const root = (await listTaskNodes(taskId)).find((n) => n.parentId === null)!;
-    const child = await createTaskNode({ taskId, parentId: root.id, title: "Ребёнок", x: 0, y: 100 });
+    const topLevel = await createTaskNode({ taskId, parentId: null, title: "Верхний узел", x: 0, y: 0 });
+    const child = await createTaskNode({ taskId, parentId: topLevel.id, title: "Ребёнок", x: 0, y: 100 });
     const grandchild = await createTaskNode({
       taskId,
       parentId: child.id,
@@ -102,6 +109,6 @@ describe("deleteTaskNode", () => {
     const remainingIds = remaining.map((n) => n.id);
     expect(remainingIds).not.toContain(child.id);
     expect(remainingIds).not.toContain(grandchild.id);
-    expect(remainingIds).toContain(root.id);
+    expect(remainingIds).toContain(topLevel.id);
   });
 });

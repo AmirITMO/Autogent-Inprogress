@@ -3,29 +3,32 @@
 import { useMemo, useState, useTransition } from "react";
 import { KanbanBoard, type KanbanColumnData } from "@/components/kanban/KanbanBoard";
 import { LEAD_STAGES, type LeadStageId, formatMoney } from "@/lib/constants";
-import { createLead, moveLead } from "@/lib/actions/leads";
+import { moveLead } from "@/lib/actions/leads";
 import { LeadCard, type LeadCardData } from "./LeadCard";
 import { LeadModal } from "./LeadModal";
+import { NewLeadModal } from "./NewLeadModal";
 
 export function CrmBoard({ initialLeads }: { initialLeads: LeadCardData[] }) {
   const [query, setQuery] = useState("");
+  const [showLost, setShowLost] = useState(false);
   const [activeLead, setActiveLead] = useState<LeadCardData | null>(null);
   const [creating, setCreating] = useState(false);
-  const [newTitle, setNewTitle] = useState("");
-  const [newCompany, setNewCompany] = useState("");
   const [, startTransition] = useTransition();
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return initialLeads;
-    return initialLeads.filter(
-      (l) =>
+    return initialLeads.filter((l) => {
+      if (l.lost && !showLost) return false;
+      if (!q) return true;
+      return (
         l.title.toLowerCase().includes(q) ||
         l.company?.toLowerCase().includes(q) ||
         l.contact?.toLowerCase().includes(q) ||
+        l.contactName?.toLowerCase().includes(q) ||
         l.ownerName.toLowerCase().includes(q)
-    );
-  }, [initialLeads, query]);
+      );
+    });
+  }, [initialLeads, query, showLost]);
 
   const columns: KanbanColumnData<LeadCardData>[] = LEAD_STAGES.map((stage) => {
     const items = filtered
@@ -50,14 +53,6 @@ export function CrmBoard({ initialLeads }: { initialLeads: LeadCardData[] }) {
     });
   }
 
-  async function handleCreate() {
-    if (!newTitle.trim()) return;
-    await createLead({ title: newTitle.trim(), company: newCompany.trim() || undefined });
-    setNewTitle("");
-    setNewCompany("");
-    setCreating(false);
-  }
-
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center gap-3 border-b border-border px-5 py-3">
@@ -67,42 +62,23 @@ export function CrmBoard({ initialLeads }: { initialLeads: LeadCardData[] }) {
           placeholder="Поиск по компании, контакту, менеджеру…"
           className="w-72 rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-sm text-foreground outline-none focus:border-accent"
         />
-        {!creating ? (
-          <button
-            onClick={() => setCreating(true)}
-            className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent-hover"
-          >
-            + Новый лид
-          </button>
-        ) : (
-          <div className="flex items-center gap-2">
-            <input
-              autoFocus
-              value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
-              placeholder="Название сделки"
-              className="w-48 rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-sm text-foreground outline-none focus:border-accent"
-            />
-            <input
-              value={newCompany}
-              onChange={(e) => setNewCompany(e.target.value)}
-              placeholder="Компания"
-              className="w-40 rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-sm text-foreground outline-none focus:border-accent"
-            />
-            <button
-              onClick={handleCreate}
-              className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent-hover"
-            >
-              Создать
-            </button>
-            <button
-              onClick={() => setCreating(false)}
-              className="rounded-lg px-3 py-1.5 text-sm text-muted hover:text-foreground"
-            >
-              Отмена
-            </button>
-          </div>
-        )}
+        <button
+          onClick={() => setShowLost((v) => !v)}
+          className={`rounded-lg border px-3 py-1.5 text-sm transition ${
+            showLost
+              ? "border-danger bg-danger/10 text-danger"
+              : "border-border text-muted hover:text-foreground"
+          }`}
+        >
+          Показывать отказы
+        </button>
+        <div className="flex-1" />
+        <button
+          onClick={() => setCreating(true)}
+          className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent-hover"
+        >
+          + Новый лид
+        </button>
       </div>
 
       <div className="min-h-0 flex-1">
@@ -118,6 +94,7 @@ export function CrmBoard({ initialLeads }: { initialLeads: LeadCardData[] }) {
       {activeLead && (
         <LeadModal lead={activeLead} onClose={() => setActiveLead(null)} />
       )}
+      {creating && <NewLeadModal onClose={() => setCreating(false)} />}
     </div>
   );
 }

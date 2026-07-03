@@ -58,12 +58,6 @@ export function TasksBoard({
     }));
   }, [columns, search, projectId, assigneeId, priority, onlyBugs, onlyOverdue]);
 
-  const kanbanColumns: KanbanColumnData<TaskCardData>[] = filteredColumns.map((c) => ({
-    id: c.id,
-    title: c.title,
-    items: c.tasks,
-  }));
-
   function handleMove(taskId: string, toColumnId: string, toIndex: number) {
     startTransition(() => {
       moveTask(taskId, toColumnId, toIndex);
@@ -76,6 +70,43 @@ export function TasksBoard({
     setNewTitle("");
     setCreatingIn(null);
   }
+
+  const kanbanColumns: KanbanColumnData<TaskCardData>[] = filteredColumns.map((c) => ({
+    id: c.id,
+    title: c.title,
+    items: c.tasks,
+    headerExtra:
+      creatingIn === c.id ? (
+        <div className="flex items-center gap-1">
+          <input
+            autoFocus
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleCreate(c.id);
+              if (e.key === "Escape") setCreatingIn(null);
+            }}
+            onBlur={() => !newTitle.trim() && setCreatingIn(null)}
+            placeholder="Название"
+            className="w-28 rounded border border-border bg-surface-2 px-1.5 py-1 text-xs text-foreground outline-none focus:border-accent"
+          />
+          <button
+            onClick={() => handleCreate(c.id)}
+            className="rounded bg-accent px-1.5 py-1 text-xs font-medium text-white hover:bg-accent-hover"
+          >
+            ОК
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={() => setCreatingIn(c.id)}
+          title="Добавить задачу"
+          className="flex h-6 w-6 items-center justify-center rounded-full text-muted hover:bg-surface-2 hover:text-foreground"
+        >
+          +
+        </button>
+      ),
+  }));
 
   return (
     <div className="min-h-0 flex-1">
@@ -161,38 +192,6 @@ export function TasksBoard({
           );
         }}
       />
-
-      <div className="flex gap-4 px-4 pb-4">
-        {columns.map((c) => (
-          <div key={c.id} className="w-72 shrink-0">
-            {creatingIn === c.id ? (
-              <div className="flex gap-2">
-                <input
-                  autoFocus
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleCreate(c.id)}
-                  placeholder="Название задачи"
-                  className="flex-1 rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-sm text-foreground outline-none focus:border-accent"
-                />
-                <button
-                  onClick={() => handleCreate(c.id)}
-                  className="rounded-lg bg-accent px-2 py-1.5 text-xs font-medium text-white hover:bg-accent-hover"
-                >
-                  ОК
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setCreatingIn(c.id)}
-                className="w-full rounded-lg border border-dashed border-border py-1.5 text-xs text-muted hover:text-foreground"
-              >
-                + Добавить задачу
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
 
       {activeTask && (
         <TaskModal

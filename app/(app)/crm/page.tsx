@@ -14,6 +14,8 @@ export default async function CrmPage() {
     id: l.id,
     title: l.title,
     company: l.company,
+    description: l.description,
+    contactName: l.contactName,
     contact: l.contact,
     link: l.link,
     stage: l.stage,
@@ -22,6 +24,8 @@ export default async function CrmPage() {
     monthlySub: Number(l.monthlySub),
     expenses: Number(l.expenses),
     notes: l.notes,
+    lost: l.lost,
+    lostReason: l.lostReason,
     order: l.order,
     ownerName: l.owner.name,
   }));

@@ -38,14 +38,14 @@ beforeEach(async () => {
 });
 
 describe("createTask", () => {
-  it("creates a task in the given column and a matching root mind-map node", async () => {
+  it("creates a task in the given column without any mind-map nodes yet", async () => {
     const task = await createTask({ columnId: columnA, title: "Починить баг" });
     expect(task.columnId).toBe(columnA);
 
+    // The root of the mind-map is synthesized on the frontend from the task
+    // itself; no TaskNode row should be created automatically.
     const nodes = await prisma.taskNode.findMany({ where: { taskId: task.id } });
-    expect(nodes).toHaveLength(1);
-    expect(nodes[0].title).toBe("Починить баг");
-    expect(nodes[0].parentId).toBeNull();
+    expect(nodes).toHaveLength(0);
   });
 
   it("defaults to P2 priority and isBug=false", async () => {

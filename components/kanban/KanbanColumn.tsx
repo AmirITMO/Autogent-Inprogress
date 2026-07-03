@@ -28,6 +28,7 @@ export function KanbanColumn<T extends KanbanItem>({
           </span>
           <span className="text-xs text-muted">{column.items.length}</span>
         </div>
+        {column.headerExtra}
       </div>
       {column.summary && (
         <div className="border-b border-border px-3 py-1.5 text-xs text-muted">

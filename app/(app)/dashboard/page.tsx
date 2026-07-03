@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/roles";
 import { LEAD_STAGES, formatMoney, DONE_COLUMN_NAME } from "@/lib/constants";
+import { KpiPanel } from "./_components/KpiPanel";
 
 export default async function DashboardPage() {
   const user = await requireUser();
@@ -9,10 +10,11 @@ export default async function DashboardPage() {
   const leadWhere = isAdmin ? {} : { ownerId: user.id };
   const taskWhere = isAdmin ? {} : { assigneeId: user.id };
 
-  const [leads, tasks, transactions] = await Promise.all([
+  const [leads, tasks, transactions, kpis] = await Promise.all([
     prisma.lead.findMany({ where: leadWhere }),
     prisma.task.findMany({ where: taskWhere, include: { column: true } }),
     isAdmin ? prisma.transaction.findMany() : Promise.resolve([]),
+    prisma.kpi.findMany(),
   ]);
 
   const cashBalance = transactions.reduce(
@@ -24,6 +26,16 @@ export default async function DashboardPage() {
   const overdueTasks = openTasks.filter(
     (t) => t.dueDate && new Date(t.dueDate) < new Date()
   );
+
+  const metricValues: Record<string, number> = {
+    totalLeads: leads.length,
+    openTasks: openTasks.length,
+    overdueTasks: overdueTasks.length,
+    cashBalance,
+  };
+  for (const stage of LEAD_STAGES) {
+    metricValues[`stage_${stage.id}`] = leads.filter((l) => l.stage === stage.id).length;
+  }
 
   return (
     <div className="p-5">
@@ -40,6 +52,12 @@ export default async function DashboardPage() {
         <Tile label="Просрочено" value={String(overdueTasks.length)} danger={overdueTasks.length > 0} />
         {isAdmin && <Tile label="Касса" value={formatMoney(cashBalance)} />}
       </div>
+
+      <KpiPanel
+        kpis={kpis.map((k) => ({ metricKey: k.metricKey, target: Number(k.target) }))}
+        values={metricValues}
+        isAdmin={isAdmin}
+      />
 
       <div className="mt-6 rounded-xl border border-border bg-surface p-4">
         <h3 className="mb-3 text-sm font-medium text-foreground">Воронка CRM</h3>
