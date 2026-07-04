@@ -31,13 +31,20 @@ export function EmployeesView({
     role: "EMPLOYEE" as "ADMIN" | "EMPLOYEE",
   });
   const [creating, setCreating] = useState(false);
+  const [error, setError] = useState("");
 
   async function handleCreate() {
     if (!form.name || !form.email || !form.password) return;
     setCreating(true);
-    await createEmployee(form);
-    setForm({ name: "", email: "", password: "", role: "EMPLOYEE" });
-    setCreating(false);
+    setError("");
+    try {
+      await createEmployee(form);
+      setForm({ name: "", email: "", password: "", role: "EMPLOYEE" });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось добавить сотрудника");
+    } finally {
+      setCreating(false);
+    }
   }
 
   return (
@@ -68,9 +75,10 @@ export function EmployeesView({
             disabled={creating}
             className="rounded-lg bg-accent px-4 py-1.5 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-50"
           >
-            Добавить
+            {creating ? "Добавление…" : "Добавить"}
           </button>
         </div>
+        {error && <div className="mt-2 text-xs text-danger">{error}</div>}
       </div>
 
       <div className="mt-6 flex flex-col gap-3">
