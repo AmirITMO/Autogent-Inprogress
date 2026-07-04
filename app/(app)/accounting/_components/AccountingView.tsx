@@ -54,9 +54,10 @@ export function AccountingView({
         .filter(
           (t) =>
             t.type === "INCOME" &&
-            t.categoryName === "Предоплата" &&
-            t.leadStage != null &&
-            CASH_ELIGIBLE_STAGES.has(t.leadStage)
+            ((t.categoryName === "Предоплата" &&
+              t.leadStage != null &&
+              CASH_ELIGIBLE_STAGES.has(t.leadStage)) ||
+              (t.categoryName === "Постоплата" && t.leadStage === "POSTPAY"))
         )
         .reduce((sum, t) => sum + t.amount, 0),
     [transactions]
@@ -125,7 +126,7 @@ export function AccountingView({
           label="Касса"
           value={formatMoney(cashBalance)}
           accent="accent"
-          hint="Сумма предоплат по сделкам, дошедшим минимум до этапа «Оплата (предоплата)»"
+          hint="Предоплаты по сделкам от этапа «Оплата (предоплата)» и правее + постоплаты по сделкам, стоящим на этапе «Постоплата»"
         />
         <StatTile
           label="Доход в этом месяце"

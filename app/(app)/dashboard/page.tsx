@@ -25,9 +25,9 @@ export default async function DashboardPage() {
     .filter(
       (t) =>
         t.type === "INCOME" &&
-        t.category.name === "Предоплата" &&
         t.lead &&
-        cashEligibleStages.has(t.lead.stage)
+        ((t.category.name === "Предоплата" && cashEligibleStages.has(t.lead.stage)) ||
+          (t.category.name === "Постоплата" && t.lead.stage === "POSTPAY"))
     )
     .reduce((sum, t) => sum + Number(t.amount), 0);
 
