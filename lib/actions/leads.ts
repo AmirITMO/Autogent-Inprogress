@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/roles";
 import type { LeadStageId } from "@/lib/constants";
+import { stageAtOrAfter, monthsElapsed, monthKey } from "@/lib/accounting";
 
 export async function createLead(data: {
   title: string;
@@ -75,9 +76,7 @@ export async function moveLead(
       },
     });
 
-    if (toStage === "PAID") {
-      await syncLeadIncome(leadId);
-    }
+    await syncLeadIncome(leadId);
   }
 
   revalidatePath("/crm");
@@ -98,13 +97,15 @@ export async function updateLead(
     monthlySub?: number;
     expenses?: number;
     notes?: string;
+    startDate?: string;
   }
 ) {
   const user = await requireUser();
+  const { startDate, ...rest } = data;
 
   await prisma.lead.update({
     where: { id: leadId },
-    data,
+    data: { ...rest, ...(startDate ? { startDate: new Date(startDate) } : {}) },
   });
 
   await prisma.leadActivity.create({
@@ -142,47 +143,125 @@ export async function setLeadLost(leadId: string, lost: boolean, lostReason?: st
   revalidatePath("/crm");
 }
 
+// Деньги попадают в бухгалтерию только когда сделка реально дошла до соответствующего этапа —
+// до этого предоплата/постоплата/подписка в карточке лида ничего не значат для кассы.
 async function syncLeadIncome(leadId: string) {
   const user = await requireUser();
   const lead = await prisma.lead.findUniqueOrThrow({ where: { id: leadId } });
 
-  const entries: { name: string; amount: number }[] = [
-    { name: "Предоплата", amount: Number(lead.prepay) },
-    { name: "Постоплата", amount: Number(lead.postpay) },
-    { name: "Подписка", amount: Number(lead.monthlySub) },
-  ];
+  await syncOneTimeEntry(lead, user.id, "Предоплата", Number(lead.prepay), stageAtOrAfter(lead.stage, "PAID"));
+  await syncOneTimeEntry(
+    lead,
+    user.id,
+    "Постоплата",
+    Number(lead.postpay),
+    stageAtOrAfter(lead.stage, "POSTPAY")
+  );
 
-  for (const entry of entries) {
-    if (entry.amount <= 0) continue;
+  if (lead.stage === "SUPPORT") {
+    await syncSupportSubscription(lead, user.id);
+  } else {
+    await removeSupportSubscription(leadId);
+  }
+}
 
-    const category = await prisma.transactionCategory.findFirst({
-      where: { name: entry.name, type: "INCOME" },
+async function syncOneTimeEntry(
+  lead: { id: string; title: string },
+  userId: string,
+  categoryName: string,
+  amount: number,
+  eligible: boolean
+) {
+  const category = await prisma.transactionCategory.findFirst({
+    where: { name: categoryName, type: "INCOME" },
+  });
+  if (!category) return;
+
+  const existing = await prisma.transaction.findFirst({
+    where: { leadId: lead.id, categoryId: category.id },
+  });
+
+  if (!eligible || amount <= 0) {
+    if (existing) await prisma.transaction.delete({ where: { id: existing.id } });
+    return;
+  }
+
+  if (existing) {
+    if (Number(existing.amount) !== amount) {
+      await prisma.transaction.update({ where: { id: existing.id }, data: { amount } });
+    }
+  } else {
+    await prisma.transaction.create({
+      data: {
+        categoryId: category.id,
+        leadId: lead.id,
+        amount,
+        type: "INCOME",
+        description: `${categoryName} по сделке «${lead.title}»`,
+        createdById: userId,
+      },
     });
-    if (!category) continue;
+  }
+}
+
+// На поддержке подписка списывается каждый месяц — материализуем по одной транзакции
+// на каждый месяц с даты появления сделки (startDate) до текущего момента.
+async function syncSupportSubscription(
+  lead: { id: string; title: string; monthlySub: unknown; startDate: Date },
+  userId: string
+) {
+  const amount = Number(lead.monthlySub);
+  const category = await prisma.transactionCategory.findFirst({
+    where: { name: "Подписка", type: "INCOME" },
+  });
+  if (!category || amount <= 0) return;
+
+  const months = monthsElapsed(lead.startDate, new Date());
+
+  for (let i = 0; i < months; i++) {
+    const monthDate = new Date(lead.startDate.getFullYear(), lead.startDate.getMonth() + i, 1);
+    const marker = `за ${monthKey(monthDate)}`;
 
     const existing = await prisma.transaction.findFirst({
-      where: { leadId, categoryId: category.id },
+      where: { leadId: lead.id, categoryId: category.id, description: { contains: marker } },
     });
 
     if (existing) {
-      if (Number(existing.amount) !== entry.amount) {
-        await prisma.transaction.update({
-          where: { id: existing.id },
-          data: { amount: entry.amount },
-        });
+      if (Number(existing.amount) !== amount) {
+        await prisma.transaction.update({ where: { id: existing.id }, data: { amount } });
       }
-    } else {
-      await prisma.transaction.create({
-        data: {
-          categoryId: category.id,
-          leadId,
-          amount: entry.amount,
-          type: "INCOME",
-          description: `${entry.name} по сделке «${lead.title}»`,
-          createdById: user.id,
-        },
-      });
+      continue;
     }
+
+    await prisma.transaction.create({
+      data: {
+        categoryId: category.id,
+        leadId: lead.id,
+        amount,
+        type: "INCOME",
+        date: monthDate,
+        description: `Подписка по сделке «${lead.title}» ${marker}`,
+        createdById: userId,
+      },
+    });
+  }
+}
+
+async function removeSupportSubscription(leadId: string) {
+  const category = await prisma.transactionCategory.findFirst({
+    where: { name: "Подписка", type: "INCOME" },
+  });
+  if (!category) return;
+  await prisma.transaction.deleteMany({ where: { leadId, categoryId: category.id } });
+}
+
+// Бэкфилл подписок для всех сделок на поддержке — вызывается при открытии
+// Бухгалтерии/Дашборда, чтобы новые месяцы подписки материализовались без крон-джобы.
+export async function ensureAllSupportTransactions() {
+  const user = await requireUser();
+  const supportLeads = await prisma.lead.findMany({ where: { stage: "SUPPORT" } });
+  for (const lead of supportLeads) {
+    await syncSupportSubscription(lead, user.id);
   }
 }
 

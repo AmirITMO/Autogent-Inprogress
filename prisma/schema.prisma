@@ -89,6 +89,7 @@ model Lead {
   notes       String?
   lost        Boolean   @default(false)
   lostReason  String?
+  startDate   DateTime  @default(now())
   order       Int       @default(0)
   ownerId     String
   owner       User      @relation(fields: [ownerId], references: [id])

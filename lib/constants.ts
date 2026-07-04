@@ -4,7 +4,7 @@ export const LEAD_STAGES = [
   { id: "SECOND_TOUCH_KP", title: "Назначено второе касание и КП", accent: "#eab308" },
   { id: "SECOND_CALL_DONE", title: "Второй созвон прошел", accent: "#eab308" },
   { id: "KP_SENT", title: "КП подтверждено", accent: "#eab308" },
-  { id: "APPROVED", title: "Одобрено / Работаем", accent: "#22c55e" },
+  { id: "APPROVED", title: "Ждем предоплату", accent: "#22c55e" },
   { id: "PAID", title: "Оплата (предоплата)", accent: "#22c55e" },
   { id: "IN_PROGRESS", title: "В работе", accent: "#a855f7" },
   { id: "POSTPAY", title: "Постоплата", accent: "#22c55e" },

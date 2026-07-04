@@ -16,6 +16,7 @@ export type LeadCardData = {
   notes: string | null;
   lost: boolean;
   lostReason: string | null;
+  startDate: string;
   order: number;
   ownerName: string;
 };

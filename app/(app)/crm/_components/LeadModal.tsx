@@ -26,6 +26,7 @@ export function LeadModal({
     monthlySub: lead.monthlySub,
     expenses: lead.expenses,
     notes: lead.notes ?? "",
+    startDate: lead.startDate.slice(0, 10),
   });
   const [saving, setSaving] = useState(false);
   const [activity, setActivity] = useState<Activity[]>([]);
@@ -105,6 +106,7 @@ export function LeadModal({
           {field("postpay", "Постоплата", "number")}
           {field("monthlySub", "Ежемес. подписка", "number")}
           {field("expenses", "Растраты", "number")}
+          {field("startDate", "Дата появления сделки", "date")}
         </div>
 
         <div className="mt-3 flex flex-col gap-1">

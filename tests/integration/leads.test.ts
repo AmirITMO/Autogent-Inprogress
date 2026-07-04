@@ -122,8 +122,17 @@ describe("updateLead", () => {
     expect(activity.some((a) => a.message.includes("обновлена"))).toBe(true);
   });
 
-  it("creates income transactions for prepay, postpay and monthlySub independently", async () => {
+  it("does not create income transactions before the deal reaches the PAID stage", async () => {
     const lead = await createLead({ title: "Сделка" });
+    await updateLead(lead.id, { prepay: 1000, postpay: 2000, monthlySub: 500 });
+
+    const transactions = await prisma.transaction.findMany({ where: { leadId: lead.id } });
+    expect(transactions).toHaveLength(0);
+  });
+
+  it("creates income transactions for prepay, postpay and monthlySub once a lead reaches support", async () => {
+    const lead = await createLead({ title: "Сделка" });
+    await moveLead(lead.id, "SUPPORT", 0);
     await updateLead(lead.id, { prepay: 1000, postpay: 2000, monthlySub: 500 });
 
     const transactions = await prisma.transaction.findMany({
@@ -136,6 +145,7 @@ describe("updateLead", () => {
 
   it("updates the existing transaction amount instead of duplicating it when a value changes", async () => {
     const lead = await createLead({ title: "Сделка" });
+    await moveLead(lead.id, "PAID", 0);
     await updateLead(lead.id, { prepay: 1000 });
     await updateLead(lead.id, { prepay: 1500 });
 
@@ -146,6 +156,7 @@ describe("updateLead", () => {
 
   it("does not create a transaction for a zero amount", async () => {
     const lead = await createLead({ title: "Сделка" });
+    await moveLead(lead.id, "PAID", 0);
     await updateLead(lead.id, { prepay: 0 });
 
     const transactions = await prisma.transaction.findMany({ where: { leadId: lead.id } });

@@ -57,6 +57,32 @@ export default async function TasksPage() {
     c.tasks.map((t) => ({ ...t, columnName: c.title, columnId: c.id }))
   );
 
+  const allTaskIds = treeTasks.map((t) => t.id);
+  const taskNodes = await prisma.taskNode.findMany({
+    where: { taskId: { in: allTaskIds } },
+    orderBy: { createdAt: "asc" },
+  });
+  const nodesByTask: Record<string, {
+    id: string;
+    parentId: string | null;
+    title: string;
+    dueDate: string | null;
+    done: boolean;
+    x: number;
+    y: number;
+  }[]> = {};
+  for (const n of taskNodes) {
+    (nodesByTask[n.taskId] ??= []).push({
+      id: n.id,
+      parentId: n.parentId,
+      title: n.title,
+      dueDate: n.dueDate ? n.dueDate.toISOString() : null,
+      done: n.done,
+      x: n.x,
+      y: n.y,
+    });
+  }
+
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-border px-5 py-4">
@@ -67,6 +93,7 @@ export default async function TasksPage() {
         users={users}
         projects={projects}
         treeTasks={treeTasks}
+        nodesByTask={nodesByTask}
       />
     </div>
   );

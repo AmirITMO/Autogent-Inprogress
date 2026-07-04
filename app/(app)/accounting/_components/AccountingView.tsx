@@ -13,7 +13,7 @@ import {
   Cell,
   CartesianGrid,
 } from "recharts";
-import { formatMoney, LEAD_STAGES } from "@/lib/constants";
+import { formatMoney } from "@/lib/constants";
 import { createExpense } from "@/lib/actions/transactions";
 
 type Tx = {
@@ -25,18 +25,17 @@ type Tx = {
   categoryName: string;
   isRecurring: boolean;
   leadTitle: string | null;
-  leadStage: string | null;
   createdByName: string;
 };
-
-const PAID_STAGE_INDEX = LEAD_STAGES.findIndex((s) => s.id === "PAID");
-const CASH_ELIGIBLE_STAGES = new Set<string>(
-  LEAD_STAGES.slice(PAID_STAGE_INDEX).map((s) => s.id)
-);
 
 type Category = { id: string; name: string; type: "INCOME" | "EXPENSE"; isRecurring: boolean };
 
 const PIE_COLORS = ["#22c55e", "#3b82f6", "#eab308", "#ef4444", "#a855f7", "#8b93a1"];
+
+function currentMonthKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
 
 export function AccountingView({
   transactions,
@@ -47,31 +46,29 @@ export function AccountingView({
 }) {
   const [form, setForm] = useState({ categoryId: "", amount: "", description: "" });
   const [saving, setSaving] = useState(false);
+  const [period, setPeriod] = useState(currentMonthKey());
+  const [showAllPeriods, setShowAllPeriods] = useState(false);
 
+  // Касса — деньги, реально признанные бизнесом (ведётся автоматически при смене этапа сделки:
+  // до предоплаты в бухгалтерию ничего не попадает), поэтому это просто сумма всей ленты.
   const cashBalance = useMemo(
     () =>
-      transactions
-        .filter(
-          (t) =>
-            t.type === "INCOME" &&
-            ((t.categoryName === "Предоплата" &&
-              t.leadStage != null &&
-              CASH_ELIGIBLE_STAGES.has(t.leadStage)) ||
-              (t.categoryName === "Постоплата" && t.leadStage === "POSTPAY"))
-        )
-        .reduce((sum, t) => sum + t.amount, 0),
+      transactions.reduce(
+        (sum, t) => sum + (t.type === "INCOME" ? t.amount : -t.amount),
+        0
+      ),
     [transactions]
   );
 
-  const now = new Date();
-  const thisMonthTx = transactions.filter((t) => {
-    const d = new Date(t.date);
-    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-  });
-  const monthIncome = thisMonthTx
+  const periodTx = useMemo(
+    () => (showAllPeriods ? transactions : transactions.filter((t) => t.date.slice(0, 7) === period)),
+    [transactions, period, showAllPeriods]
+  );
+
+  const periodIncome = periodTx
     .filter((t) => t.type === "INCOME")
     .reduce((s, t) => s + t.amount, 0);
-  const monthExpense = thisMonthTx
+  const periodExpense = periodTx
     .filter((t) => t.type === "EXPENSE")
     .reduce((s, t) => s + t.amount, 0);
 
@@ -86,8 +83,7 @@ export function AccountingView({
   const monthly = useMemo(() => {
     const map = new Map<string, { month: string; income: number; expense: number }>();
     for (const t of transactions) {
-      const d = new Date(t.date);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const key = t.date.slice(0, 7);
       if (!map.has(key)) map.set(key, { month: key, income: 0, expense: 0 });
       const row = map.get(key)!;
       if (t.type === "INCOME") row.income += t.amount;
@@ -98,12 +94,12 @@ export function AccountingView({
 
   const expenseBreakdown = useMemo(() => {
     const map = new Map<string, number>();
-    for (const t of transactions) {
+    for (const t of periodTx) {
       if (t.type !== "EXPENSE") continue;
       map.set(t.categoryName, (map.get(t.categoryName) ?? 0) + t.amount);
     }
     return [...map.entries()].map(([name, value]) => ({ name, value }));
-  }, [transactions]);
+  }, [periodTx]);
 
   const expenseCategories = categories.filter((c) => c.type === "EXPENSE");
 
@@ -126,19 +122,19 @@ export function AccountingView({
           label="Касса"
           value={formatMoney(cashBalance)}
           accent="accent"
-          hint="Предоплаты по сделкам от этапа «Оплата (предоплата)» и правее + постоплаты по сделкам, стоящим на этапе «Постоплата»"
+          hint="Всё, что признано в бухгалтерии на сегодня: предоплаты, постоплаты и подписки только по сделкам, дошедшим до соответствующего этапа, минус расходы"
         />
         <StatTile
-          label="Доход в этом месяце"
-          value={formatMoney(monthIncome)}
+          label="Доход за период"
+          value={formatMoney(periodIncome)}
           accent="accent-2"
-          hint="Сумма поступлений (предоплаты, постоплаты, подписки) с 1-го числа текущего месяца"
+          hint="Сумма поступлений за выбранный месяц (или за всё время, если период не задан)"
         />
         <StatTile
-          label="Расход в этом месяце"
-          value={formatMoney(monthExpense)}
+          label="Расход за период"
+          value={formatMoney(periodExpense)}
           accent="danger"
-          hint="Сумма расходов, добавленных вручную в этом месяце (налоги, реклама, зарплаты и т.д.)"
+          hint="Сумма расходов за выбранный месяц (или за всё время, если период не задан)"
         />
         <StatTile
           label="Прогноз повторяющихся трат"
@@ -146,6 +142,30 @@ export function AccountingView({
           accent="warning"
           hint="Сумма всех расходов с пометкой «регулярный» (зарплаты, подписки) — ориентир, сколько уйдёт в следующий раз"
         />
+      </div>
+
+      <div className="mt-4 flex items-center gap-2">
+        <label className="text-xs text-muted">Период отчёта</label>
+        <input
+          type="month"
+          value={period}
+          onChange={(e) => {
+            setPeriod(e.target.value);
+            setShowAllPeriods(false);
+          }}
+          disabled={showAllPeriods}
+          className="rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-sm text-foreground outline-none focus:border-accent disabled:opacity-50"
+        />
+        <button
+          onClick={() => setShowAllPeriods((v) => !v)}
+          className={`rounded-lg border px-3 py-1.5 text-sm transition ${
+            showAllPeriods
+              ? "border-accent bg-accent-soft text-accent"
+              : "border-border text-muted hover:text-foreground"
+          }`}
+        >
+          За всё время
+        </button>
       </div>
 
       <div className="mt-6 grid grid-cols-2 gap-4">
@@ -166,7 +186,9 @@ export function AccountingView({
         </div>
 
         <div className="rounded-xl border border-border bg-surface p-4">
-          <h3 className="mb-3 text-sm font-medium text-foreground">Разбивка расходов</h3>
+          <h3 className="mb-3 text-sm font-medium text-foreground">
+            Разбивка расходов {showAllPeriods ? "за всё время" : `за ${period}`}
+          </h3>
           <ResponsiveContainer width="100%" height={240}>
             <PieChart>
               <Pie data={expenseBreakdown} dataKey="value" nameKey="name" innerRadius={50} outerRadius={90}>
@@ -228,7 +250,9 @@ export function AccountingView({
       </div>
 
       <div className="mt-6 rounded-xl border border-border bg-surface p-4">
-        <h3 className="mb-3 text-sm font-medium text-foreground">Лента транзакций</h3>
+        <h3 className="mb-3 text-sm font-medium text-foreground">
+          Лента транзакций {showAllPeriods ? "за всё время" : `за ${period}`}
+        </h3>
         <div className="max-h-80 overflow-y-auto">
           <table className="w-full text-sm">
             <thead>
@@ -241,7 +265,7 @@ export function AccountingView({
               </tr>
             </thead>
             <tbody>
-              {[...transactions].reverse().map((t) => (
+              {[...periodTx].reverse().map((t) => (
                 <tr key={t.id} className="border-b border-border/50">
                   <td className="py-1.5 text-muted">
                     {new Date(t.date).toLocaleDateString("ru-RU")}
@@ -259,6 +283,13 @@ export function AccountingView({
                   </td>
                 </tr>
               ))}
+              {periodTx.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="py-4 text-center text-muted">
+                    Нет транзакций за выбранный период
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

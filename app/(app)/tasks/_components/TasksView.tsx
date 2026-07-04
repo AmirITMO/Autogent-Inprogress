@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { TasksBoard } from "./Board";
-import { TaskTree, type TreeTask } from "./TaskTree";
+import { TaskTree, type TreeTask, type MindNodeRow } from "./TaskTree";
 import type { TaskCardData } from "./TaskCard";
 
 type ColumnData = { id: string; title: string; tasks: TaskCardData[] };
@@ -12,11 +12,13 @@ export function TasksView({
   users,
   projects,
   treeTasks,
+  nodesByTask,
 }: {
   columns: ColumnData[];
   users: { id: string; name: string }[];
   projects: { id: string; name: string }[];
   treeTasks: TreeTask[];
+  nodesByTask: Record<string, MindNodeRow[]>;
 }) {
   const [view, setView] = useState<"board" | "tree">("board");
 
@@ -50,6 +52,7 @@ export function TasksView({
             columns={columns.map((c) => ({ id: c.id, title: c.title }))}
             users={users}
             projects={projects}
+            nodesByTask={nodesByTask}
           />
         </div>
       )}

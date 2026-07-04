@@ -1,11 +1,14 @@
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/roles";
 import { LEAD_STAGES, formatMoney, DONE_COLUMN_NAME } from "@/lib/constants";
+import { ensureAllSupportTransactions } from "@/lib/actions/leads";
 import { KpiPanel } from "./_components/KpiPanel";
 
 export default async function DashboardPage() {
   const user = await requireUser();
   const isAdmin = user.role === "ADMIN";
+
+  if (isAdmin) await ensureAllSupportTransactions();
 
   const leadWhere = isAdmin ? {} : { ownerId: user.id };
   const taskWhere = isAdmin ? {} : { assigneeId: user.id };
@@ -13,23 +16,16 @@ export default async function DashboardPage() {
   const [leads, tasks, transactions, kpis] = await Promise.all([
     prisma.lead.findMany({ where: leadWhere }),
     prisma.task.findMany({ where: taskWhere, include: { column: true } }),
-    isAdmin
-      ? prisma.transaction.findMany({ include: { category: true, lead: true } })
-      : Promise.resolve([]),
+    isAdmin ? prisma.transaction.findMany() : Promise.resolve([]),
     prisma.kpi.findMany(),
   ]);
 
-  const paidStageIndex = LEAD_STAGES.findIndex((s) => s.id === "PAID");
-  const cashEligibleStages = new Set(LEAD_STAGES.slice(paidStageIndex).map((s) => s.id));
-  const cashBalance = transactions
-    .filter(
-      (t) =>
-        t.type === "INCOME" &&
-        t.lead &&
-        ((t.category.name === "Предоплата" && cashEligibleStages.has(t.lead.stage)) ||
-          (t.category.name === "Постоплата" && t.lead.stage === "POSTPAY"))
-    )
-    .reduce((sum, t) => sum + Number(t.amount), 0);
+  // Ленту транзакций пополняют только сделки, дошедшие до нужного этапа (см. syncLeadIncome),
+  // поэтому касса — это просто сумма доходов минус расходы.
+  const cashBalance = transactions.reduce(
+    (sum, t) => sum + (t.type === "INCOME" ? Number(t.amount) : -Number(t.amount)),
+    0
+  );
 
   const openTasks = tasks.filter((t) => t.column.name !== DONE_COLUMN_NAME);
   const overdueTasks = openTasks.filter(

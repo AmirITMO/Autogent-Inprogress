@@ -1,9 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/roles";
+import { ensureAllSupportTransactions } from "@/lib/actions/leads";
 import { AccountingView } from "./_components/AccountingView";
 
 export default async function AccountingPage() {
   await requireAdmin();
+  await ensureAllSupportTransactions();
 
   const [transactions, categories] = await Promise.all([
     prisma.transaction.findMany({
@@ -22,7 +24,6 @@ export default async function AccountingPage() {
     categoryName: t.category.name,
     isRecurring: t.category.isRecurring,
     leadTitle: t.lead?.title ?? null,
-    leadStage: t.lead?.stage ?? null,
     createdByName: t.createdBy.name,
   }));
 

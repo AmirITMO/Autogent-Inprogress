@@ -26,6 +26,7 @@ export default async function CrmPage() {
     notes: l.notes,
     lost: l.lost,
     lostReason: l.lostReason,
+    startDate: l.startDate.toISOString(),
     order: l.order,
     ownerName: l.owner.name,
   }));
