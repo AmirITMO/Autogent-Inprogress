@@ -18,67 +18,56 @@ import { statusOf, type NodeStatus } from "@/lib/taskNodeStatus";
 import { TASK_PRIORITY_COLOR, DONE_COLUMN_NAME } from "@/lib/constants";
 import { createTask } from "@/lib/actions/tasks";
 import { TaskModal } from "./TaskModal";
-import type { TaskCardData } from "./TaskCard";
+import { blankTaskCard, type TaskCardData } from "./TaskCard";
 
-export type TreeTask = TaskCardData & { columnName: string };
+export type TreeTask = TaskCardData & { columnName: string; columnId: string };
 
-const GROUP_STYLE = { bg: "#ffffff", border: "#d8cfc2", text: "#17140f" };
+const NODE_STYLE = { bg: "#ffffff", border: "#d8cfc2", text: "#17140f" };
 const STATUS_STYLE: Record<NodeStatus, { bg: string; border: string; text: string }> = {
   done: { bg: "#eafaf0", border: "#16a34a", text: "#166534" },
   overdue: { bg: "#fef2f2", border: "#ef4444", text: "#991b1b" },
   pending: { bg: "#ffffff", border: "#d8cfc2", text: "#17140f" },
 };
 
-function GroupNode({ id, data }: NodeProps) {
+function RootNode({ data }: NodeProps) {
+  const d = data as unknown as { label: string; count: number };
+  return (
+    <div
+      className="min-w-[160px] rounded-xl border-2 px-4 py-2 text-center font-semibold shadow-sm"
+      style={{ background: NODE_STYLE.bg, borderColor: NODE_STYLE.border, color: NODE_STYLE.text }}
+    >
+      <div className="text-sm">{d.label}</div>
+      <div className="text-[11px] text-muted">{d.count} задач</div>
+      <Handle type="source" position={Position.Bottom} />
+    </div>
+  );
+}
+
+function ColumnNode({ id, data }: NodeProps) {
   const d = data as unknown as {
     label: string;
     count: number;
-    creating: boolean;
-    onAdd: (groupId: string) => void;
-    onSubmit: (groupId: string, title: string) => void;
-    onCancel: () => void;
+    adding: boolean;
+    onAdd: (columnId: string) => void;
   };
-  const [title, setTitle] = useState("");
-
   return (
     <div
       className="group relative min-w-[160px] rounded-xl border-2 px-4 py-2 text-center font-medium shadow-sm"
-      style={{ background: GROUP_STYLE.bg, borderColor: GROUP_STYLE.border, color: GROUP_STYLE.text }}
+      style={{ background: NODE_STYLE.bg, borderColor: NODE_STYLE.border, color: NODE_STYLE.text }}
     >
       <Handle type="target" position={Position.Top} />
       <div className="text-sm">{d.label}</div>
       <div className="text-[11px] text-muted">{d.count} задач</div>
       <Handle type="source" position={Position.Bottom} />
 
-      {d.creating ? (
-        <div className="mt-2 flex items-center gap-1">
-          <input
-            autoFocus
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && title.trim()) d.onSubmit(id, title.trim());
-              if (e.key === "Escape") d.onCancel();
-            }}
-            placeholder="Название задачи"
-            className="w-28 rounded border border-border bg-white px-1.5 py-1 text-xs text-foreground outline-none focus:border-accent"
-          />
-          <button
-            onClick={() => title.trim() && d.onSubmit(id, title.trim())}
-            className="rounded bg-accent px-1.5 py-1 text-xs font-medium text-white"
-          >
-            ОК
-          </button>
-        </div>
-      ) : (
-        <button
-          onClick={() => d.onAdd(id)}
-          title="Добавить задачу в эту ветку"
-          className="absolute -right-2 -top-2 hidden h-6 w-6 items-center justify-center rounded-full bg-accent text-sm text-white group-hover:flex"
-        >
-          +
-        </button>
-      )}
+      <button
+        onClick={() => d.onAdd(id)}
+        disabled={d.adding}
+        title="Добавить задачу в эту колонку"
+        className="absolute -right-2 -top-2 hidden h-6 w-6 items-center justify-center rounded-full bg-accent text-sm text-white group-hover:flex disabled:opacity-50"
+      >
+        +
+      </button>
     </div>
   );
 }
@@ -101,7 +90,7 @@ function TaskLeafNode({ data }: NodeProps) {
       style={{ background: style.bg, borderColor: style.border, color: style.text }}
     >
       <Handle type="target" position={Position.Top} />
-      <div className="text-sm font-medium">{nd.title}</div>
+      <div className="text-sm font-medium">{nd.title || "Без названия"}</div>
       <div className="mt-1 flex items-center gap-1.5 text-[11px] opacity-80">
         <span style={{ color: TASK_PRIORITY_COLOR[nd.priority] }}>{nd.priority}</span>
         {nd.isBug && <span className="text-danger">баг</span>}
@@ -111,7 +100,7 @@ function TaskLeafNode({ data }: NodeProps) {
   );
 }
 
-const nodeTypes = { group: GroupNode, taskLeaf: TaskLeafNode };
+const nodeTypes = { root: RootNode, column: ColumnNode, taskLeaf: TaskLeafNode };
 
 function layout(nodes: Node[], edges: Edge[]) {
   const g = new dagre.graphlib.Graph();
@@ -134,110 +123,83 @@ function layout(nodes: Node[], edges: Edge[]) {
 
 function InnerTree({
   tasks,
+  columns,
   users,
   projects,
-  defaultColumnId,
 }: {
   tasks: TreeTask[];
+  columns: { id: string; title: string }[];
   users: { id: string; name: string }[];
   projects: { id: string; name: string }[];
-  defaultColumnId: string;
 }) {
-  const [activeTask, setActiveTask] = useState<TreeTask | null>(null);
-  const [creatingGroup, setCreatingGroup] = useState<string | null>(null);
+  const [activeTask, setActiveTask] = useState<TaskCardData | null>(null);
+  const [activeColumnName, setActiveColumnName] = useState("");
+  const [addingIn, setAddingIn] = useState<string | null>(null);
 
-  const handleAdd = useCallback((groupId: string) => setCreatingGroup(groupId), []);
-  const handleCancel = useCallback(() => setCreatingGroup(null), []);
+  const openLeaf = useCallback((task: TaskCardData, columnName: string) => {
+    setActiveTask(task);
+    setActiveColumnName(columnName);
+  }, []);
 
-  const handleSubmit = useCallback(
-    async (groupId: string, title: string) => {
-      // groupId is either "proj-<projectId|none>" or "proj-<projectId|none>-user-<userId|none>"
-      const parts = groupId.split("-user-");
-      const projPart = parts[0].replace(/^proj-/, "");
-      const userPart = parts[1];
-
-      await createTask({
-        columnId: defaultColumnId,
-        title,
-        projectId: projPart !== "none" ? projPart : undefined,
-        assigneeId: userPart && userPart !== "none" ? userPart : undefined,
-      });
-      setCreatingGroup(null);
+  const handleAdd = useCallback(
+    async (columnId: string) => {
+      setAddingIn(columnId);
+      const created = await createTask({ columnId, title: "" });
+      setAddingIn(null);
+      const column = columns.find((c) => c.id === columnId);
+      openLeaf(blankTaskCard(created.id), column?.title ?? "");
     },
-    [defaultColumnId]
+    [columns, openLeaf]
   );
 
   const { nodes, edges } = useMemo(() => {
     const nodes: Node[] = [
-      { id: "root", type: "group", data: { label: "Все задачи", count: tasks.length, creating: false }, position: { x: 0, y: 0 } },
+      {
+        id: "root",
+        type: "root",
+        data: { label: "Задачи", count: tasks.length },
+        position: { x: 0, y: 0 },
+      },
     ];
     const edges: Edge[] = [];
 
-    const byProject = new Map<string, { name: string; tasks: TreeTask[] }>();
-    for (const t of tasks) {
-      const key = t.projectId ?? "none";
-      if (!byProject.has(key)) byProject.set(key, { name: t.projectName ?? "Без проекта", tasks: [] });
-      byProject.get(key)!.tasks.push(t);
-    }
-    // Ensure at least the "no project" bucket exists so you can always add a task with no project.
-    if (!byProject.has("none")) byProject.set("none", { name: "Без проекта", tasks: [] });
-
-    for (const [projKey, projGroup] of byProject) {
-      const projId = `proj-${projKey}`;
+    for (const column of columns) {
+      const colNodeId = `col-${column.id}`;
+      const colTasks = tasks.filter((t) => t.columnId === column.id);
       nodes.push({
-        id: projId,
-        type: "group",
-        data: { label: projGroup.name, count: projGroup.tasks.length, creating: creatingGroup === projId },
+        id: colNodeId,
+        type: "column",
+        data: {
+          label: column.title,
+          count: colTasks.length,
+          adding: addingIn === column.id,
+          onAdd: handleAdd,
+        },
         position: { x: 0, y: 0 },
       });
-      edges.push({ id: `e-root-${projId}`, source: "root", target: projId });
+      edges.push({ id: `e-root-${colNodeId}`, source: "root", target: colNodeId });
 
-      const byAssignee = new Map<string, { name: string; tasks: TreeTask[] }>();
-      for (const t of projGroup.tasks) {
-        const key = t.assigneeId ?? "none";
-        if (!byAssignee.has(key)) byAssignee.set(key, { name: t.assigneeName ?? "Без исполнителя", tasks: [] });
-        byAssignee.get(key)!.tasks.push(t);
-      }
-      if (!byAssignee.has("none")) byAssignee.set("none", { name: "Без исполнителя", tasks: [] });
-
-      for (const [userKey, userGroup] of byAssignee) {
-        const assigneeId = `${projId}-user-${userKey}`;
+      for (const t of colTasks) {
+        const taskNodeId = `task-${t.id}`;
         nodes.push({
-          id: assigneeId,
-          type: "group",
-          data: { label: userGroup.name, count: userGroup.tasks.length, creating: creatingGroup === assigneeId },
+          id: taskNodeId,
+          type: "taskLeaf",
+          data: {
+            title: t.title,
+            priority: t.priority,
+            isBug: t.isBug,
+            dueDate: t.dueDate,
+            done: column.title === DONE_COLUMN_NAME,
+            onOpen: () => openLeaf(t, column.title),
+          },
           position: { x: 0, y: 0 },
         });
-        edges.push({ id: `e-${projId}-${assigneeId}`, source: projId, target: assigneeId });
-
-        for (const t of userGroup.tasks) {
-          const taskNodeId = `task-${t.id}`;
-          nodes.push({
-            id: taskNodeId,
-            type: "taskLeaf",
-            data: {
-              title: t.title,
-              priority: t.priority,
-              isBug: t.isBug,
-              dueDate: t.dueDate,
-              done: t.columnName === DONE_COLUMN_NAME,
-              onOpen: () => setActiveTask(t),
-            },
-            position: { x: 0, y: 0 },
-          });
-          edges.push({ id: `e-${assigneeId}-${taskNodeId}`, source: assigneeId, target: taskNodeId });
-        }
+        edges.push({ id: `e-${colNodeId}-${taskNodeId}`, source: colNodeId, target: taskNodeId });
       }
     }
 
-    const withCallbacks = nodes.map((n) =>
-      n.type === "group"
-        ? { ...n, data: { ...n.data, onAdd: handleAdd, onSubmit: handleSubmit, onCancel: handleCancel } }
-        : n
-    );
-
-    return { nodes: layout(withCallbacks, edges), edges };
-  }, [tasks, creatingGroup, handleAdd, handleSubmit, handleCancel]);
+    return { nodes: layout(nodes, edges), edges };
+  }, [tasks, columns, addingIn, handleAdd, openLeaf]);
 
   return (
     <div className="h-full w-full">
@@ -257,7 +219,7 @@ function InnerTree({
       {activeTask && (
         <TaskModal
           task={activeTask}
-          columnName={activeTask.columnName}
+          columnName={activeColumnName}
           users={users}
           projects={projects}
           onClose={() => setActiveTask(null)}
@@ -269,9 +231,9 @@ function InnerTree({
 
 export function TaskTree(props: {
   tasks: TreeTask[];
+  columns: { id: string; title: string }[];
   users: { id: string; name: string }[];
   projects: { id: string; name: string }[];
-  defaultColumnId: string;
 }) {
   return (
     <ReactFlowProvider>

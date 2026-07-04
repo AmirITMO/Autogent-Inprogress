@@ -13,7 +13,7 @@ import {
   Cell,
   CartesianGrid,
 } from "recharts";
-import { formatMoney } from "@/lib/constants";
+import { formatMoney, LEAD_STAGES } from "@/lib/constants";
 import { createExpense } from "@/lib/actions/transactions";
 
 type Tx = {
@@ -25,8 +25,14 @@ type Tx = {
   categoryName: string;
   isRecurring: boolean;
   leadTitle: string | null;
+  leadStage: string | null;
   createdByName: string;
 };
+
+const PAID_STAGE_INDEX = LEAD_STAGES.findIndex((s) => s.id === "PAID");
+const CASH_ELIGIBLE_STAGES = new Set<string>(
+  LEAD_STAGES.slice(PAID_STAGE_INDEX).map((s) => s.id)
+);
 
 type Category = { id: string; name: string; type: "INCOME" | "EXPENSE"; isRecurring: boolean };
 
@@ -45,7 +51,13 @@ export function AccountingView({
   const cashBalance = useMemo(
     () =>
       transactions
-        .filter((t) => t.type === "INCOME" && t.categoryName === "Предоплата")
+        .filter(
+          (t) =>
+            t.type === "INCOME" &&
+            t.categoryName === "Предоплата" &&
+            t.leadStage != null &&
+            CASH_ELIGIBLE_STAGES.has(t.leadStage)
+        )
         .reduce((sum, t) => sum + t.amount, 0),
     [transactions]
   );
@@ -113,7 +125,7 @@ export function AccountingView({
           label="Касса"
           value={formatMoney(cashBalance)}
           accent="accent"
-          hint="Сумма всех предоплат по всем сделкам (без постоплат, подписок и расходов)"
+          hint="Сумма предоплат по сделкам, дошедшим минимум до этапа «Оплата (предоплата)»"
         />
         <StatTile
           label="Доход в этом месяце"

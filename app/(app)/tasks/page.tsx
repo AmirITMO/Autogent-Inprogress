@@ -54,7 +54,7 @@ export default async function TasksPage() {
   }));
 
   const treeTasks = columns.flatMap((c) =>
-    c.tasks.map((t) => ({ ...t, columnName: c.title }))
+    c.tasks.map((t) => ({ ...t, columnName: c.title, columnId: c.id }))
   );
 
   return (
@@ -67,7 +67,6 @@ export default async function TasksPage() {
         users={users}
         projects={projects}
         treeTasks={treeTasks}
-        defaultColumnId={columns[0]?.id ?? ""}
       />
     </div>
   );

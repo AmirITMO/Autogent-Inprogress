@@ -22,6 +22,7 @@ export default async function AccountingPage() {
     categoryName: t.category.name,
     isRecurring: t.category.isRecurring,
     leadTitle: t.lead?.title ?? null,
+    leadStage: t.lead?.stage ?? null,
     createdByName: t.createdBy.name,
   }));
 

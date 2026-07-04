@@ -5,7 +5,7 @@ import { useDebouncedCallback } from "use-debounce";
 import { KanbanBoard, type KanbanColumnData } from "@/components/kanban/KanbanBoard";
 import { TASK_PRIORITIES, TASK_PRIORITY_LABEL } from "@/lib/constants";
 import { createTask, moveTask } from "@/lib/actions/tasks";
-import { TaskCard, type TaskCardData } from "./TaskCard";
+import { TaskCard, blankTaskCard, type TaskCardData } from "./TaskCard";
 import { TaskModal } from "./TaskModal";
 
 type ColumnData = { id: string; title: string; tasks: TaskCardData[] };
@@ -22,7 +22,6 @@ export function TasksBoard({
   const [activeTask, setActiveTask] = useState<TaskCardData | null>(null);
   const [activeColumnName, setActiveColumnName] = useState("");
   const [creatingIn, setCreatingIn] = useState<string | null>(null);
-  const [newTitle, setNewTitle] = useState("");
   const [, startTransition] = useTransition();
 
   const [searchInput, setSearchInput] = useState("");
@@ -65,47 +64,27 @@ export function TasksBoard({
   }
 
   async function handleCreate(columnId: string) {
-    if (!newTitle.trim()) return;
-    await createTask({ columnId, title: newTitle.trim(), projectId: projectId || undefined });
-    setNewTitle("");
+    setCreatingIn(columnId);
+    const created = await createTask({ columnId, title: "" });
     setCreatingIn(null);
+    const col = columns.find((c) => c.id === columnId);
+    openTask(blankTaskCard(created.id), col?.title ?? "");
   }
 
   const kanbanColumns: KanbanColumnData<TaskCardData>[] = filteredColumns.map((c) => ({
     id: c.id,
     title: c.title,
     items: c.tasks,
-    headerExtra:
-      creatingIn === c.id ? (
-        <div className="flex items-center gap-1">
-          <input
-            autoFocus
-            value={newTitle}
-            onChange={(e) => setNewTitle(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleCreate(c.id);
-              if (e.key === "Escape") setCreatingIn(null);
-            }}
-            onBlur={() => !newTitle.trim() && setCreatingIn(null)}
-            placeholder="Название"
-            className="w-28 rounded border border-border bg-surface-2 px-1.5 py-1 text-xs text-foreground outline-none focus:border-accent"
-          />
-          <button
-            onClick={() => handleCreate(c.id)}
-            className="rounded bg-accent px-1.5 py-1 text-xs font-medium text-white hover:bg-accent-hover"
-          >
-            ОК
-          </button>
-        </div>
-      ) : (
-        <button
-          onClick={() => setCreatingIn(c.id)}
-          title="Добавить задачу"
-          className="flex h-6 w-6 items-center justify-center rounded-full text-muted hover:bg-surface-2 hover:text-foreground"
-        >
-          +
-        </button>
-      ),
+    headerExtra: (
+      <button
+        onClick={() => handleCreate(c.id)}
+        disabled={creatingIn === c.id}
+        title="Добавить задачу"
+        className="flex h-6 w-6 items-center justify-center rounded-full text-muted hover:bg-surface-2 hover:text-foreground disabled:opacity-50"
+      >
+        +
+      </button>
+    ),
   }));
 
   return (

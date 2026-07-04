@@ -16,6 +16,24 @@ export type TaskCardData = {
   commentCount: number;
 };
 
+export function blankTaskCard(id: string): TaskCardData {
+  return {
+    id,
+    title: "",
+    description: null,
+    priority: "P2",
+    isBug: false,
+    estimateHours: null,
+    dueDate: null,
+    order: 0,
+    assigneeId: null,
+    assigneeName: null,
+    projectId: null,
+    projectName: null,
+    commentCount: 0,
+  };
+}
+
 function initials(name: string) {
   return name
     .split(" ")

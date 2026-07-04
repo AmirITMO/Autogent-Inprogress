@@ -14,13 +14,21 @@ export default async function DashboardPage() {
     prisma.lead.findMany({ where: leadWhere }),
     prisma.task.findMany({ where: taskWhere, include: { column: true } }),
     isAdmin
-      ? prisma.transaction.findMany({ include: { category: true } })
+      ? prisma.transaction.findMany({ include: { category: true, lead: true } })
       : Promise.resolve([]),
     prisma.kpi.findMany(),
   ]);
 
+  const paidStageIndex = LEAD_STAGES.findIndex((s) => s.id === "PAID");
+  const cashEligibleStages = new Set(LEAD_STAGES.slice(paidStageIndex).map((s) => s.id));
   const cashBalance = transactions
-    .filter((t) => t.type === "INCOME" && t.category.name === "Предоплата")
+    .filter(
+      (t) =>
+        t.type === "INCOME" &&
+        t.category.name === "Предоплата" &&
+        t.lead &&
+        cashEligibleStages.has(t.lead.stage)
+    )
     .reduce((sum, t) => sum + Number(t.amount), 0);
 
   const openTasks = tasks.filter((t) => t.column.name !== DONE_COLUMN_NAME);

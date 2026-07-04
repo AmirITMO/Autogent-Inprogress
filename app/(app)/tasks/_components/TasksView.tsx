@@ -12,13 +12,11 @@ export function TasksView({
   users,
   projects,
   treeTasks,
-  defaultColumnId,
 }: {
   columns: ColumnData[];
   users: { id: string; name: string }[];
   projects: { id: string; name: string }[];
   treeTasks: TreeTask[];
-  defaultColumnId: string;
 }) {
   const [view, setView] = useState<"board" | "tree">("board");
 
@@ -49,9 +47,9 @@ export function TasksView({
         <div className="min-h-0 flex-1">
           <TaskTree
             tasks={treeTasks}
+            columns={columns.map((c) => ({ id: c.id, title: c.title }))}
             users={users}
             projects={projects}
-            defaultColumnId={defaultColumnId}
           />
         </div>
       )}
