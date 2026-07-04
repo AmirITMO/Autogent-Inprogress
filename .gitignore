@@ -37,6 +37,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# one-off scripts containing real customer data — never commit these
+scripts/import-leads-*.ts
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
