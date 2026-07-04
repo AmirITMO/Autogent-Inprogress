@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { hash } from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/roles";
+import { validatePasswordStrength } from "@/lib/passwordPolicy";
 
 export async function updateProfile(data: {
   name: string;
@@ -11,6 +12,11 @@ export async function updateProfile(data: {
   password?: string;
 }) {
   const user = await requireUser();
+
+  if (data.password) {
+    const passwordError = validatePasswordStrength(data.password);
+    if (passwordError) throw new Error(passwordError);
+  }
 
   const existing = await prisma.user.findUnique({ where: { email: data.email } });
   if (existing && existing.id !== user.id) {

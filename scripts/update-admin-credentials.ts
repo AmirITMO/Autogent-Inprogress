@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { hash } from "bcryptjs";
+import { validatePasswordStrength } from "../lib/passwordPolicy";
 
 const prisma = new PrismaClient();
 
@@ -11,6 +12,9 @@ async function main() {
   if (!newEmail || !newPassword) {
     throw new Error("Set NEW_EMAIL and NEW_PASSWORD env vars before running this script.");
   }
+
+  const passwordError = validatePasswordStrength(newPassword);
+  if (passwordError) throw new Error(passwordError);
 
   const user = await prisma.user.update({
     where: { email: oldEmail },

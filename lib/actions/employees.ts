@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { hash } from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/roles";
+import { validatePasswordStrength } from "@/lib/passwordPolicy";
 
 export async function createEmployee(data: {
   name: string;
@@ -12,6 +13,8 @@ export async function createEmployee(data: {
   role: "ADMIN" | "EMPLOYEE";
 }) {
   await requireAdmin();
+  const passwordError = validatePasswordStrength(data.password);
+  if (passwordError) throw new Error(passwordError);
   await prisma.user.create({
     data: {
       name: data.name,

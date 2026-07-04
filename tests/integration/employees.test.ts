@@ -26,12 +26,12 @@ describe("createEmployee", () => {
     await createEmployee({
       name: "Иван",
       email: "ivan@test.local",
-      password: "hunter2",
+      password: "hunter22",
       role: "EMPLOYEE",
     });
 
     const user = await prisma.user.findUniqueOrThrow({ where: { email: "ivan@test.local" } });
-    expect(user.passwordHash).not.toBe("hunter2");
+    expect(user.passwordHash).not.toBe("hunter22");
     expect(user.role).toBe("EMPLOYEE");
     expect(user.isBlocked).toBe(false);
   });
@@ -40,6 +40,15 @@ describe("createEmployee", () => {
     testUser.role = "EMPLOYEE";
     await expect(
       createEmployee({ name: "X", email: "x@test.local", password: "p", role: "EMPLOYEE" })
+    ).rejects.toThrow();
+  });
+
+  it("is rejected when the password is weak or commonly leaked", async () => {
+    await expect(
+      createEmployee({ name: "X", email: "x@test.local", password: "123456", role: "EMPLOYEE" })
+    ).rejects.toThrow();
+    await expect(
+      createEmployee({ name: "X", email: "x2@test.local", password: "short", role: "EMPLOYEE" })
     ).rejects.toThrow();
   });
 });

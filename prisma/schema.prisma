@@ -44,6 +44,8 @@ model User {
   passwordHash String
   role         Role     @default(EMPLOYEE)
   isBlocked    Boolean  @default(false)
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
   createdAt    DateTime @default(now())
 
   leads          Lead[]
