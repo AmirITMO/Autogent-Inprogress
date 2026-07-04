@@ -13,14 +13,15 @@ export default async function DashboardPage() {
   const [leads, tasks, transactions, kpis] = await Promise.all([
     prisma.lead.findMany({ where: leadWhere }),
     prisma.task.findMany({ where: taskWhere, include: { column: true } }),
-    isAdmin ? prisma.transaction.findMany() : Promise.resolve([]),
+    isAdmin
+      ? prisma.transaction.findMany({ include: { category: true } })
+      : Promise.resolve([]),
     prisma.kpi.findMany(),
   ]);
 
-  const cashBalance = transactions.reduce(
-    (sum, t) => sum + (t.type === "INCOME" ? Number(t.amount) : -Number(t.amount)),
-    0
-  );
+  const cashBalance = transactions
+    .filter((t) => t.type === "INCOME" && t.category.name === "Предоплата")
+    .reduce((sum, t) => sum + Number(t.amount), 0);
 
   const openTasks = tasks.filter((t) => t.column.name !== DONE_COLUMN_NAME);
   const overdueTasks = openTasks.filter(

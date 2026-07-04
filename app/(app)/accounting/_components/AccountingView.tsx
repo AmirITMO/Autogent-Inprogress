@@ -44,10 +44,9 @@ export function AccountingView({
 
   const cashBalance = useMemo(
     () =>
-      transactions.reduce(
-        (sum, t) => sum + (t.type === "INCOME" ? t.amount : -t.amount),
-        0
-      ),
+      transactions
+        .filter((t) => t.type === "INCOME" && t.categoryName === "Предоплата")
+        .reduce((sum, t) => sum + t.amount, 0),
     [transactions]
   );
 
@@ -114,7 +113,7 @@ export function AccountingView({
           label="Касса"
           value={formatMoney(cashBalance)}
           accent="accent"
-          hint="Всё, что накопилось с самого начала: сумма всех доходов минус все расходы за всё время"
+          hint="Сумма всех предоплат по всем сделкам (без постоплат, подписок и расходов)"
         />
         <StatTile
           label="Доход в этом месяце"

@@ -11,7 +11,7 @@ const links = [
   { href: "/my", label: "Мои задачи", roles: ["ADMIN", "EMPLOYEE"] },
   { href: "/accounting", label: "Бухгалтерия", roles: ["ADMIN"] },
   { href: "/employees", label: "Сотрудники", roles: ["ADMIN"] },
-  { href: "/settings", label: "Настройки", roles: ["ADMIN"] },
+  { href: "/settings", label: "Настройки", roles: ["ADMIN", "EMPLOYEE"] },
 ];
 
 export function Sidebar({
