@@ -116,7 +116,7 @@ export function TaskModal({
             className="mt-1 w-full resize-none bg-transparent text-sm text-muted outline-none"
           />
 
-          <div className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-6">
+          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-6">
             <Field label="Проект">
               <select
                 value={form.projectId}

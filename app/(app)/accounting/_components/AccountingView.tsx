@@ -117,7 +117,7 @@ export function AccountingView({
 
   return (
     <div className="flex-1 overflow-y-auto p-5">
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatTile
           label="Касса"
           value={formatMoney(cashBalance)}
@@ -144,7 +144,7 @@ export function AccountingView({
         />
       </div>
 
-      <div className="mt-4 flex items-center gap-2">
+      <div className="mt-4 flex flex-wrap items-center gap-2">
         <label className="text-xs text-muted">Период отчёта</label>
         <input
           type="month"
@@ -168,7 +168,7 @@ export function AccountingView({
         </button>
       </div>
 
-      <div className="mt-6 grid grid-cols-2 gap-4">
+      <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className="rounded-xl border border-border bg-surface p-4">
           <h3 className="mb-3 text-sm font-medium text-foreground">P&L по месяцам</h3>
           <ResponsiveContainer width="100%" height={240}>
@@ -253,8 +253,8 @@ export function AccountingView({
         <h3 className="mb-3 text-sm font-medium text-foreground">
           Лента транзакций {showAllPeriods ? "за всё время" : `за ${period}`}
         </h3>
-        <div className="max-h-80 overflow-y-auto">
-          <table className="w-full text-sm">
+        <div className="max-h-80 overflow-auto">
+          <table className="w-full min-w-[640px] text-sm">
             <thead>
               <tr className="border-b border-border text-left text-xs text-muted">
                 <th className="pb-2">Дата</th>

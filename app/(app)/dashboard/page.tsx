@@ -51,7 +51,7 @@ export default async function DashboardPage() {
         {isAdmin ? "Сводка по всей команде" : "Ваши сделки и задачи"}
       </p>
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <Tile label={isAdmin ? "Всего сделок" : "Мои сделки"} value={String(leads.length)} />
         <Tile label={isAdmin ? "Открытые задачи" : "Мои открытые задачи"} value={String(openTasks.length)} />
         <Tile label="Просрочено" value={String(overdueTasks.length)} danger={overdueTasks.length > 0} />

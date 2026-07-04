@@ -55,12 +55,12 @@ export function CrmBoard({ initialLeads }: { initialLeads: LeadCardData[] }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-center gap-3 border-b border-border px-5 py-3">
+      <div className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-3">
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Поиск по компании, контакту, менеджеру…"
-          className="w-72 rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-sm text-foreground outline-none focus:border-accent"
+          className="w-full min-w-0 flex-1 rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-sm text-foreground outline-none focus:border-accent sm:w-72 sm:flex-none"
         />
         <button
           onClick={() => setShowLost((v) => !v)}
@@ -72,7 +72,7 @@ export function CrmBoard({ initialLeads }: { initialLeads: LeadCardData[] }) {
         >
           Показывать отказы
         </button>
-        <div className="flex-1" />
+        <div className="hidden flex-1 sm:block" />
         <button
           onClick={() => setCreating(true)}
           className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent-hover"
