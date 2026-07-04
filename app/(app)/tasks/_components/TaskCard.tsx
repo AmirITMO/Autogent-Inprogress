@@ -11,6 +11,7 @@ export type TaskCardData = {
   order: number;
   assigneeId: string | null;
   assigneeName: string | null;
+  projectId: string | null;
   projectName: string | null;
   commentCount: number;
 };

@@ -54,16 +54,7 @@ export default async function TasksPage() {
   }));
 
   const treeTasks = columns.flatMap((c) =>
-    c.tasks.map((t) => ({
-      id: t.id,
-      title: t.title,
-      priority: t.priority,
-      isBug: t.isBug,
-      dueDate: t.dueDate,
-      columnName: c.title,
-      projectName: t.projectName,
-      assigneeName: t.assigneeName,
-    }))
+    c.tasks.map((t) => ({ ...t, columnName: c.title }))
   );
 
   return (
@@ -71,7 +62,13 @@ export default async function TasksPage() {
       <div className="border-b border-border px-5 py-4">
         <h1 className="text-lg font-semibold text-foreground">Задачи</h1>
       </div>
-      <TasksView columns={columns} users={users} projects={projects} treeTasks={treeTasks} />
+      <TasksView
+        columns={columns}
+        users={users}
+        projects={projects}
+        treeTasks={treeTasks}
+        defaultColumnId={columns[0]?.id ?? ""}
+      />
     </div>
   );
 }

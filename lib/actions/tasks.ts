@@ -8,6 +8,7 @@ export async function createTask(data: {
   columnId: string;
   title: string;
   projectId?: string;
+  assigneeId?: string;
 }) {
   await requireUser();
   const last = await prisma.task.findFirst({
@@ -20,6 +21,7 @@ export async function createTask(data: {
       columnId: data.columnId,
       title: data.title,
       projectId: data.projectId,
+      assigneeId: data.assigneeId,
       order: (last?.order ?? 0) + 1,
     },
   });
