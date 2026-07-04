@@ -1,14 +1,14 @@
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/roles";
 import { LEAD_STAGES, formatMoney, DONE_COLUMN_NAME } from "@/lib/constants";
-import { ensureAllSupportTransactions } from "@/lib/actions/leads";
+import { reconcileAllLeadIncome } from "@/lib/actions/leads";
 import { KpiPanel } from "./_components/KpiPanel";
 
 export default async function DashboardPage() {
   const user = await requireUser();
   const isAdmin = user.role === "ADMIN";
 
-  if (isAdmin) await ensureAllSupportTransactions();
+  if (isAdmin) await reconcileAllLeadIncome();
 
   const leadWhere = isAdmin ? {} : { ownerId: user.id };
   const taskWhere = isAdmin ? {} : { assigneeId: user.id };

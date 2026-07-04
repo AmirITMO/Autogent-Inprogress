@@ -10,9 +10,8 @@ vi.mock("@/lib/roles", () => ({
   },
 }));
 
-const { createLead, moveLead, updateLead, getLeadActivity } = await import(
-  "@/lib/actions/leads"
-);
+const { createLead, moveLead, updateLead, getLeadActivity, reconcileAllLeadIncome } =
+  await import("@/lib/actions/leads");
 
 async function seedIncomeCategories() {
   await prisma.transactionCategory.createMany({
@@ -161,5 +160,49 @@ describe("updateLead", () => {
 
     const transactions = await prisma.transaction.findMany({ where: { leadId: lead.id } });
     expect(transactions).toHaveLength(0);
+  });
+});
+
+describe("reconcileAllLeadIncome", () => {
+  it("removes income transactions left over from leads that never reached the eligible stage", async () => {
+    // Simulates data created outside the normal flow (e.g. a one-off import script) that
+    // bypassed the stage-gating rules — the ledger must be cleaned up regardless.
+    const lead = await createLead({ title: "Импортированная сделка" });
+    await prisma.lead.update({ where: { id: lead.id }, data: { prepay: 5000, postpay: 3000 } });
+
+    const category = await prisma.transactionCategory.findFirstOrThrow({
+      where: { name: "Предоплата", type: "INCOME" },
+    });
+    await prisma.transaction.create({
+      data: {
+        categoryId: category.id,
+        leadId: lead.id,
+        amount: 5000,
+        type: "INCOME",
+        description: "Предоплата (импорт, в обход правил)",
+        createdById: testUser.id,
+      },
+    });
+
+    await reconcileAllLeadIncome();
+
+    const transactions = await prisma.transaction.findMany({ where: { leadId: lead.id } });
+    expect(transactions).toHaveLength(0);
+  });
+
+  it("backfills the missing transaction for a lead that already sits at an eligible stage", async () => {
+    const lead = await createLead({ title: "Сделка на постоплате" });
+    await moveLead(lead.id, "POSTPAY", 0);
+    await prisma.lead.update({ where: { id: lead.id }, data: { prepay: 1000, postpay: 2000 } });
+    // Wipe transactions to simulate data that was never synced (e.g. stage set directly in the DB).
+    await prisma.transaction.deleteMany({ where: { leadId: lead.id } });
+
+    await reconcileAllLeadIncome();
+
+    const transactions = await prisma.transaction.findMany({
+      where: { leadId: lead.id },
+      orderBy: { amount: "asc" },
+    });
+    expect(transactions.map((t) => Number(t.amount))).toEqual([1000, 2000]);
   });
 });

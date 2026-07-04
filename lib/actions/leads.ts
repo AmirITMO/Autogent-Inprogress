@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import type { Lead } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/roles";
 import type { LeadStageId } from "@/lib/constants";
@@ -145,24 +146,27 @@ export async function setLeadLost(leadId: string, lost: boolean, lostReason?: st
 
 // Деньги попадают в бухгалтерию только когда сделка реально дошла до соответствующего этапа —
 // до этого предоплата/постоплата/подписка в карточке лида ничего не значат для кассы.
-async function syncLeadIncome(leadId: string) {
-  const user = await requireUser();
-  const lead = await prisma.lead.findUniqueOrThrow({ where: { id: leadId } });
-
-  await syncOneTimeEntry(lead, user.id, "Предоплата", Number(lead.prepay), stageAtOrAfter(lead.stage, "PAID"));
+async function applyIncomeRules(lead: Lead, userId: string) {
+  await syncOneTimeEntry(lead, userId, "Предоплата", Number(lead.prepay), stageAtOrAfter(lead.stage, "PAID"));
   await syncOneTimeEntry(
     lead,
-    user.id,
+    userId,
     "Постоплата",
     Number(lead.postpay),
     stageAtOrAfter(lead.stage, "POSTPAY")
   );
 
   if (lead.stage === "SUPPORT") {
-    await syncSupportSubscription(lead, user.id);
+    await syncSupportSubscription(lead, userId);
   } else {
-    await removeSupportSubscription(leadId);
+    await removeSupportSubscription(lead.id);
   }
+}
+
+async function syncLeadIncome(leadId: string) {
+  const user = await requireUser();
+  const lead = await prisma.lead.findUniqueOrThrow({ where: { id: leadId } });
+  await applyIncomeRules(lead, user.id);
 }
 
 async function syncOneTimeEntry(
@@ -255,13 +259,15 @@ async function removeSupportSubscription(leadId: string) {
   await prisma.transaction.deleteMany({ where: { leadId, categoryId: category.id } });
 }
 
-// Бэкфилл подписок для всех сделок на поддержке — вызывается при открытии
-// Бухгалтерии/Дашборда, чтобы новые месяцы подписки материализовались без крон-джобы.
-export async function ensureAllSupportTransactions() {
+// Сверяет ленту транзакций со ВСЕМИ лидами по правилам этапов — вызывается при открытии
+// Бухгалтерии/Дашборда. Нужно не только чтобы материализовать новые месяцы подписки без
+// крон-джобы, но и чтобы подчистить транзакции, оставшиеся от сделок, которые были заведены
+// в обход этих правил (например импортом) или с тех пор откатились на более ранний этап.
+export async function reconcileAllLeadIncome() {
   const user = await requireUser();
-  const supportLeads = await prisma.lead.findMany({ where: { stage: "SUPPORT" } });
-  for (const lead of supportLeads) {
-    await syncSupportSubscription(lead, user.id);
+  const leads = await prisma.lead.findMany();
+  for (const lead of leads) {
+    await applyIncomeRules(lead, user.id);
   }
 }
 

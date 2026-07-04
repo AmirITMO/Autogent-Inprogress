@@ -1,11 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/roles";
-import { ensureAllSupportTransactions } from "@/lib/actions/leads";
+import { reconcileAllLeadIncome } from "@/lib/actions/leads";
 import { AccountingView } from "./_components/AccountingView";
 
 export default async function AccountingPage() {
   await requireAdmin();
-  await ensureAllSupportTransactions();
+  await reconcileAllLeadIncome();
 
   const [transactions, categories] = await Promise.all([
     prisma.transaction.findMany({
