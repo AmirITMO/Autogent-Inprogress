@@ -47,7 +47,8 @@ export default async function LoginPage({
             <input
               id="email"
               name="email"
-              type="email"
+              type="text"
+              autoComplete="username"
               required
               className="rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-foreground outline-none focus:border-accent"
               placeholder="you@autogentgroup.ru"
