@@ -11,10 +11,14 @@ export async function createEmployee(data: {
   email: string;
   password: string;
   role: "ADMIN" | "EMPLOYEE";
-}) {
+}): Promise<{ error: string } | { error?: undefined }> {
   await requireAdmin();
   const passwordError = validatePasswordStrength(data.password);
-  if (passwordError) throw new Error(passwordError);
+  if (passwordError) return { error: passwordError };
+
+  const existing = await prisma.user.findUnique({ where: { email: data.email } });
+  if (existing) return { error: "Сотрудник с таким email уже существует" };
+
   await prisma.user.create({
     data: {
       name: data.name,
@@ -24,6 +28,7 @@ export async function createEmployee(data: {
     },
   });
   revalidatePath("/employees");
+  return {};
 }
 
 export async function toggleEmployeeBlocked(userId: string, isBlocked: boolean) {

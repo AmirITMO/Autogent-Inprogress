@@ -20,12 +20,17 @@ export function ProfileForm({
     setSaving(true);
     setStatus("idle");
     try {
-      await updateProfile({ name, email, password: password || undefined });
-      setPassword("");
-      setStatus("saved");
-      setTimeout(() => setStatus("idle"), 1500);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось сохранить");
+      const result = await updateProfile({ name, email, password: password || undefined });
+      if (result.error) {
+        setError(result.error);
+        setStatus("error");
+      } else {
+        setPassword("");
+        setStatus("saved");
+        setTimeout(() => setStatus("idle"), 1500);
+      }
+    } catch {
+      setError("Не удалось сохранить");
       setStatus("error");
     } finally {
       setSaving(false);

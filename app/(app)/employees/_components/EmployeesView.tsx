@@ -38,10 +38,14 @@ export function EmployeesView({
     setCreating(true);
     setError("");
     try {
-      await createEmployee(form);
-      setForm({ name: "", email: "", password: "", role: "EMPLOYEE" });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось добавить сотрудника");
+      const result = await createEmployee(form);
+      if (result.error) {
+        setError(result.error);
+      } else {
+        setForm({ name: "", email: "", password: "", role: "EMPLOYEE" });
+      }
+    } catch {
+      setError("Не удалось добавить сотрудника");
     } finally {
       setCreating(false);
     }

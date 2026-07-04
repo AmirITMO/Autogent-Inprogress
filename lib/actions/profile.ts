@@ -10,17 +10,17 @@ export async function updateProfile(data: {
   name: string;
   email: string;
   password?: string;
-}) {
+}): Promise<{ error: string } | { error?: undefined }> {
   const user = await requireUser();
 
   if (data.password) {
     const passwordError = validatePasswordStrength(data.password);
-    if (passwordError) throw new Error(passwordError);
+    if (passwordError) return { error: passwordError };
   }
 
   const existing = await prisma.user.findUnique({ where: { email: data.email } });
   if (existing && existing.id !== user.id) {
-    throw new Error("Этот email уже занят другим пользователем");
+    return { error: "Этот email уже занят другим пользователем" };
   }
 
   await prisma.user.update({
@@ -33,4 +33,5 @@ export async function updateProfile(data: {
   });
 
   revalidatePath("/settings");
+  return {};
 }

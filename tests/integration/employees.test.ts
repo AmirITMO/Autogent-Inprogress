@@ -44,12 +44,38 @@ describe("createEmployee", () => {
   });
 
   it("is rejected when the password is weak or commonly leaked", async () => {
-    await expect(
-      createEmployee({ name: "X", email: "x@test.local", password: "123456", role: "EMPLOYEE" })
-    ).rejects.toThrow();
-    await expect(
-      createEmployee({ name: "X", email: "x2@test.local", password: "short", role: "EMPLOYEE" })
-    ).rejects.toThrow();
+    const weak = await createEmployee({
+      name: "X",
+      email: "x@test.local",
+      password: "123456",
+      role: "EMPLOYEE",
+    });
+    expect(weak.error).toBeTruthy();
+    expect(await prisma.user.findUnique({ where: { email: "x@test.local" } })).toBeNull();
+
+    const short = await createEmployee({
+      name: "X",
+      email: "x2@test.local",
+      password: "short",
+      role: "EMPLOYEE",
+    });
+    expect(short.error).toBeTruthy();
+  });
+
+  it("is rejected when the email is already taken", async () => {
+    await createEmployee({
+      name: "Первый",
+      email: "dup@test.local",
+      password: "hunter22",
+      role: "EMPLOYEE",
+    });
+    const result = await createEmployee({
+      name: "Второй",
+      email: "dup@test.local",
+      password: "hunter22",
+      role: "EMPLOYEE",
+    });
+    expect(result.error).toBeTruthy();
   });
 });
 
