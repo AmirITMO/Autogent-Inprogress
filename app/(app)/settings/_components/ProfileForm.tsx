@@ -15,24 +15,40 @@ function initials(name: string) {
     .join("");
 }
 
+function IconEye({ open, className }: { open: boolean; className?: string }) {
+  if (open) {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" className={className}>
+        <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z" stroke="currentColor" strokeWidth="1.7" />
+        <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.7" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <path d="M3 3l18 18M9.9 9.9a3 3 0 0 0 4.2 4.2M6.2 6.4C3.9 8 2 12 2 12s3.6 7 10 7c1.9 0 3.5-.6 4.8-1.4M17.9 17.9C20.1 16.2 22 12 22 12s-1.2-2.3-3.2-4.2" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export function ProfileForm({
   user,
 }: {
   user: {
     name: string;
     email: string;
-    workEmail: string;
     avatarUrl: string | null;
     hasMotivationPhoto: boolean;
   };
 }) {
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
-  const [workEmail, setWorkEmail] = useState(user.workEmail);
-  const [password, setPassword] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<"idle" | "saved" | "error">("idle");
-  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
 
   const [avatarUrl, setAvatarUrl] = useState(user.avatarUrl);
   const [avatarBusy, setAvatarBusy] = useState(false);
@@ -53,19 +69,21 @@ export function ProfileForm({
       const result = await updateProfile({
         name,
         email,
-        workEmail,
-        password: password || undefined,
+        currentPassword: currentPassword || undefined,
+        newPassword: newPassword || undefined,
       });
       if (result.error) {
-        setError(result.error);
+        setMessage(result.error);
         setStatus("error");
       } else {
-        setPassword("");
+        setCurrentPassword("");
+        setNewPassword("");
+        setMessage(result.message ?? "Сохранено");
         setStatus("saved");
-        setTimeout(() => setStatus("idle"), 1500);
+        setTimeout(() => setStatus("idle"), 2500);
       }
     } catch {
-      setError("Не удалось сохранить");
+      setMessage("Не удалось сохранить");
       setStatus("error");
     } finally {
       setSaving(false);
@@ -129,6 +147,7 @@ export function ProfileForm({
       <div className="mb-5 flex items-center gap-4">
         {avatarUrl ? (
           <Image
+            key={avatarUrl}
             src={avatarUrl}
             alt={name}
             width={64}
@@ -180,35 +199,48 @@ export function ProfileForm({
             className="w-full rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-sm outline-none focus:border-accent"
           />
         </Field>
-        <Field label="Рабочая почта" hint="показывается коллегам как контактная">
-          <input
-            type="email"
-            value={workEmail}
-            onChange={(e) => setWorkEmail(e.target.value)}
-            placeholder="you@company.ru"
-            className="w-full rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-sm outline-none focus:border-accent"
-          />
+        <Field label="Текущий пароль">
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              placeholder="Нужен только для смены пароля"
+              className="w-full rounded-lg border border-border bg-surface-2 px-2 py-1.5 pr-9 text-sm outline-none focus:border-accent"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted hover:text-foreground"
+              tabIndex={-1}
+            >
+              <IconEye open={showPassword} className="h-4 w-4" />
+            </button>
+          </div>
         </Field>
         <Field label="Новый пароль">
           <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            type={showPassword ? "text" : "password"}
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
             placeholder="Оставьте пустым, чтобы не менять"
             className="w-full rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-sm outline-none focus:border-accent"
           />
         </Field>
       </div>
+      <p className="mt-2 text-[11px] text-muted">
+        Эта же почта — рабочая, контактная для коллег
+      </p>
       <div className="mt-4 flex items-center gap-3">
         <button
           type="submit"
           disabled={saving}
           className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
         >
-          Сохранить
+          {saving ? "Сохранение…" : "Сохранить"}
         </button>
-        {status === "saved" && <span className="text-xs text-accent">Сохранено</span>}
-        {status === "error" && <span className="text-xs text-danger">{error}</span>}
+        {status === "saved" && <span className="text-xs text-accent">{message}</span>}
+        {status === "error" && <span className="text-xs text-danger">{message}</span>}
       </div>
 
       <div className="mt-6 border-t border-border pt-5">
@@ -225,7 +257,7 @@ export function ProfileForm({
               width={72}
               height={72}
               unoptimized
-              className="h-[72px] w-[72px] shrink-0 rounded-xl object-cover"
+              className="h-[72px] w-[72px] shrink-0 rounded-xl border border-border object-cover"
             />
           ) : (
             <div className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-xl border border-dashed border-border text-muted">

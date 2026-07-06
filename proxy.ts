@@ -29,5 +29,10 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+  // Любой путь с расширением файла (favicon.svg, /avatars/*.jpg, /api/motivation-photo
+  // не подходит — у него нет расширения в пути, но он и так под /api) считается
+  // статическим ассетом из /public и не должен уходить через auth-мидлварь: иначе
+  // NextResponse.next() после проверки сессии не докатывается до раздачи файла и
+  // отдаёт 404 вместо самой картинки.
+  matcher: ["/((?!api|_next/static|_next/image|.*\\..*).*)"],
 };

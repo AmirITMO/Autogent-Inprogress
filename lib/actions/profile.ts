@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { hash } from "bcryptjs";
+import { compare, hash } from "bcryptjs";
 import { randomUUID } from "crypto";
 import { mkdir, rm, writeFile } from "fs/promises";
 import path from "path";
@@ -16,14 +16,24 @@ const ALLOWED_AVATAR_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gi
 export async function updateProfile(data: {
   name: string;
   email: string;
-  workEmail?: string;
-  password?: string;
-}): Promise<{ error: string } | { error?: undefined }> {
+  currentPassword?: string;
+  newPassword?: string;
+}): Promise<{ error: string; message?: undefined } | { error?: undefined; message: string }> {
   const user = await requireUser();
 
-  if (data.password) {
-    const passwordError = validatePasswordStrength(data.password);
+  let passwordHash: string | undefined;
+  if (data.newPassword) {
+    if (!data.currentPassword) {
+      return { error: "Введите текущий пароль, чтобы задать новый" };
+    }
+    const full = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    const currentValid = await compare(data.currentPassword, full.passwordHash);
+    if (!currentValid) {
+      return { error: "Текущий пароль указан неверно" };
+    }
+    const passwordError = validatePasswordStrength(data.newPassword);
     if (passwordError) return { error: passwordError };
+    passwordHash = await hash(data.newPassword, 10);
   }
 
   const existing = await prisma.user.findUnique({ where: { email: data.email } });
@@ -36,13 +46,12 @@ export async function updateProfile(data: {
     data: {
       name: data.name,
       email: data.email,
-      workEmail: data.workEmail?.trim() || null,
-      ...(data.password ? { passwordHash: await hash(data.password, 10) } : {}),
+      ...(passwordHash ? { passwordHash } : {}),
     },
   });
 
   revalidatePath("/settings");
-  return {};
+  return { message: passwordHash ? "Профиль и пароль обновлены" : "Профиль обновлён" };
 }
 
 export async function uploadAvatar(

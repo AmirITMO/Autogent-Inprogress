@@ -58,26 +58,14 @@ export default async function DashboardPage() {
 
   return (
     <div className="p-6">
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="flex items-center gap-2 text-xl font-semibold text-foreground">
-            <IconSparkles className="h-5 w-5 text-accent" />
-            {greeting}, {user.name}
-          </h1>
-          <p className="mt-1 text-sm text-muted">
-            {isAdmin ? "Сводка по всей команде" : "Ваши сделки и задачи"}
-          </p>
-        </div>
-        {me?.motivationPhotoKey && (
-          <Image
-            src="/api/motivation-photo"
-            alt="Фото мотивации"
-            width={64}
-            height={64}
-            unoptimized
-            className="h-16 w-16 shrink-0 rounded-xl object-cover shadow-sm"
-          />
-        )}
+      <div className="mb-6">
+        <h1 className="flex items-center gap-2 text-xl font-semibold text-foreground">
+          <IconSparkles className="h-5 w-5 text-accent" />
+          {greeting}, {user.name}
+        </h1>
+        <p className="mt-1 text-sm text-muted">
+          {isAdmin ? "Сводка по всей команде" : "Ваши сделки и задачи"}
+        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -137,22 +125,40 @@ export default async function DashboardPage() {
           )}
         </div>
 
-        <div className="rounded-xl border border-border bg-surface p-5">
-          <h3 className="mb-3 text-sm font-medium text-foreground">Воронка CRM</h3>
-          <div className="flex flex-wrap gap-2.5">
-            {LEAD_STAGES.map((stage) => {
-              const count = leads.filter((l) => l.stage === stage.id).length;
-              return (
-                <div
-                  key={stage.id}
-                  className="flex items-center gap-2 rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm transition hover:border-accent/40"
-                >
-                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: stage.accent }} />
-                  <span className="text-muted">{stage.title}</span>
-                  <span className="font-semibold text-foreground">{count}</span>
-                </div>
-              );
-            })}
+        <div className="flex flex-col gap-4">
+          {me?.motivationPhotoKey && (
+            <div className="rounded-xl border border-border bg-surface p-3">
+              <h3 className="mb-2 text-sm font-medium text-foreground">Мотивация</h3>
+              <div className="overflow-hidden rounded-lg border border-border">
+                <Image
+                  src="/api/motivation-photo"
+                  alt="Фото мотивации"
+                  width={600}
+                  height={340}
+                  unoptimized
+                  className="h-56 w-full object-cover"
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="flex-1 rounded-xl border border-border bg-surface p-5">
+            <h3 className="mb-3 text-sm font-medium text-foreground">Воронка CRM</h3>
+            <div className="flex flex-wrap gap-2.5">
+              {LEAD_STAGES.map((stage) => {
+                const count = leads.filter((l) => l.stage === stage.id).length;
+                return (
+                  <div
+                    key={stage.id}
+                    className="flex items-center gap-2 rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm transition hover:border-accent/40"
+                  >
+                    <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: stage.accent }} />
+                    <span className="text-muted">{stage.title}</span>
+                    <span className="font-semibold text-foreground">{count}</span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>

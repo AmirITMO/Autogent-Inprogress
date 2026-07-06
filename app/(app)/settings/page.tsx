@@ -29,7 +29,6 @@ export default async function SettingsPage() {
             user={{
               name: user.name,
               email: user.email,
-              workEmail: user.workEmail ?? "",
               avatarUrl: user.avatarUrl,
               hasMotivationPhoto: !!user.motivationPhotoKey,
             }}
