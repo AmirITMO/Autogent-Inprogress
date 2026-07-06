@@ -200,12 +200,19 @@ export function ProfileForm({
           />
         </Field>
         <Field label="Текущий пароль">
+          <input
+            type="password"
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            className="w-full rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-sm outline-none focus:border-accent"
+          />
+        </Field>
+        <Field label="Новый пароль">
           <div className="relative">
             <input
               type={showPassword ? "text" : "password"}
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              placeholder="Нужен только для смены пароля"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
               className="w-full rounded-lg border border-border bg-surface-2 px-2 py-1.5 pr-9 text-sm outline-none focus:border-accent"
             />
             <button
@@ -218,19 +225,7 @@ export function ProfileForm({
             </button>
           </div>
         </Field>
-        <Field label="Новый пароль">
-          <input
-            type={showPassword ? "text" : "password"}
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            placeholder="Оставьте пустым, чтобы не менять"
-            className="w-full rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-sm outline-none focus:border-accent"
-          />
-        </Field>
       </div>
-      <p className="mt-2 text-[11px] text-muted">
-        Эта же почта — рабочая, контактная для коллег
-      </p>
       <div className="mt-4 flex items-center gap-3">
         <button
           type="submit"
