@@ -1,4 +1,3 @@
-import Image from "next/image";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/roles";
 import { LEAD_STAGES, formatMoney, DONE_COLUMN_NAME } from "@/lib/constants";
@@ -129,14 +128,12 @@ export default async function DashboardPage() {
           {me?.motivationPhotoKey && (
             <div className="rounded-xl border border-border bg-surface p-3">
               <h3 className="mb-2 text-sm font-medium text-foreground">Мотивация</h3>
-              <div className="overflow-hidden rounded-lg border border-border">
-                <Image
+              <div className="flex max-h-72 min-h-40 items-center justify-center overflow-hidden rounded-lg border border-border bg-surface-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
                   src="/api/motivation-photo"
                   alt="Фото мотивации"
-                  width={600}
-                  height={340}
-                  unoptimized
-                  className="h-56 w-full object-cover"
+                  className="max-h-72 w-full object-contain"
                 />
               </div>
             </div>

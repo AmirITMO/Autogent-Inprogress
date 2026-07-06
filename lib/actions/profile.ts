@@ -50,7 +50,10 @@ export async function updateProfile(data: {
     },
   });
 
-  revalidatePath("/settings");
+  // Имя показывается в сайдбаре на каждой странице — ревалидируем весь layout,
+  // а не только /settings, иначе смена отражается только после долгого ожидания
+  // естественного протухания Router Cache.
+  revalidatePath("/", "layout");
   return { message: passwordHash ? "Профиль и пароль обновлены" : "Профиль обновлён" };
 }
 
@@ -85,6 +88,8 @@ export async function uploadAvatar(
     await rm(path.join(AVATAR_DIR, oldName), { force: true });
   }
 
-  revalidatePath("/settings");
+  // Аватар показывается в сайдбаре на каждой странице (и в задачах/комментариях) —
+  // ревалидируем весь layout, иначе новое фото долго не появляется из-за Router Cache.
+  revalidatePath("/", "layout");
   return { avatarUrl };
 }
