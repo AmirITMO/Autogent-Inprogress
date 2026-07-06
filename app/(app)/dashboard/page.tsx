@@ -128,12 +128,12 @@ export default async function DashboardPage() {
           {me?.motivationPhotoKey && (
             <div className="rounded-xl border border-border bg-surface p-3">
               <h3 className="mb-2 text-sm font-medium text-foreground">Мотивация</h3>
-              <div className="flex max-h-72 min-h-40 items-center justify-center overflow-hidden rounded-lg border border-border bg-surface-2">
+              <div className="inline-flex max-w-full overflow-hidden rounded-lg border border-border">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src="/api/motivation-photo"
                   alt="Фото мотивации"
-                  className="max-h-72 w-full object-contain"
+                  className="max-h-72 w-auto max-w-full object-contain"
                 />
               </div>
             </div>
