@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { updateLead, getLeadActivity, setLeadLost } from "@/lib/actions/leads";
 import { formatMoney } from "@/lib/constants";
+import { IconLink } from "@/components/icons";
 import type { LeadCardData } from "./LeadCard";
 
 type Activity = { id: string; message: string; createdAt: Date; user: { name: string } };
@@ -32,6 +33,7 @@ export function LeadModal({
   const [activity, setActivity] = useState<Activity[]>([]);
   const [lostReason, setLostReason] = useState(lead.lostReason ?? "");
   const [lostBusy, setLostBusy] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   useEffect(() => {
     getLeadActivity(lead.id).then((a) => setActivity(a as unknown as Activity[]));
@@ -91,9 +93,22 @@ export function LeadModal({
               </span>
             )}
           </h2>
-          <button onClick={onClose} className="text-muted hover:text-foreground">
-            ✕
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(`${location.origin}/crm?lead=${lead.id}`);
+                setLinkCopied(true);
+                setTimeout(() => setLinkCopied(false), 1500);
+              }}
+              className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1 text-xs text-muted hover:bg-surface-2 hover:text-foreground"
+            >
+              <IconLink className="h-3.5 w-3.5" />
+              {linkCopied ? "Скопировано" : "Копировать ссылку"}
+            </button>
+            <button onClick={onClose} className="text-muted hover:text-foreground">
+              ✕
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

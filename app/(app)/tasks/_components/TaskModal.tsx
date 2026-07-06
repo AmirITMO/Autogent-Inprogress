@@ -12,6 +12,7 @@ import { listTaskNodes } from "@/lib/actions/taskNodes";
 import { TASK_PRIORITIES, TASK_PRIORITY_LABEL, DONE_COLUMN_NAME } from "@/lib/constants";
 import type { TaskCardData } from "./TaskCard";
 import { TaskMindMap, type MindNodeRow } from "./TaskMindMap";
+import { IconBug, IconPaperclip, IconLink } from "@/components/icons";
 
 const MAX_ESTIMATE_HOURS = 2400;
 
@@ -87,6 +88,13 @@ export function TaskModal({
   const [uploadError, setUploadError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [commentFile, setCommentFile] = useState<File | null>(null);
+  const [sendingComment, setSendingComment] = useState(false);
+  const [commentError, setCommentError] = useState("");
+  const commentFileInputRef = useRef<HTMLInputElement>(null);
+
+  const [linkCopied, setLinkCopied] = useState(false);
+
   useEffect(() => {
     getTaskComments(task.id).then((c) => setComments(c as unknown as Comment[]));
     listTaskAttachments(task.id).then((a) => setAttachments(a as unknown as Attachment[]));
@@ -144,10 +152,30 @@ export function TaskModal({
 
   async function handleAddComment() {
     if (!newComment.trim()) return;
-    const comment = await addTaskComment(task.id, newComment.trim(), newAttachment || undefined);
-    setComments((c) => [...c, comment as unknown as Comment]);
-    setNewComment("");
-    setNewAttachment("");
+    setSendingComment(true);
+    setCommentError("");
+    try {
+      let attachmentUrl = newAttachment || undefined;
+      if (commentFile) {
+        const formData = new FormData();
+        formData.append("file", commentFile);
+        const uploadResult = await uploadTaskAttachment(task.id, formData);
+        if (uploadResult.error) {
+          setCommentError(uploadResult.error);
+          return;
+        }
+        attachmentUrl = `/api/attachments/${uploadResult.attachmentId}`;
+        listTaskAttachments(task.id).then((a) => setAttachments(a as unknown as Attachment[]));
+      }
+      const comment = await addTaskComment(task.id, newComment.trim(), attachmentUrl);
+      setComments((c) => [...c, comment as unknown as Comment]);
+      setNewComment("");
+      setNewAttachment("");
+      setCommentFile(null);
+      if (commentFileInputRef.current) commentFileInputRef.current.value = "";
+    } finally {
+      setSendingComment(false);
+    }
   }
 
   async function handleUploadFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -184,9 +212,22 @@ export function TaskModal({
         <div className="min-w-0 flex-1 overflow-y-auto p-6">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-foreground">Задача</h2>
-            <button onClick={onClose} className="text-muted hover:text-foreground">
-              ✕
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(`${location.origin}/tasks?task=${task.id}`);
+                  setLinkCopied(true);
+                  setTimeout(() => setLinkCopied(false), 1500);
+                }}
+                className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1 text-xs text-muted hover:bg-surface-2 hover:text-foreground"
+              >
+                <IconLink className="h-3.5 w-3.5" />
+                {linkCopied ? "Скопировано" : "Копировать ссылку"}
+              </button>
+              <button onClick={onClose} className="text-muted hover:text-foreground">
+                ✕
+              </button>
+            </div>
           </div>
 
           <div className="flex flex-col gap-1">
@@ -289,7 +330,7 @@ export function TaskModal({
                     : "border-border text-muted hover:text-foreground"
                 }`}
               >
-                🐞 {form.isBug ? "Это баг" : "Отметить как баг"}
+                <IconBug className="h-4 w-4" /> {form.isBug ? "Это баг" : "Отметить как баг"}
               </button>
             </Field>
           </div>
@@ -347,9 +388,9 @@ export function TaskModal({
                       href={`/api/attachments/${a.id}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="min-w-0 flex-1 truncate text-foreground hover:text-accent"
+                      className="flex min-w-0 flex-1 items-center gap-1.5 truncate text-foreground hover:text-accent"
                     >
-                      📎 {a.fileName}
+                      <IconPaperclip className="h-3.5 w-3.5 shrink-0" /> {a.fileName}
                     </a>
                     <span className="ml-2 shrink-0 text-muted">{formatSize(a.size)}</span>
                     <button
@@ -454,19 +495,57 @@ export function TaskModal({
               rows={2}
               className="w-full resize-none rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none focus:border-accent"
             />
+            {commentError && <div className="mt-1 text-xs text-danger">{commentError}</div>}
+            {commentFile && (
+              <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-surface-2 px-2.5 py-1.5 text-xs text-foreground">
+                <IconPaperclip className="h-3.5 w-3.5 shrink-0" />
+                <span className="min-w-0 flex-1 truncate">{commentFile.name}</span>
+                <button
+                  onClick={() => {
+                    setCommentFile(null);
+                    if (commentFileInputRef.current) commentFileInputRef.current.value = "";
+                  }}
+                  className="shrink-0 text-muted hover:text-danger"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
             <div className="mt-2 flex gap-2">
+              {!commentFile && (
+                <input
+                  value={newAttachment}
+                  onChange={(e) => setNewAttachment(e.target.value)}
+                  placeholder="Ссылка на файл (опц.)"
+                  className="min-w-0 flex-1 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground outline-none focus:border-accent"
+                />
+              )}
+              <button
+                type="button"
+                onClick={() => commentFileInputRef.current?.click()}
+                title="Прикрепить файл"
+                className="shrink-0 rounded-lg border border-border px-2.5 py-1.5 text-muted hover:bg-surface-2 hover:text-foreground"
+              >
+                <IconPaperclip className="h-4 w-4" />
+              </button>
               <input
-                value={newAttachment}
-                onChange={(e) => setNewAttachment(e.target.value)}
-                placeholder="Ссылка на файл (опц.)"
-                className="min-w-0 flex-1 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground outline-none focus:border-accent"
+                ref={commentFileInputRef}
+                type="file"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setCommentFile(file);
+                    setNewAttachment("");
+                  }
+                }}
+                className="hidden"
               />
               <button
                 onClick={handleAddComment}
-                disabled={!newComment.trim()}
+                disabled={!newComment.trim() || sendingComment}
                 className="shrink-0 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-50"
               >
-                Отправить
+                {sendingComment ? "Отправка…" : "Отправить"}
               </button>
             </div>
           </div>

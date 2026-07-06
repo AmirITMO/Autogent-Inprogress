@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { KanbanBoard, type KanbanColumnData } from "@/components/kanban/KanbanBoard";
 import { LEAD_STAGES, type LeadStageId, formatMoney } from "@/lib/constants";
 import { moveLead } from "@/lib/actions/leads";
@@ -46,6 +47,17 @@ export function CrmBoard({ initialLeads }: { initialLeads: LeadCardData[] }) {
       summary: total > 0 ? formatMoney(total) : undefined,
     };
   });
+
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  useEffect(() => {
+    const leadId = searchParams.get("lead");
+    if (!leadId) return;
+    const found = initialLeads.find((l) => l.id === leadId);
+    if (found) setActiveLead(found);
+    router.replace("/crm");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function handleMove(leadId: string, toColumnId: string, toIndex: number) {
     startTransition(() => {

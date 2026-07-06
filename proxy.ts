@@ -15,7 +15,9 @@ export default auth((req) => {
     return NextResponse.redirect(new URL("/dashboard", req.nextUrl.origin));
   }
 
-  const adminOnly = ["/accounting", "/employees", "/settings"];
+  // "/settings" не входит в этот список: страница настроек доступна всем —
+  // раздел профиля виден каждому, а расписание сводок рендерится только для ADMIN.
+  const adminOnly = ["/accounting", "/employees"];
   if (
     adminOnly.some((p) => pathname.startsWith(p)) &&
     req.auth?.user?.role !== "ADMIN"

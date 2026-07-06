@@ -3,6 +3,8 @@
 import { useRef, useState } from "react";
 import Image from "next/image";
 import { updateProfile, uploadAvatar } from "@/lib/actions/profile";
+import { uploadMotivationPhoto, removeMotivationPhoto } from "@/lib/actions/motivation";
+import { IconSparkles } from "@/components/icons";
 
 function initials(name: string) {
   return name
@@ -16,7 +18,13 @@ function initials(name: string) {
 export function ProfileForm({
   user,
 }: {
-  user: { name: string; email: string; workEmail: string; avatarUrl: string | null };
+  user: {
+    name: string;
+    email: string;
+    workEmail: string;
+    avatarUrl: string | null;
+    hasMotivationPhoto: boolean;
+  };
 }) {
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
@@ -30,6 +38,12 @@ export function ProfileForm({
   const [avatarBusy, setAvatarBusy] = useState(false);
   const [avatarError, setAvatarError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [hasMotivationPhoto, setHasMotivationPhoto] = useState(user.hasMotivationPhoto);
+  const [motivationVersion, setMotivationVersion] = useState(0);
+  const [motivationBusy, setMotivationBusy] = useState(false);
+  const [motivationError, setMotivationError] = useState("");
+  const motivationInputRef = useRef<HTMLInputElement>(null);
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -75,6 +89,36 @@ export function ProfileForm({
       setAvatarBusy(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
+  }
+
+  async function handleMotivationChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setMotivationBusy(true);
+    setMotivationError("");
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const result = await uploadMotivationPhoto(formData);
+      if (result.error) {
+        setMotivationError(result.error);
+      } else {
+        setHasMotivationPhoto(true);
+        setMotivationVersion((v) => v + 1);
+      }
+    } catch {
+      setMotivationError("Не удалось загрузить фото");
+    } finally {
+      setMotivationBusy(false);
+      if (motivationInputRef.current) motivationInputRef.current.value = "";
+    }
+  }
+
+  async function handleRemoveMotivation() {
+    setMotivationBusy(true);
+    await removeMotivationPhoto();
+    setHasMotivationPhoto(false);
+    setMotivationBusy(false);
   }
 
   return (
@@ -165,6 +209,61 @@ export function ProfileForm({
         </button>
         {status === "saved" && <span className="text-xs text-accent">Сохранено</span>}
         {status === "error" && <span className="text-xs text-danger">{error}</span>}
+      </div>
+
+      <div className="mt-6 border-t border-border pt-5">
+        <h3 className="text-sm font-medium text-foreground">Фото мотивации</h3>
+        <p className="mt-0.5 text-xs text-muted">
+          Личное фото на вашем дашборде — его видите только вы, другие сотрудники не увидят
+        </p>
+        <div className="mt-3 flex items-center gap-4">
+          {hasMotivationPhoto ? (
+            <Image
+              key={motivationVersion}
+              src={`/api/motivation-photo?v=${motivationVersion}`}
+              alt="Фото мотивации"
+              width={72}
+              height={72}
+              unoptimized
+              className="h-[72px] w-[72px] shrink-0 rounded-xl object-cover"
+            />
+          ) : (
+            <div className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-xl border border-dashed border-border text-muted">
+              <IconSparkles className="h-6 w-6" />
+            </div>
+          )}
+          <div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => motivationInputRef.current?.click()}
+                disabled={motivationBusy}
+                className="rounded-lg border border-border px-3 py-1.5 text-sm text-foreground hover:bg-surface-2 disabled:opacity-50"
+              >
+                {motivationBusy ? "Загрузка…" : hasMotivationPhoto ? "Заменить фото" : "Загрузить фото"}
+              </button>
+              {hasMotivationPhoto && (
+                <button
+                  type="button"
+                  onClick={handleRemoveMotivation}
+                  disabled={motivationBusy}
+                  className="rounded-lg border border-border px-3 py-1.5 text-sm text-danger hover:bg-danger/10 disabled:opacity-50"
+                >
+                  Убрать
+                </button>
+              )}
+            </div>
+            <input
+              ref={motivationInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              onChange={handleMotivationChange}
+              className="hidden"
+            />
+            <div className="mt-1 text-[11px] text-muted">JPEG, PNG, WEBP или GIF, до 10 МБ</div>
+            {motivationError && <div className="mt-1 text-[11px] text-danger">{motivationError}</div>}
+          </div>
+        </div>
       </div>
     </form>
   );

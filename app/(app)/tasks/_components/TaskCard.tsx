@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { TASK_PRIORITY_COLOR, TASK_PRIORITY_LABEL } from "@/lib/constants";
+import { IconBug, IconComment, IconPaperclip } from "@/components/icons";
 
 export type TaskCardData = {
   id: string;
@@ -105,8 +106,8 @@ export function TaskCard({
           {TASK_PRIORITY_LABEL[task.priority]}
         </span>
         {task.isBug && (
-          <span className="rounded bg-danger/10 px-1.5 py-0.5 text-[10px] font-medium text-danger">
-            🐞 Баг
+          <span className="flex items-center gap-1 rounded bg-danger/10 px-1.5 py-0.5 text-[10px] font-medium text-danger">
+            <IconBug className="h-3 w-3" /> Баг
           </span>
         )}
         {task.estimateHours != null && (
@@ -115,10 +116,14 @@ export function TaskCard({
           </span>
         )}
         {task.commentCount > 0 && (
-          <span className="text-[10px] text-muted">💬 {task.commentCount}</span>
+          <span className="flex items-center gap-1 text-[10px] text-muted">
+            <IconComment className="h-3 w-3" /> {task.commentCount}
+          </span>
         )}
         {!!task.attachmentCount && (
-          <span className="text-[10px] text-muted">📎 {task.attachmentCount}</span>
+          <span className="flex items-center gap-1 text-[10px] text-muted">
+            <IconPaperclip className="h-3 w-3" /> {task.attachmentCount}
+          </span>
         )}
       </div>
 

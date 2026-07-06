@@ -31,6 +31,7 @@ export default async function SettingsPage() {
               email: user.email,
               workEmail: user.workEmail ?? "",
               avatarUrl: user.avatarUrl,
+              hasMotivationPhoto: !!user.motivationPhotoKey,
             }}
           />
         </div>

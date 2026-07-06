@@ -43,6 +43,7 @@ model User {
   email        String   @unique
   workEmail    String?
   avatarUrl    String?
+  motivationPhotoKey String?
   passwordHash String
   role         Role     @default(EMPLOYEE)
   isBlocked    Boolean  @default(false)

@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useDebouncedCallback } from "use-debounce";
 import { KanbanBoard, type KanbanColumnData } from "@/components/kanban/KanbanBoard";
 import { TASK_PRIORITIES, TASK_PRIORITY_LABEL, DONE_COLUMN_NAME } from "@/lib/constants";
@@ -38,6 +39,22 @@ export function TasksBoard({
     setActiveTask(task);
     setActiveColumnName(columnName);
   }
+
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  useEffect(() => {
+    const taskId = searchParams.get("task");
+    if (!taskId) return;
+    for (const c of columns) {
+      const found = c.tasks.find((t) => t.id === taskId);
+      if (found) {
+        openTask(found, c.title);
+        break;
+      }
+    }
+    router.replace("/tasks");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const filteredColumns = useMemo(() => {
     const q = search.trim().toLowerCase();

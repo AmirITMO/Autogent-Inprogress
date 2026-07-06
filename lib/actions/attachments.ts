@@ -21,7 +21,7 @@ function sanitizeFileName(name: string) {
 export async function uploadTaskAttachment(
   taskId: string,
   formData: FormData
-): Promise<{ error: string } | { error?: undefined }> {
+): Promise<{ error: string; attachmentId?: undefined } | { error?: undefined; attachmentId: string }> {
   const user = await requireUser();
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
@@ -47,7 +47,7 @@ export async function uploadTaskAttachment(
     createWriteStream(path.join(dir, storedName))
   );
 
-  await prisma.taskAttachment.create({
+  const attachment = await prisma.taskAttachment.create({
     data: {
       taskId,
       fileName: file.name,
@@ -60,7 +60,7 @@ export async function uploadTaskAttachment(
 
   revalidatePath("/tasks");
   revalidatePath("/my");
-  return {};
+  return { attachmentId: attachment.id };
 }
 
 export async function listTaskAttachments(taskId: string) {
