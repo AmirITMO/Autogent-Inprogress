@@ -75,12 +75,12 @@ describe("moveTask", () => {
 describe("updateTask", () => {
   it("updates priority, bug flag and estimate hours", async () => {
     const task = await createTask({ columnId: columnA, title: "Задача" });
-    await updateTask(task.id, { priority: "P0", isBug: true, estimateHours: 4.5 });
+    await updateTask(task.id, { priority: "P0", isBug: true, estimateHours: 4 });
 
     const updated = await prisma.task.findUniqueOrThrow({ where: { id: task.id } });
     expect(updated.priority).toBe("P0");
     expect(updated.isBug).toBe(true);
-    expect(Number(updated.estimateHours)).toBe(4.5);
+    expect(Number(updated.estimateHours)).toBe(4);
   });
 
   it("clears the due date when explicitly set to null", async () => {
@@ -92,6 +92,26 @@ describe("updateTask", () => {
     await updateTask(task.id, { dueDate: null });
     updated = await prisma.task.findUniqueOrThrow({ where: { id: task.id } });
     expect(updated.dueDate).toBeNull();
+  });
+
+  it("rejects a due date in the past", async () => {
+    const task = await createTask({ columnId: columnA, title: "Задача" });
+    const result = await updateTask(task.id, { dueDate: "2000-01-01" });
+    expect(result.error).toBeTruthy();
+
+    const updated = await prisma.task.findUniqueOrThrow({ where: { id: task.id } });
+    expect(updated.dueDate).toBeNull();
+  });
+
+  it("rejects a fractional, negative or too large estimate", async () => {
+    const task = await createTask({ columnId: columnA, title: "Задача" });
+
+    expect((await updateTask(task.id, { estimateHours: 4.5 })).error).toBeTruthy();
+    expect((await updateTask(task.id, { estimateHours: -1 })).error).toBeTruthy();
+    expect((await updateTask(task.id, { estimateHours: 99999999 })).error).toBeTruthy();
+
+    const updated = await prisma.task.findUniqueOrThrow({ where: { id: task.id } });
+    expect(updated.estimateHours).toBeNull();
   });
 });
 

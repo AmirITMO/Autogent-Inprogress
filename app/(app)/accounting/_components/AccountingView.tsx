@@ -266,7 +266,7 @@ export function AccountingView({
             </thead>
             <tbody>
               {[...periodTx].reverse().map((t) => (
-                <tr key={t.id} className="border-b border-border/50">
+                <tr key={t.id} className="border-b border-border/50 transition hover:bg-surface-2/60">
                   <td className="py-1.5 text-muted">
                     {new Date(t.date).toLocaleDateString("ru-RU")}
                   </td>

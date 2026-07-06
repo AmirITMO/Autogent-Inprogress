@@ -20,6 +20,9 @@ services:
       - .env.production
     ports:
       - "127.0.0.1:3000:3000"
+    volumes:
+      - uploads_data:/app/uploads
+      - avatars_data:/app/public/avatars
     networks:
       - internal
       - n8n_default
@@ -31,3 +34,5 @@ networks:
 
 volumes:
   db_data:
+  uploads_data:
+  avatars_data:

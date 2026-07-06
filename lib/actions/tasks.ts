@@ -51,6 +51,8 @@ export async function moveTask(taskId: string, toColumnId: string, toIndex: numb
   revalidatePath("/my");
 }
 
+const MAX_ESTIMATE_HOURS = 2400;
+
 export async function updateTask(
   taskId: string,
   data: {
@@ -63,8 +65,28 @@ export async function updateTask(
     projectId?: string | null;
     dueDate?: string | null;
   }
-) {
+): Promise<{ error: string } | { error?: undefined }> {
   await requireUser();
+
+  if (data.dueDate) {
+    const due = new Date(data.dueDate);
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    if (Number.isNaN(due.getTime()) || due < startOfToday) {
+      return { error: "Дедлайн не может быть в прошлом" };
+    }
+  }
+
+  if (data.estimateHours != null) {
+    if (
+      !Number.isInteger(data.estimateHours) ||
+      data.estimateHours < 0 ||
+      data.estimateHours > MAX_ESTIMATE_HOURS
+    ) {
+      return { error: `Оценка в часах должна быть целым числом от 0 до ${MAX_ESTIMATE_HOURS}` };
+    }
+  }
+
   await prisma.task.update({
     where: { id: taskId },
     data: {
@@ -74,6 +96,7 @@ export async function updateTask(
   });
   revalidatePath("/tasks");
   revalidatePath("/my");
+  return {};
 }
 
 export async function deleteTask(taskId: string) {
@@ -83,11 +106,13 @@ export async function deleteTask(taskId: string) {
   revalidatePath("/my");
 }
 
+const COMMENT_AUTHOR_SELECT = { select: { name: true, avatarUrl: true } };
+
 export async function addTaskComment(taskId: string, text: string, attachmentUrl?: string) {
   const user = await requireUser();
   const comment = await prisma.taskComment.create({
     data: { taskId, userId: user.id, text, attachmentUrl },
-    include: { user: true },
+    include: { user: COMMENT_AUTHOR_SELECT },
   });
   revalidatePath("/tasks");
   return comment;
@@ -97,7 +122,7 @@ export async function getTaskComments(taskId: string) {
   await requireUser();
   return prisma.taskComment.findMany({
     where: { taskId },
-    include: { user: true },
+    include: { user: COMMENT_AUTHOR_SELECT },
     orderBy: { createdAt: "asc" },
   });
 }

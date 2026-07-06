@@ -35,12 +35,12 @@ export function LeadCard({
   return (
     <button
       onClick={onOpen}
-      className={`w-full rounded-lg border border-border bg-surface-2 p-3 text-left transition hover:border-accent/50 ${
+      className={`w-full rounded-xl border border-border bg-surface p-3.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-accent/50 hover:shadow-md ${
         dragging ? "shadow-xl" : ""
       } ${lead.lost ? "opacity-50" : ""}`}
     >
       <div className="flex items-center justify-between gap-2">
-        <div className="text-sm font-medium text-foreground">{lead.title}</div>
+        <div className="text-sm font-medium leading-snug text-foreground">{lead.title}</div>
         {lead.lost && (
           <span className="shrink-0 rounded bg-danger/10 px-1.5 py-0.5 text-[10px] font-medium text-danger">
             Отказ
@@ -48,12 +48,14 @@ export function LeadCard({
         )}
       </div>
       {lead.company && (
-        <div className="text-xs text-muted">{lead.company}</div>
+        <div className="mt-0.5 text-xs text-muted">{lead.company}</div>
       )}
-      <div className="mt-2 flex items-center justify-between">
-        <span className="text-xs text-muted">{lead.ownerName}</span>
+      <div className="mt-2.5 flex items-center justify-between">
+        <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] text-muted">
+          {lead.ownerName}
+        </span>
         {net !== 0 && (
-          <span className="text-xs font-medium text-accent">
+          <span className="text-sm font-semibold text-accent">
             {formatMoney(net)}
           </span>
         )}

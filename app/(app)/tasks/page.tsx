@@ -13,7 +13,11 @@ export default async function TasksPage() {
         include: {
           tasks: {
             orderBy: { order: "asc" },
-            include: { assignee: true, project: true, _count: { select: { comments: true } } },
+            include: {
+              assignee: { select: { id: true, name: true, avatarUrl: true } },
+              project: true,
+              _count: { select: { comments: true, attachments: true } },
+            },
           },
         },
       },
@@ -47,9 +51,11 @@ export default async function TasksPage() {
       order: t.order,
       assigneeId: t.assigneeId,
       assigneeName: t.assignee?.name ?? null,
+      assigneeAvatarUrl: t.assignee?.avatarUrl ?? null,
       projectId: t.projectId,
       projectName: t.project?.name ?? null,
       commentCount: t._count.comments,
+      attachmentCount: t._count.attachments,
     })),
   }));
 

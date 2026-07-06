@@ -30,14 +30,19 @@
   --color-success: var(--success);
   --color-danger: var(--danger);
   --color-warning: var(--warning);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-golos-text);
   --font-mono: var(--font-geist-mono);
+}
+
+html {
+  font-size: 16.5px;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), "Segoe UI", Arial, Helvetica, sans-serif;
+  line-height: 1.5;
 }
 
 ::-webkit-scrollbar {

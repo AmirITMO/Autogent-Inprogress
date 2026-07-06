@@ -40,6 +40,10 @@ yarn-error.log*
 # one-off scripts containing real customer data — never commit these
 scripts/import-leads-*.ts
 
+# загруженные файлы задач и аватарки (хранятся на сервере в volume, не в репо)
+/uploads
+/public/avatars
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

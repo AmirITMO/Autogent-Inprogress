@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useDebouncedCallback } from "use-debounce";
 import { KanbanBoard, type KanbanColumnData } from "@/components/kanban/KanbanBoard";
-import { TASK_PRIORITIES, TASK_PRIORITY_LABEL } from "@/lib/constants";
+import { TASK_PRIORITIES, TASK_PRIORITY_LABEL, DONE_COLUMN_NAME } from "@/lib/constants";
 import { createTask, moveTask } from "@/lib/actions/tasks";
 import { TaskCard, blankTaskCard, type TaskCardData } from "./TaskCard";
 import { TaskModal } from "./TaskModal";
@@ -51,7 +51,11 @@ export function TasksBoard({
         if (assigneeId && t.assigneeId !== assigneeId) return false;
         if (priority && t.priority !== priority) return false;
         if (onlyBugs && !t.isBug) return false;
-        if (onlyOverdue && !(t.dueDate && new Date(t.dueDate) < new Date())) return false;
+        if (
+          onlyOverdue &&
+          !(t.dueDate && c.title !== DONE_COLUMN_NAME && new Date(t.dueDate) < new Date())
+        )
+          return false;
         return true;
       }),
     }));
@@ -166,6 +170,7 @@ export function TasksBoard({
             <TaskCard
               task={task}
               dragging={dragging}
+              done={col?.title === DONE_COLUMN_NAME}
               onOpen={() => openTask(task, col?.title ?? "")}
             />
           );

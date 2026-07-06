@@ -55,7 +55,9 @@ function Section({
       <h3 className="mb-2 text-sm font-medium text-muted">{title}</h3>
       <div className="flex flex-col gap-2">
         {tasks.map((t) => {
-          const overdue = t.dueDate && new Date(t.dueDate) < new Date();
+          // Выполненная задача не может считаться просроченной.
+          const overdue =
+            t.columnName !== DONE_COLUMN_NAME && t.dueDate && new Date(t.dueDate) < new Date();
           return (
             <button
               key={t.id}

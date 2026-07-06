@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Golos_Text, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+// Geist не поддерживает кириллицу — русский текст рендерился системным шрифтом.
+// Golos Text даёт полноценную кириллицу и более тёплый, крупный на вид рисунок букв.
+const golosText = Golos_Text({
+  variable: "--font-golos-text",
+  subsets: ["latin", "cyrillic"],
 });
 
 const geistMono = Geist_Mono({
@@ -25,7 +27,7 @@ export default function RootLayout({
   return (
     <html
       lang="ru"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${golosText.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         {children}

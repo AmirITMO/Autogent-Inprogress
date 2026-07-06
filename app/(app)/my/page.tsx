@@ -7,8 +7,17 @@ export default async function MyTasksPage() {
 
   const tasks = await prisma.task.findMany({
     where: { assigneeId: user.id },
-    include: { column: true, project: true, _count: { select: { comments: true } } },
+    include: {
+      column: true,
+      project: true,
+      _count: { select: { comments: true, attachments: true } },
+    },
     orderBy: [{ dueDate: "asc" }, { createdAt: "desc" }],
+  });
+
+  const me = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { avatarUrl: true },
   });
 
   const [users, projects] = await Promise.all([
@@ -27,9 +36,11 @@ export default async function MyTasksPage() {
     order: t.order,
     assigneeId: t.assigneeId,
     assigneeName: user.name ?? user.email ?? "",
+    assigneeAvatarUrl: me?.avatarUrl ?? null,
     projectId: t.projectId,
     projectName: t.project?.name ?? null,
     commentCount: t._count.comments,
+    attachmentCount: t._count.attachments,
     columnName: t.column.name,
   }));
 

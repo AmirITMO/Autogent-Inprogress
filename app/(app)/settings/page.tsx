@@ -4,8 +4,9 @@ import { SettingsForm } from "./_components/SettingsForm";
 import { ProfileForm } from "./_components/ProfileForm";
 
 export default async function SettingsPage() {
-  const user = await requireUser();
-  const isAdmin = user.role === "ADMIN";
+  const sessionUser = await requireUser();
+  const isAdmin = sessionUser.role === "ADMIN";
+  const user = await prisma.user.findUniqueOrThrow({ where: { id: sessionUser.id } });
 
   const settings = isAdmin
     ? await prisma.settings.upsert({
@@ -24,7 +25,14 @@ export default async function SettingsPage() {
       <div className="flex flex-col gap-6 p-5">
         <div>
           <h2 className="mb-2 text-sm font-medium text-foreground">Мой профиль</h2>
-          <ProfileForm user={{ name: user.name ?? "", email: user.email ?? "" }} />
+          <ProfileForm
+            user={{
+              name: user.name,
+              email: user.email,
+              workEmail: user.workEmail ?? "",
+              avatarUrl: user.avatarUrl,
+            }}
+          />
         </div>
         {isAdmin && settings && (
           <div>
