@@ -13,8 +13,8 @@ const links = [
   { href: "/tasks", label: "Доска задач", roles: ["ADMIN", "EMPLOYEE"], icon: IconBoard },
   { href: "/my", label: "Мои задачи", roles: ["ADMIN", "EMPLOYEE"], icon: IconCheck },
   { href: "/calendar", label: "Календарь", roles: ["ADMIN", "EMPLOYEE"], icon: IconCalendar },
-  { href: "/accounting", label: "Бухгалтерия", roles: ["ADMIN"], icon: IconMoney },
-  { href: "/channels", label: "Каналы трафика", roles: ["ADMIN"], icon: IconChannels },
+  { href: "/accounting", label: "Бухгалтерия", roles: ["ADMIN", "EMPLOYEE"], icon: IconMoney },
+  { href: "/channels", label: "Каналы трафика", roles: ["ADMIN", "EMPLOYEE"], icon: IconChannels },
   { href: "/employees", label: "Сотрудники", roles: ["ADMIN"], icon: IconUsers },
   { href: "/settings", label: "Настройки", roles: ["ADMIN", "EMPLOYEE"], icon: IconSettings },
 ];

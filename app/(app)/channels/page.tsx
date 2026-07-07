@@ -1,10 +1,10 @@
 import { prisma } from "@/lib/prisma";
-import { requireAdmin } from "@/lib/roles";
+import { requireUser } from "@/lib/roles";
 import { stageAtOrAfter } from "@/lib/accounting";
 import { ChannelsView } from "./_components/ChannelsView";
 
 export default async function ChannelsPage() {
-  await requireAdmin();
+  await requireUser();
 
   const [channels, leads, spends] = await Promise.all([
     prisma.trafficChannel.findMany({ orderBy: { order: "asc" } }),

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin } from "@/lib/roles";
+import { requireUser } from "@/lib/roles";
 
 export async function createExpense(data: {
   categoryId: string;
@@ -10,7 +10,7 @@ export async function createExpense(data: {
   description?: string;
   date?: string;
 }) {
-  const user = await requireAdmin();
+  const user = await requireUser();
   await prisma.transaction.create({
     data: {
       categoryId: data.categoryId,

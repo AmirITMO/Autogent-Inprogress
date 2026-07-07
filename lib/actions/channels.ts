@@ -2,10 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin, requireUser } from "@/lib/roles";
+import { requireUser } from "@/lib/roles";
 
 export async function createChannel(name: string): Promise<{ error: string } | { error?: undefined }> {
-  await requireAdmin();
+  await requireUser();
   const trimmed = name.trim();
   if (!trimmed) return { error: "Введите название канала" };
 
@@ -17,7 +17,7 @@ export async function createChannel(name: string): Promise<{ error: string } | {
 }
 
 export async function renameChannel(id: string, name: string) {
-  await requireAdmin();
+  await requireUser();
   const trimmed = name.trim();
   if (!trimmed) return;
   await prisma.trafficChannel.update({ where: { id }, data: { name: trimmed } });
@@ -25,13 +25,13 @@ export async function renameChannel(id: string, name: string) {
 }
 
 export async function toggleChannelActive(id: string, isActive: boolean) {
-  await requireAdmin();
+  await requireUser();
   await prisma.trafficChannel.update({ where: { id }, data: { isActive } });
   revalidatePath("/channels");
 }
 
 export async function deleteChannel(id: string): Promise<{ error: string } | { error?: undefined }> {
-  await requireAdmin();
+  await requireUser();
   const leadCount = await prisma.lead.count({ where: { channelId: id } });
   if (leadCount > 0) {
     return { error: "Нельзя удалить канал, к которому привязаны сделки — сначала снимите привязку или заархивируйте канал" };
@@ -47,7 +47,7 @@ export async function addChannelSpend(data: {
   date?: string;
   note?: string;
 }): Promise<{ error: string } | { error?: undefined }> {
-  const user = await requireAdmin();
+  const user = await requireUser();
   if (!(data.amount > 0)) return { error: "Сумма должна быть больше нуля" };
 
   await prisma.channelSpend.create({
@@ -65,7 +65,7 @@ export async function addChannelSpend(data: {
 }
 
 export async function deleteChannelSpend(id: string) {
-  await requireAdmin();
+  await requireUser();
   await prisma.channelSpend.delete({ where: { id } });
   revalidatePath("/channels");
 }
