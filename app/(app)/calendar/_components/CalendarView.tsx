@@ -20,6 +20,7 @@ import {
   updateCalendarEvent,
   deleteCalendarEvent,
 } from "@/lib/actions/calendar";
+import { mskInputToUtcIso, toMoscowParts, addOneHour } from "@/lib/moscowTime";
 
 type Attendee = { id: string; name: string; avatarUrl: string | null };
 type CalEvent = {
@@ -33,10 +34,6 @@ type CalEvent = {
 };
 
 const WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
-
-function toTimeInput(iso: string) {
-  return iso.slice(11, 16);
-}
 
 export function CalendarView({
   initialMonth,
@@ -72,7 +69,7 @@ export function CalendarView({
   const eventsByDay = useMemo(() => {
     const map = new Map<string, CalEvent[]>();
     for (const e of events) {
-      const key = e.startAt.slice(0, 10);
+      const key = toMoscowParts(e.startAt).dateKey;
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(e);
     }
@@ -166,7 +163,7 @@ export function CalendarView({
                     className="truncate rounded bg-accent-2/15 px-1.5 py-0.5 text-left text-[11px] text-accent-2 hover:bg-accent-2/25"
                     title={`${ev.title}${ev.attendees.length ? " — " + ev.attendees.map((a) => a.name).join(", ") : ""}`}
                   >
-                    {toTimeInput(ev.startAt)} {ev.title}
+                    {toMoscowParts(ev.startAt).timeLabel} {ev.title}
                   </button>
                 ))}
                 {dayEvents.length > 3 && (
@@ -218,11 +215,19 @@ function EventModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const dateStr = format(date, "yyyy-MM-dd");
+  // Для существующего события дата/время выводятся из его UTC-момента по московскому
+  // времени, а не из локального часового пояса браузера — иначе при просмотре/
+  // редактировании они бы "поплыли" на разницу с МСК.
+  const dateStr = existing ? toMoscowParts(existing.startAt).dateKey : format(date, "yyyy-MM-dd");
   const [title, setTitle] = useState(existing?.title ?? "");
   const [description, setDescription] = useState(existing?.description ?? "");
-  const [startTime, setStartTime] = useState(existing ? toTimeInput(existing.startAt) : "10:00");
-  const [endTime, setEndTime] = useState(existing ? toTimeInput(existing.endAt) : "10:30");
+  const [startTime, setStartTime] = useState(
+    existing ? toMoscowParts(existing.startAt).timeLabel : "10:00"
+  );
+  const [endTime, setEndTime] = useState(
+    existing ? toMoscowParts(existing.endAt).timeLabel : addOneHour("10:00")
+  );
+  const [endTouched, setEndTouched] = useState(!!existing);
   const [attendeeIds, setAttendeeIds] = useState<string[]>(
     existing?.attendees.map((a) => a.id) ?? []
   );
@@ -233,11 +238,18 @@ function EventModal({
     setAttendeeIds((ids) => (ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id]));
   }
 
+  function handleStartTimeChange(value: string) {
+    setStartTime(value);
+    // Пока пользователь не трогал поле "Конец" вручную, конец всегда следует
+    // за началом со сдвигом в час — удобнее, чем каждый раз выставлять руками.
+    if (!endTouched) setEndTime(addOneHour(value));
+  }
+
   async function handleSave() {
     setSaving(true);
     setError("");
-    const startAt = new Date(`${dateStr}T${startTime}:00`).toISOString();
-    const endAt = new Date(`${dateStr}T${endTime}:00`).toISOString();
+    const startAt = mskInputToUtcIso(dateStr, startTime);
+    const endAt = mskInputToUtcIso(dateStr, endTime);
     const result = existing
       ? await updateCalendarEvent(existing.id, { title, description, startAt, endAt, attendeeIds })
       : await createCalendarEvent({ title, description, startAt, endAt, attendeeIds });
@@ -281,8 +293,8 @@ function EventModal({
           <div className="grid grid-cols-3 gap-3">
             <div className="flex flex-col gap-1">
               <label className="text-xs text-muted">Дата</label>
-              <div className="rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-sm text-muted">
-                {format(date, "d MMMM", { locale: ru })}
+              <div className="rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-sm capitalize text-muted">
+                {format(new Date(`${dateStr}T12:00:00`), "d MMMM", { locale: ru })}
               </div>
             </div>
             <div className="flex flex-col gap-1">
@@ -290,7 +302,7 @@ function EventModal({
               <input
                 type="time"
                 value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
+                onChange={(e) => handleStartTimeChange(e.target.value)}
                 className="rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-sm text-foreground outline-none focus:border-accent"
               />
             </div>
@@ -299,7 +311,10 @@ function EventModal({
               <input
                 type="time"
                 value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
+                onChange={(e) => {
+                  setEndTime(e.target.value);
+                  setEndTouched(true);
+                }}
                 className="rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-sm text-foreground outline-none focus:border-accent"
               />
             </div>

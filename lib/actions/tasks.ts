@@ -106,23 +106,44 @@ export async function deleteTask(taskId: string) {
   revalidatePath("/my");
 }
 
-const COMMENT_AUTHOR_SELECT = { select: { name: true, avatarUrl: true } };
+const COMMENT_AUTHOR_SELECT = { select: { id: true, name: true, avatarUrl: true } };
+const COMMENT_ATTACHMENTS_SELECT = {
+  select: { id: true, fileName: true, mimeType: true, size: true, createdAt: true },
+  orderBy: { createdAt: "asc" as const },
+};
 
-export async function addTaskComment(taskId: string, text: string, attachmentUrl?: string) {
+export async function addTaskComment(
+  taskId: string,
+  text: string,
+  attachmentUrl?: string,
+  attachmentIds?: string[]
+) {
   const user = await requireUser();
   const comment = await prisma.taskComment.create({
     data: { taskId, userId: user.id, text, attachmentUrl },
-    include: { user: COMMENT_AUTHOR_SELECT },
   });
+
+  if (attachmentIds?.length) {
+    await prisma.taskAttachment.updateMany({
+      where: { id: { in: attachmentIds }, taskId },
+      data: { commentId: comment.id },
+    });
+  }
+
+  const full = await prisma.taskComment.findUniqueOrThrow({
+    where: { id: comment.id },
+    include: { user: COMMENT_AUTHOR_SELECT, attachments: COMMENT_ATTACHMENTS_SELECT },
+  });
+
   revalidatePath("/tasks");
-  return comment;
+  return full;
 }
 
 export async function getTaskComments(taskId: string) {
   await requireUser();
   return prisma.taskComment.findMany({
     where: { taskId },
-    include: { user: COMMENT_AUTHOR_SELECT },
+    include: { user: COMMENT_AUTHOR_SELECT, attachments: COMMENT_ATTACHMENTS_SELECT },
     orderBy: { createdAt: "asc" },
   });
 }

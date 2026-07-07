@@ -142,4 +142,25 @@ describe("comments", () => {
     const all = await getTaskComments(task.id);
     expect(all).toHaveLength(1);
   });
+
+  it("links previously uploaded attachments to the comment", async () => {
+    const task = await createTask({ columnId: columnA, title: "Задача" });
+    const file = await prisma.taskAttachment.create({
+      data: {
+        taskId: task.id,
+        fileName: "screenshot.png",
+        mimeType: "image/png",
+        size: 1234,
+        storageKey: `${task.id}/screenshot.png`,
+        uploadedById: testUser.id,
+      },
+    });
+
+    const comment = await addTaskComment(task.id, "скриншот бага", undefined, [file.id]);
+    expect(comment.attachments).toHaveLength(1);
+    expect(comment.attachments[0].fileName).toBe("screenshot.png");
+
+    const updated = await prisma.taskAttachment.findUniqueOrThrow({ where: { id: file.id } });
+    expect(updated.commentId).toBe(comment.id);
+  });
 });

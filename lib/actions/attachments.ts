@@ -18,10 +18,18 @@ function sanitizeFileName(name: string) {
   return name.replace(/[/\\?%*:|"<>]/g, "_").slice(-150) || "file";
 }
 
+type UploadedAttachment = {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
+  createdAt: Date;
+};
+
 export async function uploadTaskAttachment(
   taskId: string,
   formData: FormData
-): Promise<{ error: string; attachmentId?: undefined } | { error?: undefined; attachmentId: string }> {
+): Promise<{ error: string; attachment?: undefined } | { error?: undefined; attachment: UploadedAttachment }> {
   const user = await requireUser();
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
@@ -60,7 +68,15 @@ export async function uploadTaskAttachment(
 
   revalidatePath("/tasks");
   revalidatePath("/my");
-  return { attachmentId: attachment.id };
+  return {
+    attachment: {
+      id: attachment.id,
+      fileName: attachment.fileName,
+      mimeType: attachment.mimeType,
+      size: attachment.size,
+      createdAt: attachment.createdAt,
+    },
+  };
 }
 
 export async function listTaskAttachments(taskId: string) {

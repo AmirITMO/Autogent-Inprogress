@@ -16,14 +16,6 @@ import { IconBug, IconPaperclip, IconLink } from "@/components/icons";
 
 const MAX_ESTIMATE_HOURS = 2400;
 
-type Comment = {
-  id: string;
-  text: string;
-  attachmentUrl: string | null;
-  createdAt: Date;
-  user: { name: string; avatarUrl: string | null };
-};
-
 type Attachment = {
   id: string;
   fileName: string;
@@ -31,6 +23,19 @@ type Attachment = {
   size: number;
   createdAt: Date;
 };
+
+type Comment = {
+  id: string;
+  text: string;
+  attachmentUrl: string | null;
+  createdAt: Date;
+  user: { name: string; avatarUrl: string | null };
+  attachments: Attachment[];
+};
+
+function isImage(mimeType: string) {
+  return mimeType.startsWith("image/");
+}
 
 function todayInputValue() {
   const d = new Date();
@@ -88,7 +93,8 @@ export function TaskModal({
   const [uploadError, setUploadError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [commentFile, setCommentFile] = useState<File | null>(null);
+  const [pendingFiles, setPendingFiles] = useState<Attachment[]>([]);
+  const [pendingUploading, setPendingUploading] = useState(false);
   const [sendingComment, setSendingComment] = useState(false);
   const [commentError, setCommentError] = useState("");
   const commentFileInputRef = useRef<HTMLInputElement>(null);
@@ -150,28 +156,64 @@ export function TaskModal({
     onClose();
   }
 
+  async function uploadOneToPending(file: File) {
+    const formData = new FormData();
+    formData.append("file", file);
+    const result = await uploadTaskAttachment(task.id, formData);
+    if (result.error) {
+      setCommentError(result.error);
+      return;
+    }
+    if (!result.attachment) return;
+    const uploaded = result.attachment;
+    setPendingFiles((p) => [...p, uploaded]);
+  }
+
+  async function handlePendingFilesSelected(files: FileList | File[]) {
+    const list = Array.from(files);
+    if (list.length === 0) return;
+    setPendingUploading(true);
+    setCommentError("");
+    try {
+      for (const file of list) {
+        await uploadOneToPending(file);
+      }
+    } finally {
+      setPendingUploading(false);
+    }
+  }
+
+  function handleCommentPaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
+    const imageFiles = Array.from(e.clipboardData.items)
+      .filter((item) => item.type.startsWith("image/"))
+      .map((item) => item.getAsFile())
+      .filter((f): f is File => f !== null);
+    if (imageFiles.length === 0) return;
+    e.preventDefault();
+    handlePendingFilesSelected(imageFiles);
+  }
+
+  function removePendingFile(id: string) {
+    setPendingFiles((p) => p.filter((f) => f.id !== id));
+    deleteTaskAttachment(id);
+  }
+
   async function handleAddComment() {
     if (!newComment.trim()) return;
     setSendingComment(true);
     setCommentError("");
     try {
-      let attachmentUrl = newAttachment || undefined;
-      if (commentFile) {
-        const formData = new FormData();
-        formData.append("file", commentFile);
-        const uploadResult = await uploadTaskAttachment(task.id, formData);
-        if (uploadResult.error) {
-          setCommentError(uploadResult.error);
-          return;
-        }
-        attachmentUrl = `/api/attachments/${uploadResult.attachmentId}`;
-        listTaskAttachments(task.id).then((a) => setAttachments(a as unknown as Attachment[]));
-      }
-      const comment = await addTaskComment(task.id, newComment.trim(), attachmentUrl);
+      const comment = await addTaskComment(
+        task.id,
+        newComment.trim(),
+        newAttachment || undefined,
+        pendingFiles.map((f) => f.id)
+      );
       setComments((c) => [...c, comment as unknown as Comment]);
+      setAttachments((a) => [...a, ...pendingFiles]);
       setNewComment("");
       setNewAttachment("");
-      setCommentFile(null);
+      setPendingFiles([]);
       if (commentFileInputRef.current) commentFileInputRef.current.value = "";
     } finally {
       setSendingComment(false);
@@ -179,19 +221,21 @@ export function TaskModal({
   }
 
   async function handleUploadFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
     setUploading(true);
     setUploadError("");
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const result = await uploadTaskAttachment(task.id, formData);
-      if (result.error) {
-        setUploadError(result.error);
-      } else {
-        listTaskAttachments(task.id).then((a) => setAttachments(a as unknown as Attachment[]));
+      for (const file of Array.from(files)) {
+        const formData = new FormData();
+        formData.append("file", file);
+        const result = await uploadTaskAttachment(task.id, formData);
+        if (result.error) {
+          setUploadError(result.error);
+          break;
+        }
       }
+      listTaskAttachments(task.id).then((a) => setAttachments(a as unknown as Attachment[]));
     } catch {
       setUploadError("Не удалось загрузить файл");
     } finally {
@@ -243,7 +287,7 @@ export function TaskModal({
           <div className="mt-3 flex flex-col gap-1">
             <label className="text-xs font-medium text-muted">Описание</label>
             <textarea
-              rows={3}
+              rows={8}
               value={form.description}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
               placeholder="Опишите, что нужно сделать…"
@@ -367,11 +411,12 @@ export function TaskModal({
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploading}
-                className="rounded-lg border border-border px-2.5 py-1 text-xs text-foreground hover:bg-surface-2 disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-lg border border-accent bg-accent-soft px-3 py-1.5 text-xs font-medium text-accent hover:bg-accent/20 disabled:opacity-50"
               >
-                {uploading ? "Загрузка…" : "+ Прикрепить файл"}
+                <IconPaperclip className="h-4 w-4" />
+                {uploading ? "Загрузка…" : "Прикрепить файлы"}
               </button>
-              <input ref={fileInputRef} type="file" onChange={handleUploadFile} className="hidden" />
+              <input ref={fileInputRef} type="file" multiple onChange={handleUploadFile} className="hidden" />
             </div>
             {uploadError && <div className="mb-2 text-xs text-danger">{uploadError}</div>}
             <div className="text-[11px] text-muted mb-2">
@@ -479,8 +524,42 @@ export function TaskModal({
                         rel="noreferrer"
                         className="mt-1 inline-block text-xs text-accent underline"
                       >
-                        вложение
+                        вложение (ссылка)
                       </a>
+                    )}
+                    {c.attachments.length > 0 && (
+                      <div className="mt-1.5 flex flex-col gap-1.5">
+                        {c.attachments.map((a) =>
+                          isImage(a.mimeType) ? (
+                            <a
+                              key={a.id}
+                              href={`/api/attachments/${a.id}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="block w-fit overflow-hidden rounded-lg border border-border"
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={`/api/attachments/${a.id}`}
+                                alt={a.fileName}
+                                className="max-h-64 max-w-full object-contain"
+                              />
+                            </a>
+                          ) : (
+                            <a
+                              key={a.id}
+                              href={`/api/attachments/${a.id}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="flex items-center gap-1.5 rounded-lg border border-border bg-surface px-2.5 py-1.5 text-xs text-foreground hover:border-accent/50"
+                            >
+                              <IconPaperclip className="h-3.5 w-3.5 shrink-0 text-muted" />
+                              <span className="min-w-0 flex-1 truncate">{a.fileName}</span>
+                              <span className="shrink-0 text-muted">{formatSize(a.size)}</span>
+                            </a>
+                          )
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -491,52 +570,61 @@ export function TaskModal({
             <textarea
               value={newComment}
               onChange={(e) => setNewComment(e.target.value)}
-              placeholder="Написать комментарий…"
+              onPaste={handleCommentPaste}
+              placeholder="Написать комментарий… (можно вставить скриншот через Ctrl+V)"
               rows={2}
               className="w-full resize-none rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none focus:border-accent"
             />
             {commentError && <div className="mt-1 text-xs text-danger">{commentError}</div>}
-            {commentFile && (
-              <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-surface-2 px-2.5 py-1.5 text-xs text-foreground">
-                <IconPaperclip className="h-3.5 w-3.5 shrink-0" />
-                <span className="min-w-0 flex-1 truncate">{commentFile.name}</span>
-                <button
-                  onClick={() => {
-                    setCommentFile(null);
-                    if (commentFileInputRef.current) commentFileInputRef.current.value = "";
-                  }}
-                  className="shrink-0 text-muted hover:text-danger"
-                >
-                  ✕
-                </button>
+            {pendingFiles.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {pendingFiles.map((f) => (
+                  <div
+                    key={f.id}
+                    className="flex items-center gap-1.5 rounded-lg bg-surface-2 px-2.5 py-1.5 text-xs text-foreground"
+                  >
+                    {isImage(f.mimeType) ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={`/api/attachments/${f.id}`}
+                        alt={f.fileName}
+                        className="h-6 w-6 rounded object-cover"
+                      />
+                    ) : (
+                      <IconPaperclip className="h-3.5 w-3.5 shrink-0" />
+                    )}
+                    <span className="max-w-[120px] truncate">{f.fileName}</span>
+                    <button onClick={() => removePendingFile(f.id)} className="shrink-0 text-muted hover:text-danger">
+                      ✕
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
             <div className="mt-2 flex gap-2">
-              {!commentFile && (
-                <input
-                  value={newAttachment}
-                  onChange={(e) => setNewAttachment(e.target.value)}
-                  placeholder="Ссылка на файл (опц.)"
-                  className="min-w-0 flex-1 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground outline-none focus:border-accent"
-                />
-              )}
+              <input
+                value={newAttachment}
+                onChange={(e) => setNewAttachment(e.target.value)}
+                placeholder="Ссылка на файл (опц.)"
+                className="min-w-0 flex-1 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground outline-none focus:border-accent"
+              />
               <button
                 type="button"
                 onClick={() => commentFileInputRef.current?.click()}
-                title="Прикрепить файл"
-                className="shrink-0 rounded-lg border border-border px-2.5 py-1.5 text-muted hover:bg-surface-2 hover:text-foreground"
+                disabled={pendingUploading}
+                title="Прикрепить файлы"
+                className="flex shrink-0 items-center gap-1.5 rounded-lg border border-accent bg-accent-soft px-3 py-1.5 text-sm font-medium text-accent hover:bg-accent/20 disabled:opacity-50"
               >
                 <IconPaperclip className="h-4 w-4" />
+                {pendingUploading ? "Загрузка…" : "Файл"}
               </button>
               <input
                 ref={commentFileInputRef}
                 type="file"
+                multiple
                 onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    setCommentFile(file);
-                    setNewAttachment("");
-                  }
+                  if (e.target.files) handlePendingFilesSelected(e.target.files);
+                  e.target.value = "";
                 }}
                 className="hidden"
               />

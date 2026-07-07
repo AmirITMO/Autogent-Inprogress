@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/roles";
 import { LEAD_STAGES, formatMoney, DONE_COLUMN_NAME } from "@/lib/constants";
 import { reconcileAllLeadIncome } from "@/lib/actions/leads";
+import { toMoscowParts } from "@/lib/moscowTime";
 import { KpiPanel } from "./_components/KpiPanel";
 import {
   IconTrendUp,
@@ -77,6 +78,12 @@ export default async function DashboardPage() {
   };
   for (const stage of LEAD_STAGES) {
     metricValues[`stage_${stage.id}`] = leads.filter((l) => l.stage === stage.id).length;
+  }
+
+  function formatMskEventTime(date: Date) {
+    const { dateKey, timeLabel } = toMoscowParts(date);
+    const [y, m, d] = dateKey.split("-");
+    return `${d}.${m}.${y} ${timeLabel}`;
   }
 
   const hour = new Date().getHours();
@@ -177,7 +184,7 @@ export default async function DashboardPage() {
                   >
                     <div className="min-w-0 truncate text-foreground">{e.title}</div>
                     <span className="shrink-0 text-xs font-medium text-accent-2">
-                      {e.startAt.toLocaleDateString("ru-RU")} {e.startAt.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
+                      {formatMskEventTime(e.startAt)}
                     </span>
                   </div>
                 ))}
@@ -195,7 +202,7 @@ export default async function DashboardPage() {
                     >
                       <span className="min-w-0 truncate">{e.title}</span>
                       <span className="shrink-0">
-                        {e.startAt.toLocaleDateString("ru-RU")} {e.startAt.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
+                        {formatMskEventTime(e.startAt)}
                       </span>
                     </div>
                   ))}
