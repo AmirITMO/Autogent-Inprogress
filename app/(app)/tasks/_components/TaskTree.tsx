@@ -20,7 +20,7 @@ import { statusOf, type NodeStatus } from "@/lib/taskNodeStatus";
 import { TASK_PRIORITY_COLOR, DONE_COLUMN_NAME } from "@/lib/constants";
 import { createTask } from "@/lib/actions/tasks";
 import { createTaskNode, updateTaskNode, deleteTaskNode, moveTaskNode } from "@/lib/actions/taskNodes";
-import { TaskModal } from "./TaskModal";
+import { TaskModal, type TaskPermFlags } from "./TaskModal";
 import { blankTaskCard, type TaskCardData } from "./TaskCard";
 
 export type TreeTask = TaskCardData & { columnName: string; columnId: string };
@@ -307,12 +307,14 @@ function InnerTree({
   users,
   projects,
   nodesByTask,
+  perms,
 }: {
   tasks: TreeTask[];
   columns: { id: string; title: string }[];
   users: { id: string; name: string }[];
   projects: { id: string; name: string }[];
   nodesByTask: Record<string, MindNodeRow[]>;
+  perms: TaskPermFlags;
 }) {
   const [activeTask, setActiveTask] = useState<TaskCardData | null>(null);
   const [activeColumnName, setActiveColumnName] = useState("");
@@ -520,6 +522,7 @@ function InnerTree({
           columnName={activeColumnName}
           users={users}
           projects={projects}
+          perms={perms}
           onClose={() => setActiveTask(null)}
         />
       )}
@@ -533,6 +536,7 @@ export function TaskTree(props: {
   users: { id: string; name: string }[];
   projects: { id: string; name: string }[];
   nodesByTask: Record<string, MindNodeRow[]>;
+  perms: TaskPermFlags;
 }) {
   return (
     <ReactFlowProvider>

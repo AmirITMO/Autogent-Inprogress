@@ -66,6 +66,7 @@ export function TasksView({
             users={users}
             projects={projects}
             nodesByTask={nodesByTask}
+            perms={perms}
           />
         </div>
       )}
