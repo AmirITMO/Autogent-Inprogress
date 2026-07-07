@@ -50,7 +50,7 @@ export function KpiPanel({
       {active.length === 0 ? (
         <p className="text-sm text-muted">Цели не заданы.</p>
       ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-[repeat(auto-fit,minmax(180px,1fr))]">
           {active.map((m) => {
             const kpi = kpis.find((k) => k.metricKey === m.key)!;
             const current = values[m.key] ?? 0;

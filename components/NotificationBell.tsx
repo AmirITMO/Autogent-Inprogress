@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   listNotifications,
@@ -31,10 +31,14 @@ function timeAgo(date: Date) {
   return `${days} дн назад`;
 }
 
+const DROPDOWN_WIDTH = 320;
+
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [items, setItems] = useState<NotificationItem[] | null>(null);
+  const [pos, setPos] = useState<{ left: number; bottom: number } | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     getUnreadNotificationCount().then(setUnreadCount);
@@ -45,6 +49,14 @@ export function NotificationBell() {
   }, []);
 
   function handleOpen() {
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (rect) {
+      const left = Math.min(
+        Math.max(8, rect.right - DROPDOWN_WIDTH),
+        window.innerWidth - DROPDOWN_WIDTH - 8
+      );
+      setPos({ left, bottom: window.innerHeight - rect.top + 8 });
+    }
     setOpen(true);
     listNotifications().then((r) => {
       setItems(r.items as unknown as NotificationItem[]);
@@ -70,6 +82,7 @@ export function NotificationBell() {
   return (
     <div className="relative">
       <button
+        ref={buttonRef}
         onClick={() => (open ? setOpen(false) : handleOpen())}
         aria-label="Уведомления"
         className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-foreground"
@@ -82,10 +95,13 @@ export function NotificationBell() {
         )}
       </button>
 
-      {open && (
+      {open && pos && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute bottom-full right-0 z-50 mb-2 max-h-[70vh] w-80 overflow-hidden rounded-xl border border-border bg-surface shadow-lg">
+          <div
+            style={{ left: pos.left, bottom: pos.bottom, width: DROPDOWN_WIDTH }}
+            className="fixed z-50 max-h-[70vh] overflow-hidden rounded-xl border border-border bg-surface shadow-lg"
+          >
             <div className="flex items-center justify-between border-b border-border px-4 py-3">
               <h3 className="text-sm font-medium text-foreground">Уведомления</h3>
               {items && items.some((n) => !n.read) && (
