@@ -9,7 +9,13 @@ import { LeadCard, type LeadCardData } from "./LeadCard";
 import { LeadModal } from "./LeadModal";
 import { NewLeadModal } from "./NewLeadModal";
 
-export function CrmBoard({ initialLeads }: { initialLeads: LeadCardData[] }) {
+export function CrmBoard({
+  initialLeads,
+  channels,
+}: {
+  initialLeads: LeadCardData[];
+  channels: { id: string; name: string }[];
+}) {
   const [query, setQuery] = useState("");
   const [showLost, setShowLost] = useState(false);
   const [activeLead, setActiveLead] = useState<LeadCardData | null>(null);
@@ -104,9 +110,9 @@ export function CrmBoard({ initialLeads }: { initialLeads: LeadCardData[] }) {
       </div>
 
       {activeLead && (
-        <LeadModal lead={activeLead} onClose={() => setActiveLead(null)} />
+        <LeadModal lead={activeLead} channels={channels} onClose={() => setActiveLead(null)} />
       )}
-      {creating && <NewLeadModal onClose={() => setCreating(false)} />}
+      {creating && <NewLeadModal channels={channels} onClose={() => setCreating(false)} />}
     </div>
   );
 }

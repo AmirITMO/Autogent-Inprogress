@@ -17,7 +17,7 @@ export default auth((req) => {
 
   // "/settings" не входит в этот список: страница настроек доступна всем —
   // раздел профиля виден каждому, а расписание сводок рендерится только для ADMIN.
-  const adminOnly = ["/accounting", "/employees"];
+  const adminOnly = ["/accounting", "/employees", "/channels"];
   if (
     adminOnly.some((p) => pathname.startsWith(p)) &&
     req.auth?.user?.role !== "ADMIN"

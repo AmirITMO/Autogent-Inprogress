@@ -10,9 +10,11 @@ type Activity = { id: string; message: string; createdAt: Date; user: { name: st
 
 export function LeadModal({
   lead,
+  channels,
   onClose,
 }: {
   lead: LeadCardData;
+  channels: { id: string; name: string }[];
   onClose: () => void;
 }) {
   const [form, setForm] = useState({
@@ -28,6 +30,7 @@ export function LeadModal({
     expenses: lead.expenses,
     notes: lead.notes ?? "",
     startDate: lead.startDate.slice(0, 10),
+    channelId: lead.channelId ?? "",
   });
   const [saving, setSaving] = useState(false);
   const [activity, setActivity] = useState<Activity[]>([]);
@@ -62,7 +65,7 @@ export function LeadModal({
 
   async function handleSave() {
     setSaving(true);
-    await updateLead(lead.id, form);
+    await updateLead(lead.id, { ...form, channelId: form.channelId || null });
     setSaving(false);
     onClose();
   }
@@ -122,6 +125,21 @@ export function LeadModal({
           {field("monthlySub", "Ежемес. подписка", "number")}
           {field("expenses", "Растраты", "number")}
           {field("startDate", "Дата появления сделки", "date")}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-muted">Канал трафика</label>
+            <select
+              value={form.channelId}
+              onChange={(e) => setForm((f) => ({ ...f, channelId: e.target.value }))}
+              className="rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-sm text-foreground outline-none focus:border-accent"
+            >
+              <option value="">—</option>
+              {channels.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div className="mt-3 flex flex-col gap-1">

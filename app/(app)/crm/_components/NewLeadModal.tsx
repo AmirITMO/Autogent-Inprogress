@@ -3,13 +3,20 @@
 import { useState } from "react";
 import { createLead } from "@/lib/actions/leads";
 
-export function NewLeadModal({ onClose }: { onClose: () => void }) {
+export function NewLeadModal({
+  channels,
+  onClose,
+}: {
+  channels: { id: string; name: string }[];
+  onClose: () => void;
+}) {
   const [form, setForm] = useState({
     title: "",
     company: "",
     description: "",
     contactName: "",
     contact: "",
+    channelId: "",
   });
   const [saving, setSaving] = useState(false);
 
@@ -22,6 +29,7 @@ export function NewLeadModal({ onClose }: { onClose: () => void }) {
       description: form.description.trim() || undefined,
       contactName: form.contactName.trim() || undefined,
       contact: form.contact.trim() || undefined,
+      channelId: form.channelId || undefined,
     });
     setSaving(false);
     onClose();
@@ -58,6 +66,21 @@ export function NewLeadModal({ onClose }: { onClose: () => void }) {
           {field("company", "Компания")}
           {field("contactName", "Имя ЛПР")}
           {field("contact", "Контакт ЛПР", "телефон, telegram…")}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-muted">Канал трафика</label>
+            <select
+              value={form.channelId}
+              onChange={(e) => setForm((f) => ({ ...f, channelId: e.target.value }))}
+              className="rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-sm text-foreground outline-none focus:border-accent"
+            >
+              <option value="">—</option>
+              {channels.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
           <div className="flex flex-col gap-1">
             <label className="text-xs text-muted">Дополнительное описание</label>
             <textarea

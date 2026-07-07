@@ -13,6 +13,7 @@ export async function createLead(data: {
   description?: string;
   contactName?: string;
   contact?: string;
+  channelId?: string;
 }) {
   const user = await requireUser();
   const last = await prisma.lead.findFirst({
@@ -27,6 +28,7 @@ export async function createLead(data: {
       description: data.description,
       contactName: data.contactName,
       contact: data.contact,
+      channelId: data.channelId || undefined,
       stage: "SCHEDULED_CALL",
       order: (last?.order ?? 0) + 1,
       ownerId: user.id,
@@ -99,6 +101,7 @@ export async function updateLead(
     expenses?: number;
     notes?: string;
     startDate?: string;
+    channelId?: string | null;
   }
 ) {
   const user = await requireUser();
@@ -275,7 +278,7 @@ export async function getLeadActivity(leadId: string) {
   await requireUser();
   return prisma.leadActivity.findMany({
     where: { leadId },
-    include: { user: true },
+    include: { user: { select: { name: true } } },
     orderBy: { createdAt: "desc" },
   });
 }

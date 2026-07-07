@@ -57,6 +57,8 @@ model User {
   taskAttachments TaskAttachment[]
   transactions   Transaction[]
   projectAccess  ProjectMember[]
+  channelSpends  ChannelSpend[]
+  calendarEvents CalendarEvent[]
 }
 
 model Project {
@@ -101,10 +103,39 @@ model Lead {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  channelId   String?
+  channel     TrafficChannel? @relation(fields: [channelId], references: [id])
+
   activity     LeadActivity[]
   transactions Transaction[]
 
   @@index([stage])
+  @@index([channelId])
+}
+
+model TrafficChannel {
+  id        String   @id @default(cuid())
+  name      String
+  isActive  Boolean  @default(true)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  leads  Lead[]
+  spends ChannelSpend[]
+}
+
+model ChannelSpend {
+  id          String         @id @default(cuid())
+  channelId   String
+  channel     TrafficChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  amount      Decimal        @db.Decimal(12, 2)
+  date        DateTime       @default(now())
+  note        String?
+  createdById String
+  createdBy   User           @relation(fields: [createdById], references: [id])
+  createdAt   DateTime       @default(now())
+
+  @@index([channelId])
 }
 
 model LeadActivity {
@@ -221,6 +252,19 @@ model TransactionCategory {
   type        TransactionType
   isRecurring Boolean           @default(false)
   transactions Transaction[]
+}
+
+model CalendarEvent {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  startAt     DateTime
+  endAt       DateTime
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@index([startAt])
 }
 
 model Transaction {

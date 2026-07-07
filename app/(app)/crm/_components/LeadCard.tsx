@@ -19,6 +19,8 @@ export type LeadCardData = {
   startDate: string;
   order: number;
   ownerName: string;
+  channelId: string | null;
+  channelName: string | null;
 };
 
 export function LeadCard({
@@ -51,8 +53,15 @@ export function LeadCard({
         <div className="mt-0.5 text-xs text-muted">{lead.company}</div>
       )}
       <div className="mt-2.5 flex items-center justify-between">
-        <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] text-muted">
-          {lead.ownerName}
+        <span className="flex items-center gap-1.5">
+          <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] text-muted">
+            {lead.ownerName}
+          </span>
+          {lead.channelName && (
+            <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[11px] text-accent">
+              {lead.channelName}
+            </span>
+          )}
         </span>
         {net !== 0 && (
           <span className="text-sm font-semibold text-accent">
