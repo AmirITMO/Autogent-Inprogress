@@ -4,7 +4,7 @@ import { reconcileAllLeadIncome } from "@/lib/actions/leads";
 import { AccountingView } from "./_components/AccountingView";
 
 export default async function AccountingPage() {
-  await requirePagePermission("viewAccounting");
+  const { perms } = await requirePagePermission("viewAccounting");
   await reconcileAllLeadIncome();
 
   const [transactions, categories, leads] = await Promise.all([
@@ -41,7 +41,12 @@ export default async function AccountingPage() {
         <h1 className="text-lg font-semibold text-foreground">Бухгалтерия</h1>
         <p className="text-sm text-muted">Касса, доходы и расходы бизнеса</p>
       </div>
-      <AccountingView transactions={serializedTx} categories={serializedCategories} leads={leads} />
+      <AccountingView
+        transactions={serializedTx}
+        categories={serializedCategories}
+        leads={leads}
+        canEditCrm={perms.editCrm}
+      />
     </div>
   );
 }

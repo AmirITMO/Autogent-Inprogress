@@ -50,10 +50,12 @@ export function AccountingView({
   transactions,
   categories,
   leads,
+  canEditCrm,
 }: {
   transactions: Tx[];
   categories: Category[];
   leads: LeadOption[];
+  canEditCrm: boolean;
 }) {
   const [period, setPeriod] = useState(currentMonthKey());
   const [showAllPeriods, setShowAllPeriods] = useState(false);
@@ -203,7 +205,7 @@ export function AccountingView({
         </div>
       </div>
 
-      <AddTransactionForm categories={categories} leads={leads} />
+      <AddTransactionForm categories={categories} leads={leads} canEditCrm={canEditCrm} />
 
       <div className="mt-6 rounded-xl border border-border bg-surface p-4">
         <h3 className="mb-3 text-sm font-medium text-foreground">
@@ -266,7 +268,15 @@ export function AccountingView({
   );
 }
 
-function AddTransactionForm({ categories, leads }: { categories: Category[]; leads: LeadOption[] }) {
+function AddTransactionForm({
+  categories,
+  leads,
+  canEditCrm,
+}: {
+  categories: Category[];
+  leads: LeadOption[];
+  canEditCrm: boolean;
+}) {
   const [type, setType] = useState<"INCOME" | "EXPENSE">("EXPENSE");
   const [form, setForm] = useState({
     categoryId: "",
@@ -290,11 +300,16 @@ function AddTransactionForm({ categories, leads }: { categories: Category[]; lea
     if (!newLeadTitle.trim()) return;
     setLeadBusy(true);
     setLeadError("");
-    const lead = await createLead({ title: newLeadTitle.trim() });
-    setLeadBusy(false);
-    setNewLeadTitle("");
-    setAddingLead(false);
-    setForm((f) => ({ ...f, leadId: lead.id }));
+    try {
+      const lead = await createLead({ title: newLeadTitle.trim() });
+      setNewLeadTitle("");
+      setAddingLead(false);
+      setForm((f) => ({ ...f, leadId: lead.id }));
+    } catch {
+      setLeadError("Нет прав на создание сделок — обратитесь к администратору");
+    } finally {
+      setLeadBusy(false);
+    }
   }
 
   async function handleDeleteLead() {
@@ -302,13 +317,18 @@ function AddTransactionForm({ categories, leads }: { categories: Category[]; lea
     if (!confirm("Удалить эту сделку насовсем? Действие необратимо.")) return;
     setLeadBusy(true);
     setLeadError("");
-    const result = await deleteLead(form.leadId);
-    setLeadBusy(false);
-    if (result.error) {
-      setLeadError(result.error);
-      return;
+    try {
+      const result = await deleteLead(form.leadId);
+      if (result.error) {
+        setLeadError(result.error);
+        return;
+      }
+      setForm((f) => ({ ...f, leadId: "" }));
+    } catch {
+      setLeadError("Нет прав на удаление сделок — обратитесь к администратору");
+    } finally {
+      setLeadBusy(false);
     }
-    setForm((f) => ({ ...f, leadId: "" }));
   }
 
   function switchType(next: "INCOME" | "EXPENSE") {
@@ -400,7 +420,7 @@ function AddTransactionForm({ categories, leads }: { categories: Category[]; lea
         </div>
         <div className="flex min-w-[200px] flex-col gap-1">
           <label className="text-xs text-muted">Сделка (опц.)</label>
-          {addingLead ? (
+          {addingLead && canEditCrm ? (
             <div className="flex items-center gap-1">
               <input
                 autoFocus
@@ -445,15 +465,17 @@ function AddTransactionForm({ categories, leads }: { categories: Category[]; lea
                   </option>
                 ))}
               </select>
-              <button
-                type="button"
-                onClick={() => setAddingLead(true)}
-                title="Добавить новую сделку"
-                className="shrink-0 rounded-lg border border-border px-2 py-1.5 text-xs text-foreground hover:bg-surface-2"
-              >
-                +
-              </button>
-              {form.leadId && (
+              {canEditCrm && (
+                <button
+                  type="button"
+                  onClick={() => setAddingLead(true)}
+                  title="Добавить новую сделку"
+                  className="shrink-0 rounded-lg border border-border px-2 py-1.5 text-xs text-foreground hover:bg-surface-2"
+                >
+                  +
+                </button>
+              )}
+              {form.leadId && canEditCrm && (
                 <button
                   type="button"
                   onClick={handleDeleteLead}

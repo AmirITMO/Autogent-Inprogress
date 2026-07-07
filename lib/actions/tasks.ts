@@ -2,19 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireUser, getPermissions } from "@/lib/roles";
+import { requireUser, getPermissions, assertCanEditTask } from "@/lib/roles";
 import { DONE_COLUMN_NAME, TASK_PRIORITY_LABEL } from "@/lib/constants";
-
-// Может ли пользователь редактировать/двигать/удалять/архивировать конкретную задачу.
-// ADMIN — всегда; editTasksOthers — любую; editTasksSelf — только задачи, где он
-// исполнитель. Без этих прав — только просмотр и комментирование.
-async function assertCanEditTask(userId: string, role: "ADMIN" | "EMPLOYEE", assigneeId: string | null) {
-  if (role === "ADMIN") return;
-  const perms = await getPermissions(userId, role);
-  if (perms.editTasksOthers) return;
-  if (perms.editTasksSelf && assigneeId === userId) return;
-  throw new Error("Forbidden");
-}
 
 export async function createTask(data: {
   columnId: string;

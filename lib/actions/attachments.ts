@@ -8,7 +8,7 @@ import { pipeline } from "stream/promises";
 import path from "path";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/roles";
+import { requireUser, assertCanEditTask } from "@/lib/roles";
 import { UPLOAD_ROOT } from "@/lib/uploadPaths";
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 МБ — общий лимит
@@ -88,7 +88,22 @@ export async function listTaskAttachments(taskId: string) {
 }
 
 export async function deleteTaskAttachment(id: string) {
-  await requireUser();
+  const user = await requireUser();
+  const existing = await prisma.taskAttachment.findUniqueOrThrow({
+    where: { id },
+    include: { task: { select: { assigneeId: true } } },
+  });
+
+  // Свой ещё не отправленный файл (вставлен при наборе комментария, но комментарий
+  // не отправлен) можно отозвать без права редактировать саму задачу — это часть
+  // комментирования, доступного всем. В остальных случаях удаление файла требует
+  // того же права, что и редактирование задачи, иначе любой пользователь мог бы
+  // стереть чужие вложения в обход режима "только просмотр".
+  const isOwnPendingUpload = existing.uploadedById === user.id && existing.commentId === null;
+  if (!isOwnPendingUpload) {
+    await assertCanEditTask(user.id, user.role, existing.task.assigneeId);
+  }
+
   const attachment = await prisma.taskAttachment.delete({ where: { id } });
   await rm(path.join(UPLOAD_ROOT, "tasks", attachment.storageKey), { force: true });
   revalidatePath("/tasks");

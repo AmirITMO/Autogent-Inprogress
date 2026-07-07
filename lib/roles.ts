@@ -63,3 +63,18 @@ export async function requirePagePermission(perm: keyof PermissionFlags) {
   if (!perms[perm]) redirect("/dashboard");
   return { user, perms };
 }
+
+// Может ли пользователь редактировать/двигать/удалять/архивировать конкретную задачу
+// (и её вложения). ADMIN — всегда; editTasksOthers — любую; editTasksSelf — только
+// задачи, где он исполнитель. Без этих прав — только просмотр и комментирование.
+export async function assertCanEditTask(
+  userId: string,
+  role: "ADMIN" | "EMPLOYEE",
+  assigneeId: string | null
+) {
+  if (role === "ADMIN") return;
+  const perms = await getPermissions(userId, role);
+  if (perms.editTasksOthers) return;
+  if (perms.editTasksSelf && assigneeId === userId) return;
+  throw new Error("Forbidden");
+}

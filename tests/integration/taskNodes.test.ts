@@ -12,6 +12,7 @@ vi.mock("@/lib/roles", () => ({
     editCrm: true,
     editTasksOthers: true,
   }),
+  assertCanEditTask: async () => {},
 }));
 
 const { createTask } = await import("@/lib/actions/tasks");
