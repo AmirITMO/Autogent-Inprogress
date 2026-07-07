@@ -12,7 +12,7 @@ ENV NODE_ENV=production
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
 
 COPY --from=builder --chown=nextjs:nodejs /app ./
-RUN mkdir -p /app/uploads /app/public/avatars && chown -R nextjs:nodejs /app/uploads /app/public/avatars
+RUN mkdir -p /app/uploads && chown -R nextjs:nodejs /app/uploads
 
 USER nextjs
 EXPOSE 3000

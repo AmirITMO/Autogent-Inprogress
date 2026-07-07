@@ -2,14 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { compare, hash } from "bcryptjs";
-import { randomUUID } from "crypto";
 import { mkdir, rm, writeFile } from "fs/promises";
 import path from "path";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/roles";
 import { validatePasswordStrength } from "@/lib/passwordPolicy";
+import { AVATAR_DIR } from "@/lib/uploadPaths";
 
-const AVATAR_DIR = path.join(process.cwd(), "public", "avatars");
 const MAX_AVATAR_SIZE = 5 * 1024 * 1024; // 5 МБ
 const ALLOWED_AVATAR_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
@@ -57,6 +56,14 @@ export async function updateProfile(data: {
   return { message: passwordHash ? "Профиль и пароль обновлены" : "Профиль обновлён" };
 }
 
+const AVATAR_EXTENSIONS = ["jpg", "png", "webp", "gif"];
+
+// Аватарки НЕ лежат в /public: Next.js в production-режиме кэширует у себя в памяти
+// результат раздачи статики по конкретному пути и, если файла ещё не было на диске
+// в момент самого первого запроса, продолжает отдавать 404 даже после появления
+// файла — вплоть до перезапуска контейнера. Поэтому раздаём аватар через обычный
+// route handler (app/api/avatar/[userId]/route.ts), который читает диск заново
+// при каждом запросе и такому кэшированию не подвержен.
 export async function uploadAvatar(
   formData: FormData
 ): Promise<{ error: string; avatarUrl?: undefined } | { error?: undefined; avatarUrl: string }> {
@@ -72,21 +79,21 @@ export async function uploadAvatar(
     return { error: "Изображение больше 5 МБ" };
   }
 
-  const previous = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
   await mkdir(AVATAR_DIR, { recursive: true });
 
   const ext = file.type.split("/")[1] === "jpeg" ? "jpg" : file.type.split("/")[1];
-  const fileName = `${user.id}-${randomUUID()}.${ext}`;
   const buffer = Buffer.from(await file.arrayBuffer());
-  await writeFile(path.join(AVATAR_DIR, fileName), buffer);
+  await writeFile(path.join(AVATAR_DIR, `${user.id}.${ext}`), buffer);
 
-  const avatarUrl = `/avatars/${fileName}`;
+  // Убираем файлы с другими расширениями от прошлых загрузок этого пользователя.
+  await Promise.all(
+    AVATAR_EXTENSIONS.filter((e) => e !== ext).map((e) =>
+      rm(path.join(AVATAR_DIR, `${user.id}.${e}`), { force: true })
+    )
+  );
+
+  const avatarUrl = `/api/avatar/${user.id}?v=${Date.now()}`;
   await prisma.user.update({ where: { id: user.id }, data: { avatarUrl } });
-
-  if (previous.avatarUrl) {
-    const oldName = previous.avatarUrl.replace("/avatars/", "");
-    await rm(path.join(AVATAR_DIR, oldName), { force: true });
-  }
 
   // Аватар показывается в сайдбаре на каждой странице (и в задачах/комментариях) —
   // ревалидируем весь layout, иначе новое фото долго не появляется из-за Router Cache.
