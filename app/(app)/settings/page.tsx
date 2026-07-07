@@ -29,7 +29,7 @@ export default async function SettingsPage() {
     name: u.name,
     email: u.email,
     role: u.role,
-    isBlocked: u.isBlocked,
+    avatarUrl: u.avatarUrl,
     editTasksSelf: u.editTasksSelf,
     viewAccounting: u.viewAccounting,
     viewChannels: u.viewChannels,

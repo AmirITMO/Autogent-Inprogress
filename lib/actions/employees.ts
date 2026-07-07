@@ -5,6 +5,7 @@ import { hash } from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/roles";
 import { validatePasswordStrength } from "@/lib/passwordPolicy";
+import { DONE_COLUMN_NAME } from "@/lib/constants";
 
 export type EmployeePermissions = {
   editTasksSelf: boolean;
@@ -41,12 +42,6 @@ export async function createEmployee(data: {
   return {};
 }
 
-export async function toggleEmployeeBlocked(userId: string, isBlocked: boolean) {
-  await requireAdmin();
-  await prisma.user.update({ where: { id: userId }, data: { isBlocked } });
-  revalidatePath("/settings");
-}
-
 export async function deleteEmployee(userId: string) {
   await requireAdmin();
   await prisma.user.delete({ where: { id: userId } });
@@ -68,4 +63,22 @@ export async function setEmployeePermissions(userId: string, permissions: Partia
   await requireAdmin();
   await prisma.user.update({ where: { id: userId }, data: permissions });
   revalidatePath("/settings");
+}
+
+export async function getEmployeeReport(userId: string) {
+  await requireAdmin();
+  const [completedCount, tasks] = await Promise.all([
+    prisma.taskCompletion.count({ where: { userId } }),
+    prisma.task.findMany({
+      where: { assigneeId: userId, archived: false },
+      include: { column: true },
+    }),
+  ]);
+  const openTasks = tasks.filter((t) => t.column.name !== DONE_COLUMN_NAME);
+  const overdueCount = openTasks.filter((t) => t.dueDate && t.dueDate < new Date()).length;
+  return {
+    completedCount,
+    openCount: openTasks.length,
+    overdueCount,
+  };
 }

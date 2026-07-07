@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { updateSettings } from "@/lib/actions/settings";
 
+const DEADLINE_INTERVAL_OPTIONS = Array.from({ length: (180 - 15) / 15 + 1 }, (_, i) => 15 + i * 15);
+
 export function SettingsForm({
   settings,
 }: {
@@ -15,10 +17,18 @@ export function SettingsForm({
 }) {
   const [form, setForm] = useState(settings);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
 
   async function save(next: typeof form) {
+    const prev = form;
     setForm(next);
-    await updateSettings(next);
+    setError("");
+    const result = await updateSettings(next);
+    if (result.error) {
+      setError(result.error);
+      setForm(prev);
+      return;
+    }
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
   }
@@ -43,21 +53,28 @@ export function SettingsForm({
           />
         </Field>
         <Field label="Проверка дедлайнов, мин">
-          <input
-            type="number"
+          <select
             value={form.deadlineCheckInterval}
             onChange={(e) => save({ ...form, deadlineCheckInterval: Number(e.target.value) })}
             className="w-full rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-sm outline-none focus:border-accent"
-          />
+          >
+            {DEADLINE_INTERVAL_OPTIONS.map((v) => (
+              <option key={v} value={v}>
+                {v}
+              </option>
+            ))}
+          </select>
         </Field>
         <Field label="Часовой пояс">
           <input
-            value={form.timezone}
-            onChange={(e) => save({ ...form, timezone: e.target.value })}
-            className="w-full rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-sm outline-none focus:border-accent"
+            value="Europe/Moscow"
+            disabled
+            title="Платформа работает по московскому времени и не поддерживает другие часовые пояса"
+            className="w-full rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-sm text-muted outline-none disabled:opacity-70"
           />
         </Field>
       </div>
+      {error && <div className="mt-3 text-xs text-danger">{error}</div>}
       {saved && <div className="mt-3 text-xs text-accent">Сохранено</div>}
     </div>
   );

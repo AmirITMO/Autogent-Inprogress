@@ -61,7 +61,7 @@ export default async function TasksPage() {
       assigneeName: t.assignee?.name ?? null,
       assigneeAvatarUrl: t.assignee?.avatarUrl ?? null,
       projectId: t.projectId,
-      projectName: t.project?.name ?? null,
+      projectName: t.project && t.project.name !== "Общий" ? t.project.name : null,
       commentCount: t._count.comments,
       attachmentCount: t._count.attachments,
     })),

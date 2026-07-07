@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Image from "next/image";
 import {
   createEmployee,
-  toggleEmployeeBlocked,
   deleteEmployee,
   setProjectAccess,
   setEmployeePermissions,
+  getEmployeeReport,
   type EmployeePermissions,
 } from "@/lib/actions/employees";
 
@@ -15,9 +16,42 @@ type Employee = {
   name: string;
   email: string;
   role: "ADMIN" | "EMPLOYEE";
-  isBlocked: boolean;
+  avatarUrl: string | null;
   projectIds: string[];
 } & EmployeePermissions;
+
+function initials(name: string) {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase())
+    .join("");
+}
+
+function Avatar({ name, avatarUrl, size = 36 }: { name: string; avatarUrl: string | null; size?: number }) {
+  if (avatarUrl) {
+    return (
+      <Image
+        src={avatarUrl}
+        alt={name}
+        width={size}
+        height={size}
+        unoptimized
+        className="shrink-0 rounded-full object-cover"
+        style={{ width: size, height: size }}
+      />
+    );
+  }
+  return (
+    <span
+      className="flex shrink-0 items-center justify-center rounded-full bg-accent-soft font-semibold text-accent"
+      style={{ width: size, height: size, fontSize: size * 0.4 }}
+    >
+      {initials(name)}
+    </span>
+  );
+}
 
 const DEFAULT_PERMISSIONS: EmployeePermissions = {
   editTasksSelf: true,
@@ -170,30 +204,27 @@ function EmployeeRow({
     setEmployeePermissions(user.id, { [key]: next[key] });
   }
 
+  const [cardOpen, setCardOpen] = useState(false);
+
   return (
     <div className="rounded-xl border border-border bg-surface p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <div className="text-sm font-medium text-foreground">
-            {user.name}{" "}
-            <span className="ml-1 rounded bg-surface-2 px-1.5 py-0.5 text-[10px] text-muted">
-              {user.role}
-            </span>
-            {user.isBlocked && (
-              <span className="ml-1 rounded bg-danger/10 px-1.5 py-0.5 text-[10px] text-danger">
-                заблокирован
+        <button
+          onClick={() => setCardOpen(true)}
+          className="flex min-w-0 items-center gap-3 text-left"
+        >
+          <Avatar name={user.name} avatarUrl={user.avatarUrl} />
+          <div className="min-w-0">
+            <div className="truncate text-sm font-medium text-foreground">
+              {user.name}{" "}
+              <span className="ml-1 rounded bg-surface-2 px-1.5 py-0.5 text-[10px] text-muted">
+                {user.role}
               </span>
-            )}
+            </div>
+            <div className="truncate text-xs text-muted">{user.email}</div>
           </div>
-          <div className="text-xs text-muted">{user.email}</div>
-        </div>
+        </button>
         <div className="flex gap-2">
-          <button
-            onClick={() => toggleEmployeeBlocked(user.id, !user.isBlocked)}
-            className="rounded-lg border border-border px-3 py-1.5 text-xs text-foreground hover:bg-surface-2"
-          >
-            {user.isBlocked ? "Разблокировать" : "Заблокировать"}
-          </button>
           <button
             onClick={() => {
               if (confirm(`Удалить сотрудника ${user.name}?`)) deleteEmployee(user.id);
@@ -204,6 +235,8 @@ function EmployeeRow({
           </button>
         </div>
       </div>
+
+      {cardOpen && <EmployeeCardModal user={user} onClose={() => setCardOpen(false)} />}
 
       {user.role === "EMPLOYEE" && (
         <div className="mt-3 flex flex-wrap gap-1.5 border-t border-border pt-3">
@@ -240,6 +273,70 @@ function EmployeeRow({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function EmployeeCardModal({ user, onClose }: { user: Employee; onClose: () => void }) {
+  const [report, setReport] = useState<{
+    completedCount: number;
+    openCount: number;
+    overdueCount: number;
+  } | null>(null);
+
+  useEffect(() => {
+    getEmployeeReport(user.id).then(setReport);
+  }, [user.id]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={onClose}>
+      <div
+        className="w-full max-w-sm rounded-xl border border-border bg-surface p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-foreground">Карточка сотрудника</h2>
+          <button onClick={onClose} className="text-muted hover:text-foreground">
+            ✕
+          </button>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Avatar name={user.name} avatarUrl={user.avatarUrl} size={56} />
+          <div className="min-w-0">
+            <div className="truncate text-base font-semibold text-foreground">{user.name}</div>
+            <div className="truncate text-sm text-muted">{user.email}</div>
+            <span className="mt-1 inline-block rounded bg-surface-2 px-1.5 py-0.5 text-[10px] text-muted">
+              {user.role}
+            </span>
+          </div>
+        </div>
+
+        <div className="mt-5 grid grid-cols-3 gap-2">
+          <ReportTile label="Выполнено" value={report?.completedCount} accent="success" />
+          <ReportTile label="Открытых задач" value={report?.openCount} accent="accent" />
+          <ReportTile label="Просрочено" value={report?.overdueCount} accent="danger" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ReportTile({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: number | undefined;
+  accent: "success" | "accent" | "danger";
+}) {
+  return (
+    <div className="rounded-lg border border-border bg-surface-2 p-3 text-center">
+      <div className="text-xl font-semibold" style={{ color: `var(--${accent})` }}>
+        {value ?? "…"}
+      </div>
+      <div className="mt-1 text-[11px] text-muted">{label}</div>
     </div>
   );
 }

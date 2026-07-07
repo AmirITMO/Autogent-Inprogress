@@ -45,7 +45,7 @@ export default async function MyTasksPage() {
     assigneeName: user.name ?? user.email ?? "",
     assigneeAvatarUrl: me?.avatarUrl ?? null,
     projectId: t.projectId,
-    projectName: t.project?.name ?? null,
+    projectName: t.project && t.project.name !== "Общий" ? t.project.name : null,
     commentCount: t._count.comments,
     attachmentCount: t._count.attachments,
     columnName: t.column.name,

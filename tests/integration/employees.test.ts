@@ -10,8 +10,7 @@ vi.mock("@/lib/roles", () => ({
   },
 }));
 
-const { createEmployee, toggleEmployeeBlocked, deleteEmployee, setProjectAccess } =
-  await import("@/lib/actions/employees");
+const { createEmployee, deleteEmployee, setProjectAccess } = await import("@/lib/actions/employees");
 
 const DEFAULT_PERMISSIONS = {
   editTasksSelf: true,
@@ -97,22 +96,6 @@ describe("createEmployee", () => {
       permissions: DEFAULT_PERMISSIONS,
     });
     expect(result.error).toBeTruthy();
-  });
-});
-
-describe("toggleEmployeeBlocked", () => {
-  it("flips the isBlocked flag", async () => {
-    const user = await prisma.user.create({
-      data: { name: "Пётр", email: "petr@test.local", passwordHash: "x", role: "EMPLOYEE" },
-    });
-
-    await toggleEmployeeBlocked(user.id, true);
-    let updated = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
-    expect(updated.isBlocked).toBe(true);
-
-    await toggleEmployeeBlocked(user.id, false);
-    updated = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
-    expect(updated.isBlocked).toBe(false);
   });
 });
 

@@ -168,7 +168,9 @@ export default async function DashboardPage() {
                     >
                       <div className="min-w-0">
                         <div className="truncate text-foreground">{t.title}</div>
-                        <div className="text-xs text-muted">{t.project?.name ?? t.column.name}</div>
+                        <div className="text-xs text-muted">
+                          {t.project && t.project.name !== "Общий" ? t.project.name : t.column.name}
+                        </div>
                       </div>
                       <span className={`shrink-0 text-xs font-medium ${overdue ? "text-danger" : "text-muted"}`}>
                         {t.dueDate!.toLocaleDateString("ru-RU")}
