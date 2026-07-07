@@ -15,6 +15,7 @@ import {
 } from "recharts";
 import { formatMoney } from "@/lib/constants";
 import { createTransaction, deleteTransaction } from "@/lib/actions/transactions";
+import { createLead, deleteLead } from "@/lib/actions/leads";
 import { IconWallet, IconTrendUp, IconCoins, IconClock } from "@/components/icons";
 
 type Tx = {
@@ -278,7 +279,37 @@ function AddTransactionForm({ categories, leads }: { categories: Category[]; lea
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
 
+  const [addingLead, setAddingLead] = useState(false);
+  const [newLeadTitle, setNewLeadTitle] = useState("");
+  const [leadBusy, setLeadBusy] = useState(false);
+  const [leadError, setLeadError] = useState("");
+
   const categoryOptions = categories.filter((c) => c.type === type);
+
+  async function handleCreateLead() {
+    if (!newLeadTitle.trim()) return;
+    setLeadBusy(true);
+    setLeadError("");
+    const lead = await createLead({ title: newLeadTitle.trim() });
+    setLeadBusy(false);
+    setNewLeadTitle("");
+    setAddingLead(false);
+    setForm((f) => ({ ...f, leadId: lead.id }));
+  }
+
+  async function handleDeleteLead() {
+    if (!form.leadId) return;
+    if (!confirm("Удалить эту сделку насовсем? Действие необратимо.")) return;
+    setLeadBusy(true);
+    setLeadError("");
+    const result = await deleteLead(form.leadId);
+    setLeadBusy(false);
+    if (result.error) {
+      setLeadError(result.error);
+      return;
+    }
+    setForm((f) => ({ ...f, leadId: "" }));
+  }
 
   function switchType(next: "INCOME" | "EXPENSE") {
     setType(next);
@@ -367,20 +398,75 @@ function AddTransactionForm({ categories, leads }: { categories: Category[]; lea
             className="rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-sm text-foreground outline-none focus:border-accent"
           />
         </div>
-        <div className="flex min-w-[160px] flex-col gap-1">
+        <div className="flex min-w-[200px] flex-col gap-1">
           <label className="text-xs text-muted">Сделка (опц.)</label>
-          <select
-            value={form.leadId}
-            onChange={(e) => setForm((f) => ({ ...f, leadId: e.target.value }))}
-            className="rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-sm text-foreground outline-none focus:border-accent"
-          >
-            <option value="">—</option>
-            {leads.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.title}
-              </option>
-            ))}
-          </select>
+          {addingLead ? (
+            <div className="flex items-center gap-1">
+              <input
+                autoFocus
+                value={newLeadTitle}
+                onChange={(e) => setNewLeadTitle(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleCreateLead()}
+                placeholder="Название сделки"
+                className="w-full rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-sm text-foreground outline-none focus:border-accent"
+              />
+              <button
+                type="button"
+                onClick={handleCreateLead}
+                disabled={leadBusy || !newLeadTitle.trim()}
+                title="Создать"
+                className="shrink-0 rounded-lg border border-accent px-2 py-1.5 text-xs text-accent hover:bg-accent-soft disabled:opacity-50"
+              >
+                ✓
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAddingLead(false);
+                  setNewLeadTitle("");
+                }}
+                title="Отмена"
+                className="shrink-0 rounded-lg border border-border px-2 py-1.5 text-xs text-muted hover:text-foreground"
+              >
+                ✕
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1">
+              <select
+                value={form.leadId}
+                onChange={(e) => setForm((f) => ({ ...f, leadId: e.target.value }))}
+                className="min-w-0 flex-1 rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-sm text-foreground outline-none focus:border-accent"
+              >
+                <option value="">—</option>
+                {leads.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.title}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => setAddingLead(true)}
+                title="Добавить новую сделку"
+                className="shrink-0 rounded-lg border border-border px-2 py-1.5 text-xs text-foreground hover:bg-surface-2"
+              >
+                +
+              </button>
+              {form.leadId && (
+                <button
+                  type="button"
+                  onClick={handleDeleteLead}
+                  disabled={leadBusy}
+                  title="Удалить сделку насовсем"
+                  className="shrink-0 rounded-lg border border-border px-2 py-1.5 text-xs text-danger hover:bg-danger/10 disabled:opacity-50"
+                >
+                  🗑
+                </button>
+              )}
+            </div>
+          )}
+          {leadError && <div className="text-[11px] text-danger">{leadError}</div>}
         </div>
         <div className="flex flex-1 min-w-[160px] flex-col gap-1">
           <label className="text-xs text-muted">Комментарий</label>

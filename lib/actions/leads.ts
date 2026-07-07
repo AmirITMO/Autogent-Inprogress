@@ -44,7 +44,22 @@ export async function createLead(data: {
   });
 
   revalidatePath("/crm");
+  revalidatePath("/accounting");
   return lead;
+}
+
+export async function deleteLead(leadId: string): Promise<{ error: string } | { error?: undefined }> {
+  await requireUser();
+  const txCount = await prisma.transaction.count({ where: { leadId } });
+  if (txCount > 0) {
+    return {
+      error: "Нельзя удалить сделку — на неё уже есть транзакции в бухгалтерии. Сначала удалите или отвяжите их.",
+    };
+  }
+  await prisma.lead.delete({ where: { id: leadId } });
+  revalidatePath("/crm");
+  revalidatePath("/accounting");
+  return {};
 }
 
 export async function moveLead(
