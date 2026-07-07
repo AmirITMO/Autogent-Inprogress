@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { updateTask, deleteTask, addTaskComment, getTaskComments } from "@/lib/actions/tasks";
+import { updateTask, deleteTask, archiveTask, addTaskComment, getTaskComments } from "@/lib/actions/tasks";
 import {
   uploadTaskAttachment,
   listTaskAttachments,
@@ -150,8 +150,14 @@ export function TaskModal({
     onClose();
   }
 
-  async function handleDelete() {
-    if (!confirm("Удалить задачу без возможности восстановления?")) return;
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+
+  async function handleArchive() {
+    await archiveTask(task.id);
+    onClose();
+  }
+
+  async function handleDeletePermanently() {
     await deleteTask(task.id);
     onClose();
   }
@@ -384,7 +390,7 @@ export function TaskModal({
 
           <div className="mt-4 flex justify-between gap-2">
             <button
-              onClick={handleDelete}
+              onClick={() => setConfirmingDelete(true)}
               className="rounded-lg px-3 py-1.5 text-xs text-danger hover:bg-danger/10"
             >
               Удалить задачу
@@ -639,6 +645,38 @@ export function TaskModal({
           </div>
         </div>
       </div>
+
+      {confirmingDelete && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-sm rounded-xl border border-border bg-surface p-5">
+            <h3 className="text-sm font-semibold text-foreground">Удалить задачу?</h3>
+            <p className="mt-2 text-sm text-muted">
+              Вы уверены, что хотите удалить задачу? Задачу можно поместить в архив, чтобы не
+              потерять (на всякий случай).
+            </p>
+            <div className="mt-4 flex flex-col gap-2">
+              <button
+                onClick={handleArchive}
+                className="rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-surface-2"
+              >
+                В архив
+              </button>
+              <button
+                onClick={handleDeletePermanently}
+                className="rounded-lg border border-danger px-3 py-2 text-sm font-medium text-danger hover:bg-danger/10"
+              >
+                Удалить навсегда
+              </button>
+              <button
+                onClick={() => setConfirmingDelete(false)}
+                className="rounded-lg px-3 py-2 text-sm text-muted hover:text-foreground"
+              >
+                Отмена
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

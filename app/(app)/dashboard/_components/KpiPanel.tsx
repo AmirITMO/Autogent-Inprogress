@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { setKpi, removeKpi } from "@/lib/actions/kpi";
 import { KPI_METRICS, formatMoney, type KpiDirection } from "@/lib/constants";
+import { IconTarget } from "@/components/icons";
 
 export type KpiRow = { metricKey: string; target: number };
 
@@ -49,25 +50,31 @@ export function KpiPanel({
       {active.length === 0 ? (
         <p className="text-sm text-muted">Цели не заданы.</p>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {active.map((m) => {
             const kpi = kpis.find((k) => k.metricKey === m.key)!;
             const current = values[m.key] ?? 0;
             const { pct, met } = progressOf(current, kpi.target, m.direction);
+            const color = met ? "var(--success)" : "var(--accent)";
             return (
-              <div key={m.key} className="rounded-lg border border-border bg-surface-2 p-3">
-                <div className="flex items-center justify-between text-xs text-muted">
-                  <span>{m.label}</span>
-                  <span className={met ? "text-success" : "text-muted"}>{met ? "✓ выполнено" : ""}</span>
+              <div key={m.key} className="rounded-xl border border-border bg-surface p-3.5 transition hover:shadow-md">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted">{m.label}</span>
+                  <span
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+                    style={{ color, background: `color-mix(in srgb, ${color} 15%, transparent)` }}
+                  >
+                    <IconTarget className="h-4 w-4" />
+                  </span>
                 </div>
-                <div className="mt-1 text-sm font-medium text-foreground">
-                  {m.isMoney ? formatMoney(current) : current} / {m.isMoney ? formatMoney(kpi.target) : kpi.target}
+                <div className="mt-2 text-base font-semibold" style={{ color }}>
+                  {m.isMoney ? formatMoney(current) : current}
+                  <span className="ml-1 text-xs font-normal text-muted">
+                    / {m.isMoney ? formatMoney(kpi.target) : kpi.target}
+                  </span>
                 </div>
                 <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-border">
-                  <div
-                    className="h-full rounded-full"
-                    style={{ width: `${pct}%`, background: met ? "var(--success)" : "var(--accent)" }}
-                  />
+                  <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
                 </div>
               </div>
             );

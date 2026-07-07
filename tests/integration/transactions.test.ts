@@ -10,9 +10,10 @@ vi.mock("@/lib/roles", () => ({
   },
 }));
 
-const { createExpense } = await import("@/lib/actions/transactions");
+const { createTransaction, deleteTransaction } = await import("@/lib/actions/transactions");
 
 let expenseCategoryId: string;
+let incomeCategoryId: string;
 
 beforeEach(async () => {
   await prisma.transaction.deleteMany();
@@ -25,15 +26,25 @@ beforeEach(async () => {
   testUser.id = user.id;
   testUser.role = "ADMIN";
 
-  const category = await prisma.transactionCategory.create({
+  const expenseCategory = await prisma.transactionCategory.create({
     data: { name: "Реклама", type: "EXPENSE", isRecurring: false },
   });
-  expenseCategoryId = category.id;
+  expenseCategoryId = expenseCategory.id;
+
+  const incomeCategory = await prisma.transactionCategory.create({
+    data: { name: "Предоплата", type: "INCOME", isRecurring: false },
+  });
+  incomeCategoryId = incomeCategory.id;
 });
 
-describe("createExpense", () => {
-  it("creates an EXPENSE transaction attributed to the current admin", async () => {
-    await createExpense({ categoryId: expenseCategoryId, amount: 5000, description: "Таргет ВК" });
+describe("createTransaction", () => {
+  it("creates an EXPENSE transaction attributed to the current user", async () => {
+    await createTransaction({
+      type: "EXPENSE",
+      categoryId: expenseCategoryId,
+      amount: 5000,
+      description: "Таргет ВК",
+    });
 
     const transactions = await prisma.transaction.findMany();
     expect(transactions).toHaveLength(1);
@@ -42,20 +53,38 @@ describe("createExpense", () => {
     expect(transactions[0].createdById).toBe(testUser.id);
   });
 
+  it("creates an INCOME transaction", async () => {
+    await createTransaction({ type: "INCOME", categoryId: incomeCategoryId, amount: 12000 });
+    const [tx] = await prisma.transaction.findMany();
+    expect(tx.type).toBe("INCOME");
+    expect(Number(tx.amount)).toBe(12000);
+  });
+
   it("defaults the date to now when not provided", async () => {
     const before = Date.now();
-    await createExpense({ categoryId: expenseCategoryId, amount: 100 });
+    await createTransaction({ type: "EXPENSE", categoryId: expenseCategoryId, amount: 100 });
     const [tx] = await prisma.transaction.findMany();
     expect(tx.date.getTime()).toBeGreaterThanOrEqual(before - 1000);
   });
 
-  it("is rejected when the caller is not an admin", async () => {
-    testUser.role = "EMPLOYEE";
-    await expect(
-      createExpense({ categoryId: expenseCategoryId, amount: 100 })
-    ).rejects.toThrow();
+  it("rejects a non-positive amount", async () => {
+    const result = await createTransaction({ type: "EXPENSE", categoryId: expenseCategoryId, amount: 0 });
+    expect(result.error).toBeDefined();
+    expect(await prisma.transaction.count()).toBe(0);
+  });
 
-    const transactions = await prisma.transaction.findMany();
-    expect(transactions).toHaveLength(0);
+  it("is allowed for regular employees (accounting is open to the whole team)", async () => {
+    testUser.role = "EMPLOYEE";
+    await createTransaction({ type: "EXPENSE", categoryId: expenseCategoryId, amount: 100 });
+    expect(await prisma.transaction.count()).toBe(1);
+  });
+});
+
+describe("deleteTransaction", () => {
+  it("removes the transaction", async () => {
+    await createTransaction({ type: "EXPENSE", categoryId: expenseCategoryId, amount: 100 });
+    const [tx] = await prisma.transaction.findMany();
+    await deleteTransaction(tx.id);
+    expect(await prisma.transaction.count()).toBe(0);
   });
 });

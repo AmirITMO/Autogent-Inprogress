@@ -7,12 +7,13 @@ export default async function AccountingPage() {
   await requireUser();
   await reconcileAllLeadIncome();
 
-  const [transactions, categories] = await Promise.all([
+  const [transactions, categories, leads] = await Promise.all([
     prisma.transaction.findMany({
       include: { category: true, lead: true, createdBy: true },
       orderBy: { date: "asc" },
     }),
     prisma.transactionCategory.findMany(),
+    prisma.lead.findMany({ where: { lost: false }, select: { id: true, title: true }, orderBy: { title: "asc" } }),
   ]);
 
   const serializedTx = transactions.map((t) => ({
@@ -40,7 +41,7 @@ export default async function AccountingPage() {
         <h1 className="text-lg font-semibold text-foreground">Бухгалтерия</h1>
         <p className="text-sm text-muted">Касса, доходы и расходы бизнеса</p>
       </div>
-      <AccountingView transactions={serializedTx} categories={serializedCategories} />
+      <AccountingView transactions={serializedTx} categories={serializedCategories} leads={leads} />
     </div>
   );
 }

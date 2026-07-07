@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/roles";
+import { DONE_COLUMN_NAME, TASK_PRIORITY_LABEL } from "@/lib/constants";
 
 export async function createTask(data: {
   columnId: string;
@@ -34,6 +35,7 @@ export async function createTask(data: {
 export async function moveTask(taskId: string, toColumnId: string, toIndex: number) {
   await requireUser();
   const task = await prisma.task.findUniqueOrThrow({ where: { id: taskId } });
+  const toColumn = await prisma.taskColumn.findUniqueOrThrow({ where: { id: toColumnId } });
 
   const siblings = await prisma.task.findMany({
     where: { columnId: toColumnId, id: { not: taskId } },
@@ -47,8 +49,24 @@ export async function moveTask(taskId: string, toColumnId: string, toIndex: numb
     )
   );
 
+  // Факт выполнения фиксируется один раз и навсегда: перекладывание туда-сюда
+  // между "Выполнено" и другими колонками больше не плодит повторных зачётов.
+  if (toColumn.name === DONE_COLUMN_NAME && !task.completedAt) {
+    const completedAt = new Date();
+    await prisma.task.update({ where: { id: taskId }, data: { completedAt } });
+    await prisma.taskCompletion.create({
+      data: {
+        taskId,
+        userId: task.assigneeId,
+        taskTitle: task.title,
+        completedAt,
+      },
+    });
+  }
+
   revalidatePath("/tasks");
   revalidatePath("/my");
+  revalidatePath("/dashboard");
 }
 
 const MAX_ESTIMATE_HOURS = 2400;
@@ -66,7 +84,8 @@ export async function updateTask(
     dueDate?: string | null;
   }
 ): Promise<{ error: string } | { error?: undefined }> {
-  await requireUser();
+  const user = await requireUser();
+  const before = await prisma.task.findUniqueOrThrow({ where: { id: taskId } });
 
   if (data.dueDate) {
     const due = new Date(data.dueDate);
@@ -87,13 +106,34 @@ export async function updateTask(
     }
   }
 
-  await prisma.task.update({
+  const updated = await prisma.task.update({
     where: { id: taskId },
     data: {
       ...data,
       dueDate: data.dueDate ? new Date(data.dueDate) : data.dueDate === null ? null : undefined,
     },
   });
+
+  // Уведомляем нового исполнителя, если его назначили именно сейчас (и не сам себе).
+  if (
+    data.assigneeId &&
+    data.assigneeId !== before.assigneeId &&
+    data.assigneeId !== user.id
+  ) {
+    const deadlineText = updated.dueDate
+      ? `, срок до ${updated.dueDate.toLocaleDateString("ru-RU")}`
+      : "";
+    await prisma.notification.create({
+      data: {
+        userId: data.assigneeId,
+        type: "TASK_ASSIGNED",
+        title: `Вам поставили задачу «${updated.title}»`,
+        body: `Приоритет: ${TASK_PRIORITY_LABEL[updated.priority]}${deadlineText}`,
+        link: `/tasks?task=${taskId}`,
+      },
+    });
+  }
+
   revalidatePath("/tasks");
   revalidatePath("/my");
   return {};
@@ -104,6 +144,56 @@ export async function deleteTask(taskId: string) {
   await prisma.task.delete({ where: { id: taskId } });
   revalidatePath("/tasks");
   revalidatePath("/my");
+  revalidatePath("/dashboard");
+}
+
+export async function archiveTask(taskId: string) {
+  await requireUser();
+  await prisma.task.update({ where: { id: taskId }, data: { archived: true } });
+  revalidatePath("/tasks");
+  revalidatePath("/my");
+  revalidatePath("/dashboard");
+}
+
+export async function unarchiveTask(taskId: string) {
+  await requireUser();
+  await prisma.task.update({ where: { id: taskId }, data: { archived: false } });
+  revalidatePath("/tasks");
+  revalidatePath("/my");
+  revalidatePath("/dashboard");
+}
+
+export async function listArchivedTasks() {
+  await requireUser();
+  const tasks = await prisma.task.findMany({
+    where: { archived: true },
+    include: {
+      assignee: { select: { id: true, name: true, avatarUrl: true } },
+      column: true,
+      project: true,
+      _count: { select: { comments: true, attachments: true } },
+    },
+    orderBy: { updatedAt: "desc" },
+  });
+  return tasks.map((t) => ({
+    id: t.id,
+    title: t.title,
+    description: t.description,
+    priority: t.priority,
+    isBug: t.isBug,
+    estimateHours: t.estimateHours ? Number(t.estimateHours) : null,
+    dueDate: t.dueDate ? t.dueDate.toISOString() : null,
+    order: t.order,
+    assigneeId: t.assigneeId,
+    assigneeName: t.assignee?.name ?? null,
+    assigneeAvatarUrl: t.assignee?.avatarUrl ?? null,
+    projectId: t.projectId,
+    projectName: t.project?.name ?? null,
+    commentCount: t._count.comments,
+    attachmentCount: t._count.attachments,
+    columnName: t.column.name,
+    completedAt: t.completedAt ? t.completedAt.toISOString() : null,
+  }));
 }
 
 const COMMENT_AUTHOR_SELECT = { select: { id: true, name: true, avatarUrl: true } };

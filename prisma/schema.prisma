@@ -37,6 +37,11 @@ enum TransactionType {
   EXPENSE
 }
 
+enum NotificationType {
+  TASK_ASSIGNED
+  CALL_INVITED
+}
+
 model User {
   id           String   @id @default(cuid())
   name         String
@@ -60,6 +65,8 @@ model User {
   channelSpends  ChannelSpend[]
   calendarEvents CalendarEvent[]
   attendingEvents CalendarEvent[] @relation("EventAttendees")
+  taskCompletions TaskCompletion[]
+  notifications   Notification[]
 }
 
 model Project {
@@ -179,15 +186,48 @@ model Task {
   estimateHours  Decimal?     @db.Decimal(6, 1)
   dueDate        DateTime?
   order          Int          @default(0)
+  archived       Boolean      @default(false)
+  completedAt    DateTime?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
   comments    TaskComment[]
   nodes       TaskNode[]
   attachments TaskAttachment[]
+  completions TaskCompletion[]
 
   @@index([projectId])
   @@index([assigneeId])
+}
+
+// Отдельный, не зависящий от жизни самой задачи, журнал фактов выполнения.
+// Если задачу потом удалят или заархивируют, эта запись остаётся — счётчик
+// "выполнено суммарно" не должен теряться. taskId/userId ставятся в NULL
+// при удалении задачи/пользователя, а не каскадно удаляются.
+model TaskCompletion {
+  id          String    @id @default(cuid())
+  taskId      String?
+  task        Task?     @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  userId      String?
+  user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  taskTitle   String
+  completedAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  title     String
+  body      String?
+  link      String?
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  @@index([userId, read])
 }
 
 model TaskAttachment {

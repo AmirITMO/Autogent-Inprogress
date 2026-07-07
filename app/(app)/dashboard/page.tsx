@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/roles";
 import { LEAD_STAGES, formatMoney, DONE_COLUMN_NAME } from "@/lib/constants";
 import { reconcileAllLeadIncome } from "@/lib/actions/leads";
-import { toMoscowParts } from "@/lib/moscowTime";
+import { toMoscowParts, mskStartOfTodayUtc } from "@/lib/moscowTime";
 import { KpiPanel } from "./_components/KpiPanel";
 import {
   IconTrendUp,
@@ -12,6 +12,7 @@ import {
   IconSparkles,
   IconCoins,
   IconCalendar,
+  IconCheckCircle,
 } from "@/components/icons";
 
 export default async function DashboardPage() {
@@ -21,11 +22,13 @@ export default async function DashboardPage() {
   if (isAdmin) await reconcileAllLeadIncome();
 
   const leadWhere = isAdmin ? {} : { ownerId: user.id };
-  const taskWhere = isAdmin ? {} : { assigneeId: user.id };
+  const taskWhere = isAdmin ? { archived: false } : { assigneeId: user.id, archived: false };
 
-  const now = new Date();
+  // "Сегодняшние и будущие" считаем от полуночи по Москве, а не от текущей минуты —
+  // иначе созвон, который уже был сегодня утром, пропадал бы из списка после обеда.
+  const eventsFrom = mskStartOfTodayUtc();
 
-  const [leads, tasks, transactions, kpis, me, myEvents, allEvents] = await Promise.all([
+  const [leads, tasks, transactions, kpis, me, myEvents, allEvents, completedCount] = await Promise.all([
     prisma.lead.findMany({ where: leadWhere }),
     prisma.task.findMany({
       where: taskWhere,
@@ -36,15 +39,18 @@ export default async function DashboardPage() {
     prisma.kpi.findMany(),
     prisma.user.findUnique({ where: { id: user.id }, select: { motivationPhotoKey: true } }),
     prisma.calendarEvent.findMany({
-      where: { startAt: { gte: now }, attendees: { some: { id: user.id } } },
+      where: { startAt: { gte: eventsFrom }, attendees: { some: { id: user.id } } },
       orderBy: { startAt: "asc" },
       take: 5,
     }),
     prisma.calendarEvent.findMany({
-      where: { startAt: { gte: now } },
+      where: { startAt: { gte: eventsFrom } },
       orderBy: { startAt: "asc" },
       take: 5,
     }),
+    // Личный счётчик "выполнено суммарно" — не зависит от того, жива ли ещё
+    // задача (архив/удаление), см. модель TaskCompletion.
+    prisma.taskCompletion.count({ where: { userId: user.id } }),
   ]);
 
   // Ленту транзакций пополняют только сделки, дошедшие до нужного этапа (см. syncLeadIncome),
@@ -101,7 +107,7 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <Tile
           label={isAdmin ? "Всего сделок" : "Мои сделки"}
           value={String(leads.length)}
@@ -119,6 +125,12 @@ export default async function DashboardPage() {
           value={String(openTasks.length)}
           accent="accent"
           icon={<IconFolder className="h-5 w-5" />}
+        />
+        <Tile
+          label="Выполнено (всего)"
+          value={String(completedCount)}
+          accent="success"
+          icon={<IconCheckCircle className="h-5 w-5" />}
         />
         <Tile
           label="Просрочено"

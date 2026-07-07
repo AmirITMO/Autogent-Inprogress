@@ -32,3 +32,20 @@ export function addOneHour(timeStr: string): string {
   const total = (h * 60 + m + 60) % (24 * 60);
   return `${pad(Math.floor(total / 60))}:${pad(total % 60)}`;
 }
+
+// UTC-момент, соответствующий полуночи по Москве сегодня. Используется, чтобы
+// "ближайшие созвоны" считались от начала текущего дня по МСК, а не строго от
+// текущей минуты — иначе созвон, который был утром, а сейчас день, пропадал бы
+// из списка, хотя формально он "сегодняшний".
+export function mskStartOfTodayUtc(): Date {
+  const nowMsk = new Date(Date.now() + MSK_OFFSET_MS);
+  const mskMidnightAsUtcMs = Date.UTC(
+    nowMsk.getUTCFullYear(),
+    nowMsk.getUTCMonth(),
+    nowMsk.getUTCDate(),
+    0,
+    0,
+    0
+  );
+  return new Date(mskMidnightAsUtcMs - MSK_OFFSET_MS);
+}

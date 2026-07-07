@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { TasksBoard } from "./Board";
 import { TaskTree, type TreeTask, type MindNodeRow } from "./TaskTree";
+import { ArchivedTasksList } from "./ArchivedTasksList";
 import type { TaskCardData } from "./TaskCard";
 
 type ColumnData = { id: string; title: string; tasks: TaskCardData[] };
@@ -20,7 +21,7 @@ export function TasksView({
   treeTasks: TreeTask[];
   nodesByTask: Record<string, MindNodeRow[]>;
 }) {
-  const [view, setView] = useState<"board" | "tree">("board");
+  const [view, setView] = useState<"board" | "tree" | "archive">("board");
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -41,11 +42,18 @@ export function TasksView({
         >
           Дерево задач
         </button>
+        <button
+          onClick={() => setView("archive")}
+          className={`rounded-lg px-3 py-1.5 text-sm transition ${
+            view === "archive" ? "bg-accent-soft text-accent" : "text-muted hover:text-foreground"
+          }`}
+        >
+          Архив
+        </button>
       </div>
 
-      {view === "board" ? (
-        <TasksBoard columns={columns} users={users} projects={projects} />
-      ) : (
+      {view === "board" && <TasksBoard columns={columns} users={users} projects={projects} />}
+      {view === "tree" && (
         <div className="min-h-0 flex-1">
           <TaskTree
             tasks={treeTasks}
@@ -56,6 +64,7 @@ export function TasksView({
           />
         </div>
       )}
+      {view === "archive" && <ArchivedTasksList users={users} projects={projects} />}
     </div>
   );
 }

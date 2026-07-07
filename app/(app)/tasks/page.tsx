@@ -12,6 +12,7 @@ export default async function TasksPage() {
         orderBy: { order: "asc" },
         include: {
           tasks: {
+            where: { archived: false },
             orderBy: { order: "asc" },
             include: {
               assignee: { select: { id: true, name: true, avatarUrl: true } },

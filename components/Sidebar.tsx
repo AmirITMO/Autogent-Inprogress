@@ -6,6 +6,7 @@ import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { signOutAction } from "@/lib/actions/session";
 import { IconCalendar } from "@/components/icons";
+import { NotificationBell } from "@/components/NotificationBell";
 
 const links = [
   { href: "/dashboard", label: "Дашборд", roles: ["ADMIN", "EMPLOYEE"], icon: IconDashboard },
@@ -137,6 +138,7 @@ export function Sidebar({
               <button className="text-xs text-muted hover:text-foreground">Выйти</button>
             </form>
           </div>
+          <NotificationBell />
         </div>
       </aside>
     </>

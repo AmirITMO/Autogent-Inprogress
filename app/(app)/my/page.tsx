@@ -6,7 +6,7 @@ export default async function MyTasksPage() {
   const user = await requireUser();
 
   const tasks = await prisma.task.findMany({
-    where: { assigneeId: user.id },
+    where: { assigneeId: user.id, archived: false },
     include: {
       column: true,
       project: true,
