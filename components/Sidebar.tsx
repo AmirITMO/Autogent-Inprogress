@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { signOutAction } from "@/lib/actions/session";
+import { IconCalendar } from "@/components/icons";
 
 const links = [
   { href: "/dashboard", label: "Дашборд", roles: ["ADMIN", "EMPLOYEE"], icon: IconDashboard },
@@ -202,15 +203,6 @@ function IconUsers({ className }: IconProps) {
       <path d="M3.5 20c0-3.3 2.6-5.5 5.9-5.5S15 16.7 15 20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
       <path d="M15.5 5.2a3.2 3.2 0 0 1 0 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
       <path d="M17 14.7c2.4.5 3.9 2.4 3.9 5.3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function IconCalendar({ className }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className={className}>
-      <rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M3 9.5h18M8 3v3.5M16 3v3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
     </svg>
   );
 }

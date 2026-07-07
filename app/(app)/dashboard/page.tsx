@@ -10,6 +10,7 @@ import {
   IconWallet,
   IconSparkles,
   IconCoins,
+  IconCalendar,
 } from "@/components/icons";
 
 export default async function DashboardPage() {
@@ -21,7 +22,9 @@ export default async function DashboardPage() {
   const leadWhere = isAdmin ? {} : { ownerId: user.id };
   const taskWhere = isAdmin ? {} : { assigneeId: user.id };
 
-  const [leads, tasks, transactions, kpis, me] = await Promise.all([
+  const now = new Date();
+
+  const [leads, tasks, transactions, kpis, me, myEvents, allEvents] = await Promise.all([
     prisma.lead.findMany({ where: leadWhere }),
     prisma.task.findMany({
       where: taskWhere,
@@ -31,6 +34,16 @@ export default async function DashboardPage() {
     isAdmin ? prisma.transaction.findMany() : Promise.resolve([]),
     prisma.kpi.findMany(),
     prisma.user.findUnique({ where: { id: user.id }, select: { motivationPhotoKey: true } }),
+    prisma.calendarEvent.findMany({
+      where: { startAt: { gte: now }, attendees: { some: { id: user.id } } },
+      orderBy: { startAt: "asc" },
+      take: 5,
+    }),
+    prisma.calendarEvent.findMany({
+      where: { startAt: { gte: now } },
+      orderBy: { startAt: "asc" },
+      take: 5,
+    }),
   ]);
 
   // Ленту транзакций пополняют только сделки, дошедшие до нужного этапа (см. syncLeadIncome),
@@ -117,31 +130,79 @@ export default async function DashboardPage() {
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div className="rounded-xl border border-border bg-surface p-5">
-          <h3 className="mb-3 text-sm font-medium text-foreground">Ближайшие дедлайны</h3>
-          {upcomingTasks.length === 0 ? (
-            <p className="text-sm text-muted">Нет задач с дедлайном — можно выдохнуть</p>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {upcomingTasks.map((t) => {
-                const overdue = t.dueDate! < new Date();
-                return (
-                  <div
-                    key={t.id}
-                    className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm"
-                  >
-                    <div className="min-w-0">
-                      <div className="truncate text-foreground">{t.title}</div>
-                      <div className="text-xs text-muted">{t.project?.name ?? t.column.name}</div>
+        <div className="flex flex-col gap-4">
+          <div className="rounded-xl border border-border bg-surface p-5">
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-medium text-foreground">
+              <IconFolder className="h-4 w-4 text-accent" />
+              Ближайшие дедлайны
+            </h3>
+            {upcomingTasks.length === 0 ? (
+              <p className="text-sm text-muted">Нет задач с дедлайном — можно выдохнуть</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {upcomingTasks.map((t) => {
+                  const overdue = t.dueDate! < new Date();
+                  return (
+                    <div
+                      key={t.id}
+                      className="flex items-center justify-between gap-3 rounded-lg border-l-4 border-accent bg-surface-2 px-3 py-2 text-sm"
+                    >
+                      <div className="min-w-0">
+                        <div className="truncate text-foreground">{t.title}</div>
+                        <div className="text-xs text-muted">{t.project?.name ?? t.column.name}</div>
+                      </div>
+                      <span className={`shrink-0 text-xs font-medium ${overdue ? "text-danger" : "text-muted"}`}>
+                        {t.dueDate!.toLocaleDateString("ru-RU")}
+                      </span>
                     </div>
-                    <span className={`shrink-0 text-xs font-medium ${overdue ? "text-danger" : "text-muted"}`}>
-                      {t.dueDate!.toLocaleDateString("ru-RU")}
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-xl border border-border bg-surface p-5">
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-medium text-foreground">
+              <IconCalendar className="h-4 w-4 text-accent-2" />
+              Мои созвоны
+            </h3>
+            {myEvents.length === 0 ? (
+              <p className="text-sm text-muted">У вас нет запланированных созвонов</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {myEvents.map((e) => (
+                  <div
+                    key={e.id}
+                    className="flex items-center justify-between gap-3 rounded-lg border-l-4 border-accent-2 bg-surface-2 px-3 py-2 text-sm"
+                  >
+                    <div className="min-w-0 truncate text-foreground">{e.title}</div>
+                    <span className="shrink-0 text-xs font-medium text-accent-2">
+                      {e.startAt.toLocaleDateString("ru-RU")} {e.startAt.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
                     </span>
                   </div>
-                );
-              })}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+
+            {allEvents.length > 0 && (
+              <>
+                <h4 className="mb-2 mt-4 text-xs font-medium text-muted">Все созвоны команды</h4>
+                <div className="flex flex-col gap-1.5">
+                  {allEvents.map((e) => (
+                    <div
+                      key={e.id}
+                      className="flex items-center justify-between gap-3 rounded-lg bg-surface-2/60 px-3 py-1.5 text-xs text-muted"
+                    >
+                      <span className="min-w-0 truncate">{e.title}</span>
+                      <span className="shrink-0">
+                        {e.startAt.toLocaleDateString("ru-RU")} {e.startAt.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
         <div className="flex flex-col gap-4">

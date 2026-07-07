@@ -21,6 +21,7 @@ import {
   deleteCalendarEvent,
 } from "@/lib/actions/calendar";
 
+type Attendee = { id: string; name: string; avatarUrl: string | null };
 type CalEvent = {
   id: string;
   title: string;
@@ -28,6 +29,7 @@ type CalEvent = {
   startAt: string;
   endAt: string;
   createdByName: string;
+  attendees: Attendee[];
 };
 
 const WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
@@ -39,9 +41,11 @@ function toTimeInput(iso: string) {
 export function CalendarView({
   initialMonth,
   initialEvents,
+  users,
 }: {
   initialMonth: string;
   initialEvents: CalEvent[];
+  users: { id: string; name: string }[];
 }) {
   const [monthCursor, setMonthCursor] = useState(() => new Date(initialMonth));
   const [events, setEvents] = useState(initialEvents);
@@ -159,8 +163,8 @@ export function CalendarView({
                       e.stopPropagation();
                       setEditingEvent(ev);
                     }}
-                    className="truncate rounded bg-accent-soft px-1.5 py-0.5 text-left text-[11px] text-accent hover:bg-accent/20"
-                    title={ev.title}
+                    className="truncate rounded bg-accent-2/15 px-1.5 py-0.5 text-left text-[11px] text-accent-2 hover:bg-accent-2/25"
+                    title={`${ev.title}${ev.attendees.length ? " — " + ev.attendees.map((a) => a.name).join(", ") : ""}`}
                   >
                     {toTimeInput(ev.startAt)} {ev.title}
                   </button>
@@ -177,6 +181,7 @@ export function CalendarView({
       {modalDate && (
         <EventModal
           date={modalDate}
+          users={users}
           onClose={() => setModalDate(null)}
           onSaved={() => {
             setModalDate(null);
@@ -188,6 +193,7 @@ export function CalendarView({
         <EventModal
           date={new Date(editingEvent.startAt)}
           existing={editingEvent}
+          users={users}
           onClose={() => setEditingEvent(null)}
           onSaved={() => {
             setEditingEvent(null);
@@ -202,11 +208,13 @@ export function CalendarView({
 function EventModal({
   date,
   existing,
+  users,
   onClose,
   onSaved,
 }: {
   date: Date;
   existing?: CalEvent;
+  users: { id: string; name: string }[];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -215,8 +223,15 @@ function EventModal({
   const [description, setDescription] = useState(existing?.description ?? "");
   const [startTime, setStartTime] = useState(existing ? toTimeInput(existing.startAt) : "10:00");
   const [endTime, setEndTime] = useState(existing ? toTimeInput(existing.endAt) : "10:30");
+  const [attendeeIds, setAttendeeIds] = useState<string[]>(
+    existing?.attendees.map((a) => a.id) ?? []
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  function toggleAttendee(id: string) {
+    setAttendeeIds((ids) => (ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id]));
+  }
 
   async function handleSave() {
     setSaving(true);
@@ -224,8 +239,8 @@ function EventModal({
     const startAt = new Date(`${dateStr}T${startTime}:00`).toISOString();
     const endAt = new Date(`${dateStr}T${endTime}:00`).toISOString();
     const result = existing
-      ? await updateCalendarEvent(existing.id, { title, description, startAt, endAt })
-      : await createCalendarEvent({ title, description, startAt, endAt });
+      ? await updateCalendarEvent(existing.id, { title, description, startAt, endAt, attendeeIds })
+      : await createCalendarEvent({ title, description, startAt, endAt, attendeeIds });
     setSaving(false);
     if (result.error) {
       setError(result.error);
@@ -298,6 +313,28 @@ function EventModal({
               placeholder="О чём созвон, ссылка на встречу и т.п."
               className="resize-none rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-foreground outline-none focus:border-accent"
             />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs text-muted">Участники</label>
+            <div className="flex flex-wrap gap-1.5">
+              {users.map((u) => {
+                const active = attendeeIds.includes(u.id);
+                return (
+                  <button
+                    key={u.id}
+                    type="button"
+                    onClick={() => toggleAttendee(u.id)}
+                    className={`rounded-full border px-2.5 py-1 text-xs transition ${
+                      active
+                        ? "border-accent-2 bg-accent-2/15 text-accent-2"
+                        : "border-border text-muted hover:text-foreground"
+                    }`}
+                  >
+                    {u.name}
+                  </button>
+                );
+              })}
+            </div>
           </div>
           {existing && (
             <div className="text-[11px] text-muted">Создал: {existing.createdByName}</div>

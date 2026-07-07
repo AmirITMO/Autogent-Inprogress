@@ -59,6 +59,7 @@ model User {
   projectAccess  ProjectMember[]
   channelSpends  ChannelSpend[]
   calendarEvents CalendarEvent[]
+  attendingEvents CalendarEvent[] @relation("EventAttendees")
 }
 
 model Project {
@@ -263,6 +264,8 @@ model CalendarEvent {
   createdById String
   createdBy   User     @relation(fields: [createdById], references: [id])
   createdAt   DateTime @default(now())
+
+  attendees User[] @relation("EventAttendees")
 
   @@index([startAt])
 }

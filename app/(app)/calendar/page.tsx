@@ -11,11 +11,21 @@ export default async function CalendarPage() {
   const monthEnd = endOfMonth(addMonths(now, 0));
   monthEnd.setDate(monthEnd.getDate() + 1); // включительно последний день
 
-  const events = await prisma.calendarEvent.findMany({
-    where: { startAt: { gte: monthStart, lt: monthEnd } },
-    include: { createdBy: { select: { name: true } } },
-    orderBy: { startAt: "asc" },
-  });
+  const [events, users] = await Promise.all([
+    prisma.calendarEvent.findMany({
+      where: { startAt: { gte: monthStart, lt: monthEnd } },
+      include: {
+        createdBy: { select: { name: true } },
+        attendees: { select: { id: true, name: true, avatarUrl: true } },
+      },
+      orderBy: { startAt: "asc" },
+    }),
+    prisma.user.findMany({
+      where: { isBlocked: false },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
 
   const serialized = events.map((e) => ({
     id: e.id,
@@ -24,6 +34,7 @@ export default async function CalendarPage() {
     startAt: e.startAt.toISOString(),
     endAt: e.endAt.toISOString(),
     createdByName: e.createdBy.name,
+    attendees: e.attendees,
   }));
 
   return (
@@ -32,7 +43,7 @@ export default async function CalendarPage() {
         <h1 className="text-lg font-semibold text-foreground">Календарь</h1>
         <p className="text-sm text-muted">Общие созвоны команды</p>
       </div>
-      <CalendarView initialMonth={monthStart.toISOString()} initialEvents={serialized} />
+      <CalendarView initialMonth={monthStart.toISOString()} initialEvents={serialized} users={users} />
     </div>
   );
 }
