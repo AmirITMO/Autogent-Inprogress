@@ -7,9 +7,11 @@ import { KanbanCard } from "./KanbanCard";
 export function KanbanColumn<T extends KanbanItem>({
   column,
   renderCard,
+  canDrag,
 }: {
   column: KanbanColumnData<T>;
   renderCard: (item: T) => React.ReactNode;
+  canDrag?: (item: T) => boolean;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
 
@@ -44,7 +46,7 @@ export function KanbanColumn<T extends KanbanItem>({
         }`}
       >
         {column.items.map((item) => (
-          <KanbanCard key={item.id} id={item.id}>
+          <KanbanCard key={item.id} id={item.id} disabled={canDrag ? !canDrag(item) : false}>
             {renderCard(item)}
           </KanbanCard>
         ))}

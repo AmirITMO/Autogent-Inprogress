@@ -2,8 +2,19 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/roles";
+import { requireUser, getPermissions } from "@/lib/roles";
 import { DONE_COLUMN_NAME, TASK_PRIORITY_LABEL } from "@/lib/constants";
+
+// Может ли пользователь редактировать/двигать/удалять/архивировать конкретную задачу.
+// ADMIN — всегда; editTasksOthers — любую; editTasksSelf — только задачи, где он
+// исполнитель. Без этих прав — только просмотр и комментирование.
+async function assertCanEditTask(userId: string, role: "ADMIN" | "EMPLOYEE", assigneeId: string | null) {
+  if (role === "ADMIN") return;
+  const perms = await getPermissions(userId, role);
+  if (perms.editTasksOthers) return;
+  if (perms.editTasksSelf && assigneeId === userId) return;
+  throw new Error("Forbidden");
+}
 
 export async function createTask(data: {
   columnId: string;
@@ -11,7 +22,19 @@ export async function createTask(data: {
   projectId?: string;
   assigneeId?: string;
 }) {
-  await requireUser();
+  const user = await requireUser();
+  const perms = await getPermissions(user.id, user.role);
+  if (user.role !== "ADMIN" && !perms.editTasksSelf && !perms.editTasksOthers) {
+    throw new Error("Forbidden");
+  }
+
+  // Сотрудник без права назначать других всегда ставит задачу на себя; пустых
+  // (без исполнителя) задач сотрудники создавать не могут.
+  let assigneeId = data.assigneeId;
+  if (user.role !== "ADMIN") {
+    assigneeId = perms.editTasksOthers ? data.assigneeId || user.id : user.id;
+  }
+
   const last = await prisma.task.findFirst({
     where: { columnId: data.columnId },
     orderBy: { order: "desc" },
@@ -22,7 +45,7 @@ export async function createTask(data: {
       columnId: data.columnId,
       title: data.title,
       projectId: data.projectId,
-      assigneeId: data.assigneeId,
+      assigneeId,
       order: (last?.order ?? 0) + 1,
     },
   });
@@ -33,8 +56,9 @@ export async function createTask(data: {
 }
 
 export async function moveTask(taskId: string, toColumnId: string, toIndex: number) {
-  await requireUser();
+  const user = await requireUser();
   const task = await prisma.task.findUniqueOrThrow({ where: { id: taskId } });
+  await assertCanEditTask(user.id, user.role, task.assigneeId);
   const toColumn = await prisma.taskColumn.findUniqueOrThrow({ where: { id: toColumnId } });
 
   const siblings = await prisma.task.findMany({
@@ -86,6 +110,19 @@ export async function updateTask(
 ): Promise<{ error: string } | { error?: undefined }> {
   const user = await requireUser();
   const before = await prisma.task.findUniqueOrThrow({ where: { id: taskId } });
+  await assertCanEditTask(user.id, user.role, before.assigneeId);
+
+  if (user.role !== "ADMIN") {
+    const perms = await getPermissions(user.id, user.role);
+    // Сотрудники не могут оставлять задачу без исполнителя, а без права
+    // "редактировать задачи сотрудникам" — переназначать её на кого-то ещё.
+    if (data.assigneeId === null) {
+      return { error: "У задачи должен быть исполнитель" };
+    }
+    if (data.assigneeId && !perms.editTasksOthers && data.assigneeId !== user.id) {
+      return { error: "Вы можете назначать задачи только на себя" };
+    }
+  }
 
   if (data.dueDate) {
     const due = new Date(data.dueDate);
@@ -140,7 +177,9 @@ export async function updateTask(
 }
 
 export async function deleteTask(taskId: string) {
-  await requireUser();
+  const user = await requireUser();
+  const task = await prisma.task.findUniqueOrThrow({ where: { id: taskId } });
+  await assertCanEditTask(user.id, user.role, task.assigneeId);
   await prisma.task.delete({ where: { id: taskId } });
   revalidatePath("/tasks");
   revalidatePath("/my");
@@ -148,7 +187,9 @@ export async function deleteTask(taskId: string) {
 }
 
 export async function archiveTask(taskId: string) {
-  await requireUser();
+  const user = await requireUser();
+  const task = await prisma.task.findUniqueOrThrow({ where: { id: taskId } });
+  await assertCanEditTask(user.id, user.role, task.assigneeId);
   await prisma.task.update({ where: { id: taskId }, data: { archived: true } });
   revalidatePath("/tasks");
   revalidatePath("/my");
@@ -156,7 +197,9 @@ export async function archiveTask(taskId: string) {
 }
 
 export async function unarchiveTask(taskId: string) {
-  await requireUser();
+  const user = await requireUser();
+  const task = await prisma.task.findUniqueOrThrow({ where: { id: taskId } });
+  await assertCanEditTask(user.id, user.role, task.assigneeId);
   await prisma.task.update({ where: { id: taskId }, data: { archived: false } });
   revalidatePath("/tasks");
   revalidatePath("/my");

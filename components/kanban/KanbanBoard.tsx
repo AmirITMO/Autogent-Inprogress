@@ -33,10 +33,12 @@ export function KanbanBoard<T extends KanbanItem>({
   columns,
   renderCard,
   onMove,
+  canDrag,
 }: {
   columns: KanbanColumnData<T>[];
   renderCard: (item: T, dragging?: boolean) => React.ReactNode;
   onMove: (itemId: string, toColumnId: string, toIndex: number) => void;
+  canDrag?: (item: T) => boolean;
 }) {
   const [prevColumns, setPrevColumns] = useState(columns);
   const [cols, setCols] = useState(columns);
@@ -135,7 +137,7 @@ export function KanbanBoard<T extends KanbanItem>({
             items={col.items.map((i) => i.id)}
             strategy={verticalListSortingStrategy}
           >
-            <KanbanColumn column={col} renderCard={renderCard} />
+            <KanbanColumn column={col} renderCard={renderCard} canDrag={canDrag} />
           </SortableContext>
         ))}
       </div>

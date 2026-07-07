@@ -5,6 +5,13 @@ import { testUser } from "../testUser";
 vi.mock("@/lib/roles", () => ({
   requireUser: async () => testUser,
   requireAdmin: async () => testUser,
+  getPermissions: async () => ({
+    editTasksSelf: true,
+    viewAccounting: true,
+    viewChannels: true,
+    editCrm: true,
+    editTasksOthers: true,
+  }),
 }));
 
 const { createTask } = await import("@/lib/actions/tasks");

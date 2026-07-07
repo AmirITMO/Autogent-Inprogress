@@ -51,6 +51,14 @@ model User {
   passwordHash String
   role         Role     @default(EMPLOYEE)
   isBlocked    Boolean  @default(false)
+
+  // Гранулярные права сотрудника (для ADMIN игнорируются — админ может всё).
+  editTasksSelf   Boolean @default(true)
+  viewAccounting  Boolean @default(true)
+  viewChannels    Boolean @default(true)
+  editCrm         Boolean @default(false)
+  editTasksOthers Boolean @default(false)
+
   failedLoginAttempts Int       @default(0)
   lockedUntil         DateTime?
   createdAt    DateTime @default(now())

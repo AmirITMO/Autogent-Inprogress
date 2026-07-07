@@ -13,6 +13,14 @@ vi.mock("@/lib/roles", () => ({
 const { createEmployee, toggleEmployeeBlocked, deleteEmployee, setProjectAccess } =
   await import("@/lib/actions/employees");
 
+const DEFAULT_PERMISSIONS = {
+  editTasksSelf: true,
+  viewAccounting: true,
+  viewChannels: true,
+  editCrm: false,
+  editTasksOthers: false,
+};
+
 beforeEach(async () => {
   await prisma.projectMember.deleteMany();
   await prisma.project.deleteMany();
@@ -28,18 +36,27 @@ describe("createEmployee", () => {
       email: "ivan@test.local",
       password: "hunter22",
       role: "EMPLOYEE",
+      permissions: DEFAULT_PERMISSIONS,
     });
 
     const user = await prisma.user.findUniqueOrThrow({ where: { email: "ivan@test.local" } });
     expect(user.passwordHash).not.toBe("hunter22");
     expect(user.role).toBe("EMPLOYEE");
     expect(user.isBlocked).toBe(false);
+    expect(user.editTasksSelf).toBe(true);
+    expect(user.editCrm).toBe(false);
   });
 
   it("is rejected when the caller is not an admin", async () => {
     testUser.role = "EMPLOYEE";
     await expect(
-      createEmployee({ name: "X", email: "x@test.local", password: "p", role: "EMPLOYEE" })
+      createEmployee({
+        name: "X",
+        email: "x@test.local",
+        password: "p",
+        role: "EMPLOYEE",
+        permissions: DEFAULT_PERMISSIONS,
+      })
     ).rejects.toThrow();
   });
 
@@ -49,6 +66,7 @@ describe("createEmployee", () => {
       email: "x@test.local",
       password: "123456",
       role: "EMPLOYEE",
+      permissions: DEFAULT_PERMISSIONS,
     });
     expect(weak.error).toBeTruthy();
     expect(await prisma.user.findUnique({ where: { email: "x@test.local" } })).toBeNull();
@@ -58,6 +76,7 @@ describe("createEmployee", () => {
       email: "x2@test.local",
       password: "short",
       role: "EMPLOYEE",
+      permissions: DEFAULT_PERMISSIONS,
     });
     expect(short.error).toBeTruthy();
   });
@@ -68,12 +87,14 @@ describe("createEmployee", () => {
       email: "dup@test.local",
       password: "hunter22",
       role: "EMPLOYEE",
+      permissions: DEFAULT_PERMISSIONS,
     });
     const result = await createEmployee({
       name: "Второй",
       email: "dup@test.local",
       password: "hunter22",
       role: "EMPLOYEE",
+      permissions: DEFAULT_PERMISSIONS,
     });
     expect(result.error).toBeTruthy();
   });

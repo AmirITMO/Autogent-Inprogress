@@ -11,10 +11,12 @@ type Activity = { id: string; message: string; createdAt: Date; user: { name: st
 export function LeadModal({
   lead,
   channels,
+  readOnly,
   onClose,
 }: {
   lead: LeadCardData;
   channels: { id: string; name: string }[];
+  readOnly?: boolean;
   onClose: () => void;
 }) {
   const [form, setForm] = useState({
@@ -51,13 +53,14 @@ export function LeadModal({
         <input
           type={type}
           value={form[key] as string | number}
+          disabled={readOnly}
           onChange={(e) =>
             setForm((f) => ({
               ...f,
               [key]: type === "number" ? Number(e.target.value) : e.target.value,
             }))
           }
-          className="rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-sm text-foreground outline-none focus:border-accent"
+          className="rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-sm text-foreground outline-none focus:border-accent disabled:opacity-60"
         />
       </div>
     );
@@ -129,8 +132,9 @@ export function LeadModal({
             <label className="text-xs text-muted">Канал трафика</label>
             <select
               value={form.channelId}
+              disabled={readOnly}
               onChange={(e) => setForm((f) => ({ ...f, channelId: e.target.value }))}
-              className="rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-sm text-foreground outline-none focus:border-accent"
+              className="rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-sm text-foreground outline-none focus:border-accent disabled:opacity-60"
             >
               <option value="">—</option>
               {channels.map((c) => (
@@ -146,9 +150,10 @@ export function LeadModal({
           <label className="text-xs text-muted">Дополнительное описание</label>
           <textarea
             value={form.description}
+            disabled={readOnly}
             onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
             rows={2}
-            className="rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-foreground outline-none focus:border-accent"
+            className="rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-foreground outline-none focus:border-accent disabled:opacity-60"
           />
         </div>
 
@@ -156,9 +161,10 @@ export function LeadModal({
           <label className="text-xs text-muted">Прочее</label>
           <textarea
             value={form.notes}
+            disabled={readOnly}
             onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
             rows={3}
-            className="rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-foreground outline-none focus:border-accent"
+            className="rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-foreground outline-none focus:border-accent disabled:opacity-60"
             placeholder="Любые дополнительные заметки по лиду…"
           />
         </div>
@@ -168,6 +174,7 @@ export function LeadModal({
           <span className="text-sm font-semibold text-accent">{formatMoney(net)}</span>
         </div>
 
+        {!readOnly && (
         <div className="mt-4 rounded-lg border border-border p-3">
           {lead.lost ? (
             <div className="flex items-center justify-between gap-3">
@@ -200,21 +207,24 @@ export function LeadModal({
             </div>
           )}
         </div>
+        )}
 
         <div className="mt-5 flex justify-end gap-2">
           <button
             onClick={onClose}
             className="rounded-lg px-4 py-2 text-sm text-muted hover:text-foreground"
           >
-            Отмена
+            {readOnly ? "Закрыть" : "Отмена"}
           </button>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-50"
-          >
-            {saving ? "Сохранение…" : "Сохранить"}
-          </button>
+          {!readOnly && (
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-50"
+            >
+              {saving ? "Сохранение…" : "Сохранить"}
+            </button>
+          )}
         </div>
 
         {activity.length > 0 && (

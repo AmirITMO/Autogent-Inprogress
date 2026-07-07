@@ -6,6 +6,8 @@ import {
   toggleEmployeeBlocked,
   deleteEmployee,
   setProjectAccess,
+  setEmployeePermissions,
+  type EmployeePermissions,
 } from "@/lib/actions/employees";
 
 type Employee = {
@@ -15,9 +17,25 @@ type Employee = {
   role: "ADMIN" | "EMPLOYEE";
   isBlocked: boolean;
   projectIds: string[];
+} & EmployeePermissions;
+
+const DEFAULT_PERMISSIONS: EmployeePermissions = {
+  editTasksSelf: true,
+  viewAccounting: true,
+  viewChannels: true,
+  editCrm: false,
+  editTasksOthers: false,
 };
 
-export function EmployeesView({
+const PERMISSION_LABELS: { key: keyof EmployeePermissions; label: string }[] = [
+  { key: "editTasksSelf", label: "Редактировать задачи себе" },
+  { key: "viewAccounting", label: "Просматривать бухгалтерию" },
+  { key: "viewChannels", label: "Просматривать каналы трафика" },
+  { key: "editCrm", label: "Редактировать CRM" },
+  { key: "editTasksOthers", label: "Редактировать задачи сотрудникам" },
+];
+
+export function TeamSection({
   users,
   projects,
 }: {
@@ -29,6 +47,7 @@ export function EmployeesView({
     email: "",
     password: "",
     role: "EMPLOYEE" as "ADMIN" | "EMPLOYEE",
+    permissions: { ...DEFAULT_PERMISSIONS },
   });
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
@@ -42,7 +61,13 @@ export function EmployeesView({
       if (result.error) {
         setError(result.error);
       } else {
-        setForm({ name: "", email: "", password: "", role: "EMPLOYEE" });
+        setForm({
+          name: "",
+          email: "",
+          password: "",
+          role: "EMPLOYEE",
+          permissions: { ...DEFAULT_PERMISSIONS },
+        });
       }
     } catch {
       setError("Не удалось добавить сотрудника");
@@ -52,7 +77,7 @@ export function EmployeesView({
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-5">
+    <div>
       <div className="rounded-xl border border-border bg-surface p-4">
         <h3 className="mb-3 text-sm font-medium text-foreground">Добавить сотрудника</h3>
         <div className="flex flex-wrap items-end gap-3">
@@ -82,6 +107,27 @@ export function EmployeesView({
             {creating ? "Добавление…" : "Добавить"}
           </button>
         </div>
+
+        {form.role === "EMPLOYEE" && (
+          <div className="mt-3 flex flex-wrap gap-3 border-t border-border pt-3">
+            {PERMISSION_LABELS.map(({ key, label }) => (
+              <label key={key} className="flex items-center gap-1.5 text-xs text-muted">
+                <input
+                  type="checkbox"
+                  checked={form.permissions[key]}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      permissions: { ...f.permissions, [key]: e.target.checked },
+                    }))
+                  }
+                  className="h-3.5 w-3.5 accent-accent"
+                />
+                {label}
+              </label>
+            ))}
+          </div>
+        )}
         {error && <div className="mt-2 text-xs text-danger">{error}</div>}
       </div>
 
@@ -102,6 +148,13 @@ function EmployeeRow({
   projects: { id: string; name: string }[];
 }) {
   const [projectIds, setProjectIds] = useState(user.projectIds);
+  const [permissions, setPermissions] = useState<EmployeePermissions>({
+    editTasksSelf: user.editTasksSelf,
+    viewAccounting: user.viewAccounting,
+    viewChannels: user.viewChannels,
+    editCrm: user.editCrm,
+    editTasksOthers: user.editTasksOthers,
+  });
 
   function toggleProject(id: string) {
     const next = projectIds.includes(id)
@@ -109,6 +162,12 @@ function EmployeeRow({
       : [...projectIds, id];
     setProjectIds(next);
     setProjectAccess(user.id, next);
+  }
+
+  function togglePermission(key: keyof EmployeePermissions) {
+    const next = { ...permissions, [key]: !permissions[key] };
+    setPermissions(next);
+    setEmployeePermissions(user.id, { [key]: next[key] });
   }
 
   return (
@@ -145,6 +204,24 @@ function EmployeeRow({
           </button>
         </div>
       </div>
+
+      {user.role === "EMPLOYEE" && (
+        <div className="mt-3 flex flex-wrap gap-1.5 border-t border-border pt-3">
+          {PERMISSION_LABELS.map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => togglePermission(key)}
+              className={`rounded-full border px-2.5 py-1 text-[11px] transition ${
+                permissions[key]
+                  ? "border-accent bg-accent-soft text-accent"
+                  : "border-border text-muted hover:text-foreground"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {user.role === "EMPLOYEE" && projects.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-1.5">

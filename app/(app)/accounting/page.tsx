@@ -1,10 +1,10 @@
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/roles";
+import { requirePagePermission } from "@/lib/roles";
 import { reconcileAllLeadIncome } from "@/lib/actions/leads";
 import { AccountingView } from "./_components/AccountingView";
 
 export default async function AccountingPage() {
-  await requireUser();
+  await requirePagePermission("viewAccounting");
   await reconcileAllLeadIncome();
 
   const [transactions, categories, leads] = await Promise.all([

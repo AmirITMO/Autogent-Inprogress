@@ -6,11 +6,20 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/roles";
 import { validatePasswordStrength } from "@/lib/passwordPolicy";
 
+export type EmployeePermissions = {
+  editTasksSelf: boolean;
+  viewAccounting: boolean;
+  viewChannels: boolean;
+  editCrm: boolean;
+  editTasksOthers: boolean;
+};
+
 export async function createEmployee(data: {
   name: string;
   email: string;
   password: string;
   role: "ADMIN" | "EMPLOYEE";
+  permissions: EmployeePermissions;
 }): Promise<{ error: string } | { error?: undefined }> {
   await requireAdmin();
   const passwordError = validatePasswordStrength(data.password);
@@ -25,22 +34,23 @@ export async function createEmployee(data: {
       email: data.email,
       passwordHash: await hash(data.password, 10),
       role: data.role,
+      ...data.permissions,
     },
   });
-  revalidatePath("/employees");
+  revalidatePath("/settings");
   return {};
 }
 
 export async function toggleEmployeeBlocked(userId: string, isBlocked: boolean) {
   await requireAdmin();
   await prisma.user.update({ where: { id: userId }, data: { isBlocked } });
-  revalidatePath("/employees");
+  revalidatePath("/settings");
 }
 
 export async function deleteEmployee(userId: string) {
   await requireAdmin();
   await prisma.user.delete({ where: { id: userId } });
-  revalidatePath("/employees");
+  revalidatePath("/settings");
 }
 
 export async function setProjectAccess(userId: string, projectIds: string[]) {
@@ -51,5 +61,11 @@ export async function setProjectAccess(userId: string, projectIds: string[]) {
       data: projectIds.map((projectId) => ({ userId, projectId })),
     });
   }
-  revalidatePath("/employees");
+  revalidatePath("/settings");
+}
+
+export async function setEmployeePermissions(userId: string, permissions: Partial<EmployeePermissions>) {
+  await requireAdmin();
+  await prisma.user.update({ where: { id: userId }, data: permissions });
+  revalidatePath("/settings");
 }

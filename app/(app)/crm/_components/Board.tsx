@@ -12,9 +12,11 @@ import { NewLeadModal } from "./NewLeadModal";
 export function CrmBoard({
   initialLeads,
   channels,
+  canEdit,
 }: {
   initialLeads: LeadCardData[];
   channels: { id: string; name: string }[];
+  canEdit: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [showLost, setShowLost] = useState(false);
@@ -91,18 +93,21 @@ export function CrmBoard({
           Показывать отказы
         </button>
         <div className="hidden flex-1 sm:block" />
-        <button
-          onClick={() => setCreating(true)}
-          className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent-hover"
-        >
-          + Новый лид
-        </button>
+        {canEdit && (
+          <button
+            onClick={() => setCreating(true)}
+            className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent-hover"
+          >
+            + Новый лид
+          </button>
+        )}
       </div>
 
       <div className="min-h-0 flex-1">
         <KanbanBoard
           columns={columns}
           onMove={handleMove}
+          canDrag={() => canEdit}
           renderCard={(lead, dragging) => (
             <LeadCard lead={lead} dragging={dragging} onOpen={() => setActiveLead(lead)} />
           )}
@@ -110,9 +115,14 @@ export function CrmBoard({
       </div>
 
       {activeLead && (
-        <LeadModal lead={activeLead} channels={channels} onClose={() => setActiveLead(null)} />
+        <LeadModal
+          lead={activeLead}
+          channels={channels}
+          readOnly={!canEdit}
+          onClose={() => setActiveLead(null)}
+        />
       )}
-      {creating && <NewLeadModal channels={channels} onClose={() => setCreating(false)} />}
+      {creating && canEdit && <NewLeadModal channels={channels} onClose={() => setCreating(false)} />}
     </div>
   );
 }

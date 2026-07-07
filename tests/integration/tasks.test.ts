@@ -8,6 +8,13 @@ vi.mock("@/lib/roles", () => ({
     if (testUser.role !== "ADMIN") throw new Error("Forbidden");
     return testUser;
   },
+  getPermissions: async () => ({
+    editTasksSelf: true,
+    viewAccounting: true,
+    viewChannels: true,
+    editCrm: true,
+    editTasksOthers: true,
+  }),
 }));
 
 const { createTask, moveTask, updateTask, deleteTask, addTaskComment, getTaskComments } =

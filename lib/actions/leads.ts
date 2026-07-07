@@ -3,9 +3,15 @@
 import { revalidatePath } from "next/cache";
 import type { Lead } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/roles";
+import { requireUser, getPermissions } from "@/lib/roles";
 import type { LeadStageId } from "@/lib/constants";
 import { stageAtOrAfter, monthsElapsed, monthKey } from "@/lib/accounting";
+
+async function assertCanEditCrm(userId: string, role: "ADMIN" | "EMPLOYEE") {
+  if (role === "ADMIN") return;
+  const perms = await getPermissions(userId, role);
+  if (!perms.editCrm) throw new Error("Forbidden");
+}
 
 export async function createLead(data: {
   title: string;
@@ -16,6 +22,7 @@ export async function createLead(data: {
   channelId?: string;
 }) {
   const user = await requireUser();
+  await assertCanEditCrm(user.id, user.role);
   const last = await prisma.lead.findFirst({
     where: { stage: "SCHEDULED_CALL" },
     orderBy: { order: "desc" },
@@ -49,7 +56,8 @@ export async function createLead(data: {
 }
 
 export async function deleteLead(leadId: string): Promise<{ error: string } | { error?: undefined }> {
-  await requireUser();
+  const user = await requireUser();
+  await assertCanEditCrm(user.id, user.role);
   const txCount = await prisma.transaction.count({ where: { leadId } });
   if (txCount > 0) {
     return {
@@ -68,6 +76,7 @@ export async function moveLead(
   toIndex: number
 ) {
   const user = await requireUser();
+  await assertCanEditCrm(user.id, user.role);
   const lead = await prisma.lead.findUniqueOrThrow({ where: { id: leadId } });
 
   const siblings = await prisma.lead.findMany({
@@ -120,6 +129,7 @@ export async function updateLead(
   }
 ) {
   const user = await requireUser();
+  await assertCanEditCrm(user.id, user.role);
   const { startDate, ...rest } = data;
 
   await prisma.lead.update({
@@ -143,6 +153,7 @@ export async function updateLead(
 
 export async function setLeadLost(leadId: string, lost: boolean, lostReason?: string) {
   const user = await requireUser();
+  await assertCanEditCrm(user.id, user.role);
 
   await prisma.lead.update({
     where: { id: leadId },

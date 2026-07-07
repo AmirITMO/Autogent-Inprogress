@@ -1,9 +1,16 @@
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/roles";
+import { requireUser, getPermissions } from "@/lib/roles";
 import { TasksView } from "./_components/TasksView";
 
 export default async function TasksPage() {
-  await requireUser();
+  const sessionUser = await requireUser();
+  const flags = await getPermissions(sessionUser.id, sessionUser.role);
+  const perms = {
+    role: sessionUser.role,
+    userId: sessionUser.id,
+    editTasksSelf: flags.editTasksSelf,
+    editTasksOthers: flags.editTasksOthers,
+  };
 
   const board = await prisma.taskBoard.findFirst({
     where: { name: "ЗАДАЧИ" },
@@ -101,6 +108,7 @@ export default async function TasksPage() {
         projects={projects}
         treeTasks={treeTasks}
         nodesByTask={nodesByTask}
+        perms={perms}
       />
     </div>
   );

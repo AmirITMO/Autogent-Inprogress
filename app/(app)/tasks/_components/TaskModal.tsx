@@ -57,19 +57,34 @@ function initials(name: string) {
     .join("");
 }
 
+export type TaskPermFlags = {
+  role: "ADMIN" | "EMPLOYEE";
+  userId: string;
+  editTasksSelf: boolean;
+  editTasksOthers: boolean;
+};
+
 export function TaskModal({
   task,
   columnName,
   users,
   projects,
+  perms,
   onClose,
 }: {
   task: TaskCardData;
   columnName: string;
   users: { id: string; name: string }[];
   projects: { id: string; name: string }[];
+  perms: TaskPermFlags;
   onClose: () => void;
 }) {
+  const canEdit =
+    perms.role === "ADMIN" ||
+    perms.editTasksOthers ||
+    (perms.editTasksSelf && task.assigneeId === perms.userId);
+  const canAssignOthers = perms.role === "ADMIN" || perms.editTasksOthers;
+  const assigneeOptions = canAssignOthers ? users : users.filter((u) => u.id === perms.userId);
   const isDone = columnName === DONE_COLUMN_NAME;
   const [form, setForm] = useState({
     title: task.title,
@@ -284,9 +299,10 @@ export function TaskModal({
             <label className="text-xs font-medium text-muted">Название задачи</label>
             <input
               value={form.title}
+              disabled={!canEdit}
               onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
               placeholder="Введите название задачи…"
-              className="w-full rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-base font-semibold text-foreground outline-none focus:border-accent"
+              className="w-full rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-base font-semibold text-foreground outline-none focus:border-accent disabled:opacity-60"
             />
           </div>
 
@@ -295,9 +311,10 @@ export function TaskModal({
             <textarea
               rows={8}
               value={form.description}
+              disabled={!canEdit}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
               placeholder="Опишите, что нужно сделать…"
-              className="w-full resize-none rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-foreground outline-none focus:border-accent"
+              className="w-full resize-none rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-foreground outline-none focus:border-accent disabled:opacity-60"
             />
           </div>
 
@@ -305,8 +322,9 @@ export function TaskModal({
             <Field label="Проект">
               <select
                 value={form.projectId}
+                disabled={!canEdit}
                 onChange={(e) => setForm((f) => ({ ...f, projectId: e.target.value }))}
-                className="w-full rounded-lg border border-border bg-white px-2 py-2 text-sm outline-none focus:border-accent"
+                className="w-full rounded-lg border border-border bg-white px-2 py-2 text-sm outline-none focus:border-accent disabled:opacity-60"
               >
                 <option value="">—</option>
                 {projects.map((p) => (
@@ -319,22 +337,26 @@ export function TaskModal({
             <Field label="Исполнитель">
               <select
                 value={form.assigneeId}
+                disabled={!canEdit || !canAssignOthers}
                 onChange={(e) => setForm((f) => ({ ...f, assigneeId: e.target.value }))}
-                className="w-full rounded-lg border border-border bg-white px-2 py-2 text-sm outline-none focus:border-accent"
+                className="w-full rounded-lg border border-border bg-white px-2 py-2 text-sm outline-none focus:border-accent disabled:opacity-60"
               >
-                <option value="">—</option>
-                {users.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.name}
-                  </option>
-                ))}
+                {!canAssignOthers && <option value={perms.userId}>{assigneeOptions[0]?.name ?? "—"}</option>}
+                {canAssignOthers && <option value="">—</option>}
+                {canAssignOthers &&
+                  assigneeOptions.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name}
+                    </option>
+                  ))}
               </select>
             </Field>
             <Field label="Приоритет">
               <select
                 value={form.priority}
+                disabled={!canEdit}
                 onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value }))}
-                className="w-full rounded-lg border border-border bg-white px-2 py-2 text-sm outline-none focus:border-accent"
+                className="w-full rounded-lg border border-border bg-white px-2 py-2 text-sm outline-none focus:border-accent disabled:opacity-60"
               >
                 {TASK_PRIORITIES.map((p) => (
                   <option key={p} value={p}>
@@ -348,8 +370,9 @@ export function TaskModal({
                 type="date"
                 min={todayInputValue()}
                 value={form.dueDate}
+                disabled={!canEdit}
                 onChange={(e) => setForm((f) => ({ ...f, dueDate: e.target.value }))}
-                className={`w-full rounded-lg border bg-white px-2 py-2 text-sm outline-none focus:border-accent ${
+                className={`w-full rounded-lg border bg-white px-2 py-2 text-sm outline-none focus:border-accent disabled:opacity-60 ${
                   dateError ? "border-danger" : "border-border"
                 }`}
               />
@@ -361,11 +384,12 @@ export function TaskModal({
                 max={MAX_ESTIMATE_HOURS}
                 step={1}
                 value={form.estimateHours}
+                disabled={!canEdit}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, estimateHours: e.target.value.replace(/[^0-9]/g, "") }))
                 }
                 placeholder="0"
-                className={`w-full rounded-lg border bg-white px-2 py-2 text-sm outline-none focus:border-accent ${
+                className={`w-full rounded-lg border bg-white px-2 py-2 text-sm outline-none focus:border-accent disabled:opacity-60 ${
                   hoursError ? "border-danger" : "border-border"
                 }`}
               />
@@ -373,8 +397,9 @@ export function TaskModal({
             <Field label="Тип задачи">
               <button
                 type="button"
+                disabled={!canEdit}
                 onClick={() => setForm((f) => ({ ...f, isBug: !f.isBug }))}
-                className={`flex w-full items-center justify-center gap-2 rounded-lg border px-2 py-2 text-sm font-medium transition ${
+                className={`flex w-full items-center justify-center gap-2 rounded-lg border px-2 py-2 text-sm font-medium transition disabled:opacity-60 ${
                   form.isBug
                     ? "border-danger bg-danger/10 text-danger"
                     : "border-border text-muted hover:text-foreground"
@@ -388,24 +413,36 @@ export function TaskModal({
           <div className="mt-2 text-xs text-muted">Колонка: {columnName}</div>
           {saveError && <div className="mt-2 text-xs text-danger">{saveError}</div>}
 
+          {!canEdit && (
+            <div className="mt-4 rounded-lg bg-surface-2 px-3 py-2 text-xs text-muted">
+              У вас нет прав редактировать эту задачу — можно только просматривать и комментировать.
+            </div>
+          )}
+
           <div className="mt-4 flex justify-between gap-2">
-            <button
-              onClick={() => setConfirmingDelete(true)}
-              className="rounded-lg px-3 py-1.5 text-xs text-danger hover:bg-danger/10"
-            >
-              Удалить задачу
-            </button>
+            {canEdit ? (
+              <button
+                onClick={() => setConfirmingDelete(true)}
+                className="rounded-lg px-3 py-1.5 text-xs text-danger hover:bg-danger/10"
+              >
+                Удалить задачу
+              </button>
+            ) : (
+              <span />
+            )}
             <div className="flex gap-2">
               <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm text-muted hover:text-foreground">
-                Отмена
+                {canEdit ? "Отмена" : "Закрыть"}
               </button>
-              <button
-                onClick={handleSave}
-                disabled={saving || !!hoursError || !!dateError}
-                className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-50"
-              >
-                {saving ? "Сохранение…" : "Сохранить"}
-              </button>
+              {canEdit && (
+                <button
+                  onClick={handleSave}
+                  disabled={saving || !!hoursError || !!dateError}
+                  className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-50"
+                >
+                  {saving ? "Сохранение…" : "Сохранить"}
+                </button>
+              )}
             </div>
           </div>
 
@@ -413,15 +450,17 @@ export function TaskModal({
           <div className="mt-6 border-t border-border pt-4">
             <div className="mb-2 flex items-center justify-between">
               <h3 className="text-xs font-medium text-muted">Файлы задачи</h3>
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                className="flex items-center gap-1.5 rounded-lg border border-accent bg-accent-soft px-3 py-1.5 text-xs font-medium text-accent hover:bg-accent/20 disabled:opacity-50"
-              >
-                <IconPaperclip className="h-4 w-4" />
-                {uploading ? "Загрузка…" : "Прикрепить файлы"}
-              </button>
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="flex items-center gap-1.5 rounded-lg border border-accent bg-accent-soft px-3 py-1.5 text-xs font-medium text-accent hover:bg-accent/20 disabled:opacity-50"
+                >
+                  <IconPaperclip className="h-4 w-4" />
+                  {uploading ? "Загрузка…" : "Прикрепить файлы"}
+                </button>
+              )}
               <input ref={fileInputRef} type="file" multiple onChange={handleUploadFile} className="hidden" />
             </div>
             {uploadError && <div className="mb-2 text-xs text-danger">{uploadError}</div>}
@@ -444,13 +483,15 @@ export function TaskModal({
                       <IconPaperclip className="h-3.5 w-3.5 shrink-0" /> {a.fileName}
                     </a>
                     <span className="ml-2 shrink-0 text-muted">{formatSize(a.size)}</span>
-                    <button
-                      onClick={() => handleDeleteAttachment(a.id)}
-                      className="ml-2 shrink-0 text-muted hover:text-danger"
-                      aria-label="Удалить файл"
-                    >
-                      ✕
-                    </button>
+                    {canEdit && (
+                      <button
+                        onClick={() => handleDeleteAttachment(a.id)}
+                        className="ml-2 shrink-0 text-muted hover:text-danger"
+                        aria-label="Удалить файл"
+                      >
+                        ✕
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>

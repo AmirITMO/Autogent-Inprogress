@@ -5,6 +5,7 @@ import { TasksBoard } from "./Board";
 import { TaskTree, type TreeTask, type MindNodeRow } from "./TaskTree";
 import { ArchivedTasksList } from "./ArchivedTasksList";
 import type { TaskCardData } from "./TaskCard";
+import type { TaskPermFlags } from "./TaskModal";
 
 type ColumnData = { id: string; title: string; tasks: TaskCardData[] };
 
@@ -14,12 +15,14 @@ export function TasksView({
   projects,
   treeTasks,
   nodesByTask,
+  perms,
 }: {
   columns: ColumnData[];
   users: { id: string; name: string }[];
   projects: { id: string; name: string }[];
   treeTasks: TreeTask[];
   nodesByTask: Record<string, MindNodeRow[]>;
+  perms: TaskPermFlags;
 }) {
   const [view, setView] = useState<"board" | "tree" | "archive">("board");
 
@@ -52,7 +55,9 @@ export function TasksView({
         </button>
       </div>
 
-      {view === "board" && <TasksBoard columns={columns} users={users} projects={projects} />}
+      {view === "board" && (
+        <TasksBoard columns={columns} users={users} projects={projects} perms={perms} />
+      )}
       {view === "tree" && (
         <div className="min-h-0 flex-1">
           <TaskTree
@@ -64,7 +69,7 @@ export function TasksView({
           />
         </div>
       )}
-      {view === "archive" && <ArchivedTasksList users={users} projects={projects} />}
+      {view === "archive" && <ArchivedTasksList users={users} projects={projects} perms={perms} />}
     </div>
   );
 }

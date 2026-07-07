@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { TASK_PRIORITY_COLOR, TASK_PRIORITY_LABEL, DONE_COLUMN_NAME } from "@/lib/constants";
-import { TaskModal } from "../../tasks/_components/TaskModal";
+import { TaskModal, type TaskPermFlags } from "../../tasks/_components/TaskModal";
 import type { TaskCardData } from "../../tasks/_components/TaskCard";
 
 type MyTask = TaskCardData & { columnName: string };
@@ -11,10 +11,12 @@ export function MyTasksList({
   tasks,
   users,
   projects,
+  perms,
 }: {
   tasks: MyTask[];
   users: { id: string; name: string }[];
   projects: { id: string; name: string }[];
+  perms: TaskPermFlags;
 }) {
   const [active, setActive] = useState<MyTask | null>(null);
   const open = tasks.filter((t) => t.columnName !== DONE_COLUMN_NAME);
@@ -31,6 +33,7 @@ export function MyTasksList({
           columnName={active.columnName}
           users={users}
           projects={projects}
+          perms={perms}
           onClose={() => setActive(null)}
         />
       )}

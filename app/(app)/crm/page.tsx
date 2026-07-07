@@ -1,9 +1,11 @@
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/roles";
+import { requireUser, getPermissions } from "@/lib/roles";
 import { CrmBoard } from "./_components/Board";
 
 export default async function CrmPage() {
-  await requireUser();
+  const sessionUser = await requireUser();
+  const flags = await getPermissions(sessionUser.id, sessionUser.role);
+  const canEditCrm = sessionUser.role === "ADMIN" || flags.editCrm;
 
   const [leads, channels] = await Promise.all([
     prisma.lead.findMany({
@@ -44,7 +46,7 @@ export default async function CrmPage() {
         <h1 className="text-lg font-semibold text-foreground">CRM</h1>
         <p className="text-sm text-muted">Воронка сделок команды</p>
       </div>
-      <CrmBoard initialLeads={serialized} channels={channelOptions} />
+      <CrmBoard initialLeads={serialized} channels={channelOptions} canEdit={canEditCrm} />
     </div>
   );
 }

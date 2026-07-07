@@ -9,15 +9,14 @@ import { IconCalendar } from "@/components/icons";
 import { NotificationBell } from "@/components/NotificationBell";
 
 const links = [
-  { href: "/dashboard", label: "Дашборд", roles: ["ADMIN", "EMPLOYEE"], icon: IconDashboard },
-  { href: "/crm", label: "CRM", roles: ["ADMIN", "EMPLOYEE"], icon: IconCrm },
-  { href: "/tasks", label: "Доска задач", roles: ["ADMIN", "EMPLOYEE"], icon: IconBoard },
-  { href: "/my", label: "Мои задачи", roles: ["ADMIN", "EMPLOYEE"], icon: IconCheck },
-  { href: "/calendar", label: "Календарь", roles: ["ADMIN", "EMPLOYEE"], icon: IconCalendar },
-  { href: "/accounting", label: "Бухгалтерия", roles: ["ADMIN", "EMPLOYEE"], icon: IconMoney },
-  { href: "/channels", label: "Каналы трафика", roles: ["ADMIN", "EMPLOYEE"], icon: IconChannels },
-  { href: "/employees", label: "Сотрудники", roles: ["ADMIN"], icon: IconUsers },
-  { href: "/settings", label: "Настройки", roles: ["ADMIN", "EMPLOYEE"], icon: IconSettings },
+  { href: "/dashboard", label: "Дашборд", perm: null, icon: IconDashboard },
+  { href: "/crm", label: "CRM", perm: null, icon: IconCrm },
+  { href: "/tasks", label: "Доска задач", perm: null, icon: IconBoard },
+  { href: "/my", label: "Мои задачи", perm: null, icon: IconCheck },
+  { href: "/calendar", label: "Календарь", perm: null, icon: IconCalendar },
+  { href: "/accounting", label: "Бухгалтерия", perm: "viewAccounting" as const, icon: IconMoney },
+  { href: "/channels", label: "Каналы трафика", perm: "viewChannels" as const, icon: IconChannels },
+  { href: "/settings", label: "Настройки", perm: null, icon: IconSettings },
 ];
 
 function initials(name: string) {
@@ -33,10 +32,12 @@ export function Sidebar({
   role,
   userName,
   avatarUrl,
+  permissions,
 }: {
   role: "ADMIN" | "EMPLOYEE";
   userName: string;
   avatarUrl?: string | null;
+  permissions: { viewAccounting: boolean; viewChannels: boolean };
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -48,7 +49,7 @@ export function Sidebar({
     setOpen(false);
   }
 
-  const visibleLinks = links.filter((l) => l.roles.includes(role));
+  const visibleLinks = links.filter((l) => l.perm === null || permissions[l.perm]);
 
   return (
     <>
@@ -194,17 +195,6 @@ function IconMoney({ className }: IconProps) {
     <svg viewBox="0 0 24 24" fill="none" className={className}>
       <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />
       <path d="M12 7v10M9.5 9.5c0-1.4 1.2-2.2 2.5-2.2s2.5.9 2.5 2.1c0 3.1-5 1.6-5 4.5 0 1.3 1.1 2.2 2.5 2.2s2.5-.8 2.5-2.1" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function IconUsers({ className }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className={className}>
-      <circle cx="9" cy="8" r="3.2" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M3.5 20c0-3.3 2.6-5.5 5.9-5.5S15 16.7 15 20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <path d="M15.5 5.2a3.2 3.2 0 0 1 0 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <path d="M17 14.7c2.4.5 3.9 2.4 3.9 5.3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
     </svg>
   );
 }

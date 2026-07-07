@@ -15,15 +15,11 @@ export default auth((req) => {
     return NextResponse.redirect(new URL("/dashboard", req.nextUrl.origin));
   }
 
-  // "/settings", "/accounting", "/channels" не входят в этот список: доступны всем.
-  // "/employees" — управление сотрудниками — остаётся только для ADMIN.
-  const adminOnly = ["/employees"];
-  if (
-    adminOnly.some((p) => pathname.startsWith(p)) &&
-    req.auth?.user?.role !== "ADMIN"
-  ) {
-    return NextResponse.redirect(new URL("/dashboard", req.nextUrl.origin));
-  }
+  // Управление командой теперь живёт внутри /settings (видно только ADMIN в самом
+  // компоненте), отдельного пути под это больше нет. Доступ к /accounting и
+  // /channels зависит от гранулярных прав сотрудника — эти флаги не кладутся в
+  // JWT (чтобы смена прав админом отражалась сразу), поэтому проверяются не тут,
+  // а на уровне самой страницы через requirePagePermission() — см. lib/roles.ts.
 
   return NextResponse.next();
 });

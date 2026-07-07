@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/roles";
 import { SettingsForm } from "./_components/SettingsForm";
 import { ProfileForm } from "./_components/ProfileForm";
+import { TeamSection } from "./_components/TeamSection";
 
 export default async function SettingsPage() {
   const sessionUser = await requireUser();
@@ -15,6 +16,27 @@ export default async function SettingsPage() {
         create: { id: "singleton" },
       })
     : null;
+
+  const [team, projects] = isAdmin
+    ? await Promise.all([
+        prisma.user.findMany({ include: { projectAccess: true }, orderBy: { createdAt: "asc" } }),
+        prisma.project.findMany({ orderBy: { order: "asc" } }),
+      ])
+    : [null, null];
+
+  const serializedTeam = team?.map((u) => ({
+    id: u.id,
+    name: u.name,
+    email: u.email,
+    role: u.role,
+    isBlocked: u.isBlocked,
+    editTasksSelf: u.editTasksSelf,
+    viewAccounting: u.viewAccounting,
+    viewChannels: u.viewChannels,
+    editCrm: u.editCrm,
+    editTasksOthers: u.editTasksOthers,
+    projectIds: u.projectAccess.map((a) => a.projectId),
+  }));
 
   return (
     <div className="flex h-full flex-col">
@@ -46,6 +68,12 @@ export default async function SettingsPage() {
               сводка, напоминания о дедлайнах) требует отдельного bot-сервиса — в
               этой версии платформы он не подключён, значения только хранятся.
             </p>
+          </div>
+        )}
+        {isAdmin && serializedTeam && projects && (
+          <div>
+            <h2 className="mb-2 text-sm font-medium text-foreground">Управление командой</h2>
+            <TeamSection users={serializedTeam} projects={projects.map((p) => ({ id: p.id, name: p.name }))} />
           </div>
         )}
       </div>

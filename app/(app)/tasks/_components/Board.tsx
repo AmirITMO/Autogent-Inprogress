@@ -7,7 +7,7 @@ import { KanbanBoard, type KanbanColumnData } from "@/components/kanban/KanbanBo
 import { TASK_PRIORITIES, TASK_PRIORITY_LABEL, DONE_COLUMN_NAME } from "@/lib/constants";
 import { createTask, moveTask } from "@/lib/actions/tasks";
 import { TaskCard, blankTaskCard, type TaskCardData } from "./TaskCard";
-import { TaskModal } from "./TaskModal";
+import { TaskModal, type TaskPermFlags } from "./TaskModal";
 
 type ColumnData = { id: string; title: string; tasks: TaskCardData[] };
 
@@ -15,11 +15,21 @@ export function TasksBoard({
   columns,
   users,
   projects,
+  perms,
 }: {
   columns: ColumnData[];
   users: { id: string; name: string }[];
   projects: { id: string; name: string }[];
+  perms: TaskPermFlags;
 }) {
+  const canCreate = perms.role === "ADMIN" || perms.editTasksSelf || perms.editTasksOthers;
+  function canEditTask(task: TaskCardData) {
+    return (
+      perms.role === "ADMIN" ||
+      perms.editTasksOthers ||
+      (perms.editTasksSelf && task.assigneeId === perms.userId)
+    );
+  }
   const [activeTask, setActiveTask] = useState<TaskCardData | null>(null);
   const [activeColumnName, setActiveColumnName] = useState("");
   const [creatingIn, setCreatingIn] = useState<string | null>(null);
@@ -96,7 +106,7 @@ export function TasksBoard({
     id: c.id,
     title: c.title,
     items: c.tasks,
-    headerExtra: (
+    headerExtra: canCreate ? (
       <button
         onClick={() => handleCreate(c.id)}
         disabled={creatingIn === c.id}
@@ -105,7 +115,7 @@ export function TasksBoard({
       >
         +
       </button>
-    ),
+    ) : undefined,
   }));
 
   return (
@@ -181,6 +191,7 @@ export function TasksBoard({
       <KanbanBoard
         columns={kanbanColumns}
         onMove={handleMove}
+        canDrag={canEditTask}
         renderCard={(task, dragging) => {
           const col = columns.find((c) => c.tasks.some((t) => t.id === task.id));
           return (
@@ -200,6 +211,7 @@ export function TasksBoard({
           columnName={activeColumnName}
           users={users}
           projects={projects}
+          perms={perms}
           onClose={() => setActiveTask(null)}
         />
       )}

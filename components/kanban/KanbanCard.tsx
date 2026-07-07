@@ -5,13 +5,15 @@ import { CSS } from "@dnd-kit/utilities";
 
 export function KanbanCard({
   id,
+  disabled,
   children,
 }: {
   id: string;
+  disabled?: boolean;
   children: React.ReactNode;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id });
+    useSortable({ id, disabled });
 
   return (
     <div
@@ -21,9 +23,8 @@ export function KanbanCard({
         transition,
         opacity: isDragging ? 0.4 : 1,
       }}
-      {...attributes}
-      {...listeners}
-      className="cursor-grab active:cursor-grabbing"
+      {...(disabled ? {} : { ...attributes, ...listeners })}
+      className={disabled ? "cursor-default" : "cursor-grab active:cursor-grabbing"}
     >
       {children}
     </div>

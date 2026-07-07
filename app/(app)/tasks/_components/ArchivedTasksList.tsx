@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { listArchivedTasks, unarchiveTask } from "@/lib/actions/tasks";
 import { TASK_PRIORITY_COLOR, TASK_PRIORITY_LABEL } from "@/lib/constants";
-import { TaskModal } from "./TaskModal";
+import { TaskModal, type TaskPermFlags } from "./TaskModal";
 import type { TaskCardData } from "./TaskCard";
 
 type ArchivedTask = TaskCardData & { columnName: string; completedAt: string | null };
@@ -11,9 +11,11 @@ type ArchivedTask = TaskCardData & { columnName: string; completedAt: string | n
 export function ArchivedTasksList({
   users,
   projects,
+  perms,
 }: {
   users: { id: string; name: string }[];
   projects: { id: string; name: string }[];
+  perms: TaskPermFlags;
 }) {
   const [tasks, setTasks] = useState<ArchivedTask[] | null>(null);
   const [active, setActive] = useState<ArchivedTask | null>(null);
@@ -75,13 +77,17 @@ export function ArchivedTasksList({
                 {t.projectName && ` · ${t.projectName}`} · было в «{t.columnName}»
               </div>
             </button>
-            <button
-              onClick={() => handleUnarchive(t.id)}
-              disabled={busyId === t.id}
-              className="shrink-0 rounded-lg border border-border px-3 py-1.5 text-xs text-foreground hover:bg-surface-2 disabled:opacity-50"
-            >
-              Восстановить
-            </button>
+            {(perms.role === "ADMIN" ||
+              perms.editTasksOthers ||
+              (perms.editTasksSelf && t.assigneeId === perms.userId)) && (
+              <button
+                onClick={() => handleUnarchive(t.id)}
+                disabled={busyId === t.id}
+                className="shrink-0 rounded-lg border border-border px-3 py-1.5 text-xs text-foreground hover:bg-surface-2 disabled:opacity-50"
+              >
+                Восстановить
+              </button>
+            )}
           </div>
         ))}
       </div>
@@ -92,6 +98,7 @@ export function ArchivedTasksList({
           columnName={active.columnName}
           users={users}
           projects={projects}
+          perms={perms}
           onClose={() => {
             setActive(null);
             refresh();

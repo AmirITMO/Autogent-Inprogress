@@ -1,9 +1,16 @@
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/roles";
+import { requireUser, getPermissions } from "@/lib/roles";
 import { MyTasksList } from "./_components/MyTasksList";
 
 export default async function MyTasksPage() {
   const user = await requireUser();
+  const flags = await getPermissions(user.id, user.role);
+  const perms = {
+    role: user.role,
+    userId: user.id,
+    editTasksSelf: flags.editTasksSelf,
+    editTasksOthers: flags.editTasksOthers,
+  };
 
   const tasks = await prisma.task.findMany({
     where: { assigneeId: user.id, archived: false },
@@ -50,7 +57,7 @@ export default async function MyTasksPage() {
         <h1 className="text-lg font-semibold text-foreground">Мои задачи</h1>
         <p className="text-sm text-muted">Активные задачи, назначенные на вас</p>
       </div>
-      <MyTasksList tasks={serialized} users={users} projects={projects} />
+      <MyTasksList tasks={serialized} users={users} projects={projects} perms={perms} />
     </div>
   );
 }
