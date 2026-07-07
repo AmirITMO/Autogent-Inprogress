@@ -2,10 +2,19 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+// Роль читается заново из БД при каждом запросе, а не берётся из JWT-сессии:
+// JWT выставляется один раз при логине и не обновляется автоматически, поэтому
+// смена роли админом (EMPLOYEE -> ADMIN и обратно) без этого не отражалась бы
+// до следующего перелогина пользователя.
 export async function requireUser() {
   const session = await auth();
   if (!session?.user) throw new Error("Unauthorized");
-  return session.user;
+  const fresh = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { role: true },
+  });
+  if (!fresh) throw new Error("Unauthorized");
+  return { ...session.user, role: fresh.role };
 }
 
 export async function requireAdmin() {

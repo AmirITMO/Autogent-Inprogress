@@ -12,19 +12,22 @@ export default async function AppLayout({
   const session = await auth();
   if (!session?.user) redirect("/login");
 
-  // Аватарка читается напрямую из БД (не из JWT-сессии), чтобы обновление
-  // фото профиля отражалось сразу, без повторного логина.
-  const [dbUser, permissions] = await Promise.all([
-    prisma.user.findUnique({ where: { id: session.user.id }, select: { avatarUrl: true } }),
-    getPermissions(session.user.id, session.user.role),
-  ]);
+  // Аватарка и роль читаются напрямую из БД (не из JWT-сессии): JWT выставляется
+  // один раз при логине, поэтому смена роли админом иначе не отражалась бы до
+  // следующего перелогина пользователя — см. requireUser() в lib/roles.ts.
+  const dbUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { avatarUrl: true, role: true },
+  });
+  if (!dbUser) redirect("/login");
+  const permissions = await getPermissions(session.user.id, dbUser.role);
 
   return (
     <div className="flex flex-1 flex-col md:flex-row">
       <Sidebar
-        role={session.user.role}
+        role={dbUser.role}
         userName={session.user.name ?? session.user.email ?? ""}
-        avatarUrl={dbUser?.avatarUrl}
+        avatarUrl={dbUser.avatarUrl}
         permissions={permissions}
       />
       <main className="min-w-0 flex-1 overflow-auto">{children}</main>
