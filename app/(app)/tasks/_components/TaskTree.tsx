@@ -145,7 +145,7 @@ function SubtaskNode({ id, data }: NodeProps) {
 
   return (
     <div
-      className="nodrag group relative min-w-[160px] rounded-xl border-2 px-3 py-2 shadow-sm"
+      className="group relative min-w-[160px] rounded-xl border-2 px-3 py-2 shadow-sm"
       style={{ background: style.bg, borderColor: style.border, color: style.text }}
     >
       <Handle type="target" position={Position.Top} />
@@ -166,7 +166,7 @@ function SubtaskNode({ id, data }: NodeProps) {
               d.onRename(id, title);
             }
           }}
-          className="w-full rounded border border-border bg-white px-1 py-0.5 text-sm text-foreground outline-none"
+          className="nodrag w-full rounded border border-border bg-white px-1 py-0.5 text-sm text-foreground outline-none"
         />
       ) : (
         <div onDoubleClick={() => setEditing(true)} className="text-sm font-medium">
@@ -175,7 +175,7 @@ function SubtaskNode({ id, data }: NodeProps) {
       )}
 
       <div className="mt-1 flex items-center gap-2 text-[11px] opacity-80">
-        <label className="flex items-center gap-1">
+        <label className="nodrag flex items-center gap-1">
           <input type="checkbox" checked={d.done} onChange={() => d.onToggleDone(id)} />
           готово
         </label>
@@ -183,7 +183,7 @@ function SubtaskNode({ id, data }: NodeProps) {
           type="date"
           value={d.dueDate ? d.dueDate.slice(0, 10) : ""}
           onChange={(e) => d.onSetDueDate(id, e.target.value)}
-          className="rounded border border-transparent bg-transparent text-[11px] outline-none hover:border-border"
+          className="nodrag rounded border border-transparent bg-transparent text-[11px] outline-none hover:border-border"
         />
       </div>
 
@@ -191,14 +191,14 @@ function SubtaskNode({ id, data }: NodeProps) {
         <button
           onClick={() => d.onAddChild(d.taskId, id)}
           title="Добавить подзадачу"
-          className="flex h-5 w-5 items-center justify-center rounded-full bg-accent text-xs text-white"
+          className="nodrag flex h-5 w-5 items-center justify-center rounded-full bg-accent text-xs text-white"
         >
           +
         </button>
         <button
           onClick={() => d.onDelete(id)}
           title="Удалить"
-          className="flex h-5 w-5 items-center justify-center rounded-full bg-danger text-xs text-white"
+          className="nodrag flex h-5 w-5 items-center justify-center rounded-full bg-danger text-xs text-white"
         >
           ×
         </button>

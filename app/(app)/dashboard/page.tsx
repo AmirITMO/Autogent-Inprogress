@@ -3,7 +3,14 @@ import { requireUser } from "@/lib/roles";
 import { LEAD_STAGES, formatMoney, DONE_COLUMN_NAME } from "@/lib/constants";
 import { reconcileAllLeadIncome } from "@/lib/actions/leads";
 import { KpiPanel } from "./_components/KpiPanel";
-import { IconTrendUp, IconFolder, IconClock, IconWallet, IconSparkles } from "@/components/icons";
+import {
+  IconTrendUp,
+  IconFolder,
+  IconClock,
+  IconWallet,
+  IconSparkles,
+  IconCoins,
+} from "@/components/icons";
 
 export default async function DashboardPage() {
   const user = await requireUser();
@@ -32,6 +39,13 @@ export default async function DashboardPage() {
     (sum, t) => sum + (t.type === "INCOME" ? Number(t.amount) : -Number(t.amount)),
     0
   );
+
+  // Предполагаемая выручка — сумма предоплаты и постоплаты по всем сделкам, которые
+  // ещё не отмечены как отказ (для сотрудника — только по его сделкам, как и везде
+  // на этом дашборде).
+  const expectedRevenue = leads
+    .filter((l) => !l.lost)
+    .reduce((sum, l) => sum + Number(l.prepay) + Number(l.postpay), 0);
 
   const openTasks = tasks.filter((t) => t.column.name !== DONE_COLUMN_NAME);
   const overdueTasks = openTasks.filter(
@@ -67,12 +81,18 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-5">
         <Tile
           label={isAdmin ? "Всего сделок" : "Мои сделки"}
           value={String(leads.length)}
           accent="accent-2"
           icon={<IconTrendUp className="h-5 w-5" />}
+        />
+        <Tile
+          label="Предполагаемая выручка"
+          value={formatMoney(expectedRevenue)}
+          accent="success"
+          icon={<IconCoins className="h-5 w-5" />}
         />
         <Tile
           label={isAdmin ? "Открытые задачи" : "Мои открытые задачи"}

@@ -10,6 +10,18 @@ export function IconTrendUp({ className }: IconProps) {
   );
 }
 
+export function IconCoins({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <ellipse cx="9" cy="7" rx="5" ry="3" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M4 7v4c0 1.7 2.2 3 5 3s5-1.3 5-3V7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M4 11v4c0 1.7 2.2 3 5 3 .8 0 1.6-.1 2.3-.4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <ellipse cx="16" cy="14.5" rx="4" ry="2.5" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M12 14.5v3c0 1.4 1.8 2.5 4 2.5s4-1.1 4-2.5v-3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export function IconFolder({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className}>
