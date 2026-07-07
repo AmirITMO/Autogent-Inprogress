@@ -45,31 +45,33 @@ export default async function SettingsPage() {
         <p className="text-sm text-muted">Ваш профиль и параметры платформы</p>
       </div>
       <div className="flex flex-col gap-6 p-5">
-        <div>
-          <h2 className="mb-2 text-sm font-medium text-foreground">Мой профиль</h2>
-          <ProfileForm
-            user={{
-              name: user.name,
-              email: user.email,
-              avatarUrl: user.avatarUrl,
-              hasMotivationPhoto: !!user.motivationPhotoKey,
-            }}
-          />
-        </div>
-        {isAdmin && settings && (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <div>
-            <h2 className="mb-2 text-sm font-medium text-foreground">
-              Расписание сводок и проверок дедлайнов
-            </h2>
-            <SettingsForm settings={settings} />
-            <p className="mt-4 max-w-lg text-xs text-muted">
-              Эти параметры сохраняются в базе и готовы к использованию будущим
-              Telegram-ботом уведомлений. Сама отправка сообщений (утренняя/вечерняя
-              сводка, напоминания о дедлайнах) требует отдельного bot-сервиса — в
-              этой версии платформы он не подключён, значения только хранятся.
-            </p>
+            <h2 className="mb-2 text-sm font-medium text-foreground">Мой профиль</h2>
+            <ProfileForm
+              user={{
+                name: user.name,
+                email: user.email,
+                avatarUrl: user.avatarUrl,
+                hasMotivationPhoto: !!user.motivationPhotoKey,
+              }}
+            />
           </div>
-        )}
+          {isAdmin && settings && (
+            <div>
+              <h2 className="mb-2 text-sm font-medium text-foreground">
+                Расписание сводок и проверок дедлайнов
+              </h2>
+              <SettingsForm settings={settings} />
+              <p className="mt-4 max-w-lg text-xs text-muted">
+                Эти параметры сохраняются в базе и готовы к использованию будущим
+                Telegram-ботом уведомлений. Сама отправка сообщений (утренняя/вечерняя
+                сводка, напоминания о дедлайнах) требует отдельного bot-сервиса — в
+                этой версии платформы он не подключён, значения только хранятся.
+              </p>
+            </div>
+          )}
+        </div>
         {isAdmin && serializedTeam && projects && (
           <div>
             <h2 className="mb-2 text-sm font-medium text-foreground">Управление командой</h2>
