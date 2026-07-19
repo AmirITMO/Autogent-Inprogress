@@ -76,5 +76,38 @@ class BotApiClient:
     async def list_projects(self, chat_id: int) -> dict[str, Any]:
         return await self._request("GET", "/api/bot/projects", params={"chatId": chat_id})
 
+    async def list_users(self, chat_id: int) -> dict[str, Any]:
+        return await self._request("GET", "/api/bot/users", params={"chatId": chat_id})
+
+    async def create_calendar_event(self, chat_id: int, **fields: Any) -> dict[str, Any]:
+        return await self._request("POST", "/api/bot/calendar", json={"chatId": chat_id, **fields})
+
+    async def list_lead_stages(self, chat_id: int) -> dict[str, Any]:
+        return await self._request("GET", "/api/bot/lead-stages", params={"chatId": chat_id})
+
+    async def list_leads(self, chat_id: int, stage: str, page: int = 1) -> dict[str, Any]:
+        return await self._request("GET", "/api/bot/leads", params={"chatId": chat_id, "stage": stage, "page": page})
+
+    async def get_lead(self, chat_id: int, lead_id: str) -> dict[str, Any]:
+        return await self._request("GET", f"/api/bot/leads/{lead_id}", params={"chatId": chat_id})
+
+    async def create_lead(self, chat_id: int, **fields: Any) -> dict[str, Any]:
+        return await self._request("POST", "/api/bot/leads", json={"chatId": chat_id, **fields})
+
+    async def move_lead(self, chat_id: int, lead_id: str, direction: str) -> dict[str, Any]:
+        return await self._request(
+            "PATCH", f"/api/bot/leads/{lead_id}/move", json={"chatId": chat_id, "direction": direction}
+        )
+
+    async def update_lead(self, chat_id: int, lead_id: str, **fields: Any) -> dict[str, Any]:
+        return await self._request("PATCH", f"/api/bot/leads/{lead_id}", json={"chatId": chat_id, **fields})
+
+    async def set_lead_lost(self, chat_id: int, lead_id: str, lost: bool, lost_reason: Optional[str] = None) -> dict[str, Any]:
+        return await self._request(
+            "PATCH",
+            f"/api/bot/leads/{lead_id}/lost",
+            json={"chatId": chat_id, "lost": lost, "lostReason": lost_reason},
+        )
+
 
 api = BotApiClient()

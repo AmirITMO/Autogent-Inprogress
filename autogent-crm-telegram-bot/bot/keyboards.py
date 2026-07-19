@@ -13,6 +13,8 @@ def main_menu(can_manage: bool) -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="📋 Мои задачи", callback_data="menu:mine")],
         [InlineKeyboardButton(text="✅ Выполненные", callback_data="menu:done")],
         [InlineKeyboardButton(text="➕ Добавить задачу", callback_data="menu:add")],
+        [InlineKeyboardButton(text="📅 Созвоны", callback_data="menu:calendar")],
+        [InlineKeyboardButton(text="💼 Сделки", callback_data="menu:crm")],
     ]
     if can_manage:
         rows.append([InlineKeyboardButton(text="👥 Сотрудники", callback_data="menu:employees")])
@@ -120,3 +122,72 @@ def confirm_keyboard() -> InlineKeyboardMarkup:
             [InlineKeyboardButton(text="✖️ Отмена", callback_data="cancel")],
         ]
     )
+
+
+CALENDAR_DURATIONS = [30, 60, 90, 120]
+
+
+def calendar_menu_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="➕ Добавить созвон", callback_data="calendar:add")],
+            [InlineKeyboardButton(text="⬅️ В меню", callback_data="menu:main")],
+        ]
+    )
+
+
+def duration_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text=f"{m} мин", callback_data=f"duration:{m}") for m in CALENDAR_DURATIONS]]
+    )
+
+
+def attendees_keyboard(users: list[dict], selected_ids: set[str]) -> InlineKeyboardMarkup:
+    rows = []
+    for u in users:
+        mark = "✅ " if u["id"] in selected_ids else ""
+        rows.append([InlineKeyboardButton(text=f"{mark}{u['name']}", callback_data=f"att:{u['id']}")])
+    rows.append([InlineKeyboardButton(text="Готово", callback_data="att:done")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def crm_menu_keyboard(stages: list[dict], can_edit: bool) -> InlineKeyboardMarkup:
+    rows = [[InlineKeyboardButton(text=s["title"], callback_data=f"crm:stage:{s['id']}")] for s in stages]
+    if can_edit:
+        rows.append([InlineKeyboardButton(text="➕ Добавить сделку", callback_data="crm:add")])
+    rows.append([InlineKeyboardButton(text="⬅️ В меню", callback_data="menu:main")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def leads_list_keyboard(leads: list[dict], page: int, total_pages: int) -> InlineKeyboardMarkup:
+    rows = [
+        [InlineKeyboardButton(text=f"{l['title']}" + (f" — {l['company']}" if l.get("company") else ""), callback_data=f"crm:open:{l['id']}")]
+        for l in leads
+    ]
+    nav = []
+    if page > 1:
+        nav.append(InlineKeyboardButton(text="◀️", callback_data="crm:page:prev"))
+    if total_pages > 1:
+        nav.append(InlineKeyboardButton(text=f"{page}/{total_pages}", callback_data="noop"))
+    if page < total_pages:
+        nav.append(InlineKeyboardButton(text="▶️", callback_data="crm:page:next"))
+    if nav:
+        rows.append(nav)
+    rows.append([InlineKeyboardButton(text="⬅️ К этапам", callback_data="menu:crm")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def lead_card_keyboard(lead: dict, can_edit: bool) -> InlineKeyboardMarkup:
+    rows = []
+    if can_edit:
+        nav = []
+        nav.append(InlineKeyboardButton(text="⬅️ Этап назад", callback_data="crm:move:prev"))
+        nav.append(InlineKeyboardButton(text="Этап вперёд ➡️", callback_data="crm:move:next"))
+        rows.append(nav)
+        rows.append([InlineKeyboardButton(text="✏️ Изменить суммы/заметки", callback_data="crm:edit")])
+        if lead.get("lost"):
+            rows.append([InlineKeyboardButton(text="↩️ Вернуть в работу", callback_data="crm:lost:no")])
+        else:
+            rows.append([InlineKeyboardButton(text="❌ Отметить отказом", callback_data="crm:lost:yes")])
+    rows.append([InlineKeyboardButton(text="⬅️ К списку", callback_data="crm:back:list")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)

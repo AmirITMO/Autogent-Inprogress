@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/roles";
 import { toMoscowParts } from "@/lib/moscowTime";
+import { createCalendarEventCore } from "./calendarCore";
 
 const ATTENDEE_SELECT = { select: { id: true, name: true, avatarUrl: true } };
 
@@ -54,30 +55,8 @@ export async function createCalendarEvent(data: {
   attendeeIds?: string[];
 }): Promise<{ error: string } | { error?: undefined }> {
   const user = await requireUser();
-  if (!data.title.trim()) return { error: "Введите название созвона" };
-  const start = new Date(data.startAt);
-  const end = new Date(data.endAt);
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-    return { error: "Некорректная дата или время" };
-  }
-  if (end <= start) return { error: "Окончание должно быть позже начала" };
-
-  const created = await prisma.calendarEvent.create({
-    data: {
-      title: data.title.trim(),
-      description: data.description?.trim() || undefined,
-      startAt: start,
-      endAt: end,
-      createdById: user.id,
-      attendees: data.attendeeIds?.length
-        ? { connect: data.attendeeIds.map((id) => ({ id })) }
-        : undefined,
-    },
-  });
-
-  if (data.attendeeIds?.length) {
-    await notifyAttendees(created.title, created.startAt, data.attendeeIds, user.id);
-  }
+  const result = await createCalendarEventCore(user.id, data);
+  if (result.error) return { error: result.error };
 
   revalidatePath("/calendar");
   revalidatePath("/dashboard");

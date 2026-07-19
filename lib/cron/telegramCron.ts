@@ -5,6 +5,12 @@ import { sendTelegramMessage } from "@/lib/telegram/send";
 const TIMEZONE = "Europe/Moscow";
 const TICK_MS = 60_000;
 
+function taskLink(id: string, title: string) {
+  const base = process.env.APP_URL;
+  const text = escapeHtml(title);
+  return base ? `<a href="${base}/tasks?task=${id}">${text}</a>` : text;
+}
+
 function nowInMoscow() {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: TIMEZONE,
@@ -71,7 +77,7 @@ async function sendMorningReminders(today: string) {
 
     const lines = tasks.map((t) => {
       const due = t.dueDate ? ` — до ${t.dueDate.toLocaleDateString("ru-RU")}` : "";
-      return `• ${escapeHtml(t.title)} [${TASK_PRIORITY_LABEL[t.priority]}]${due}`;
+      return `• ${taskLink(t.id, t.title)} [${TASK_PRIORITY_LABEL[t.priority]}]${due}`;
     });
 
     const text = tasks.length
@@ -96,11 +102,11 @@ async function sendEveningSummaries(today: string) {
     const [completedToday, openTasks] = await Promise.all([
       prisma.taskCompletion.findMany({
         where: { userId: user.id, completedAt: { gte: startOfDay } },
-        select: { taskTitle: true },
+        select: { taskId: true, taskTitle: true },
       }),
       prisma.task.findMany({
         where: { assigneeId: user.id, archived: false, column: { name: { not: DONE_COLUMN_NAME } } },
-        select: { title: true, dueDate: true },
+        select: { id: true, title: true, dueDate: true },
       }),
     ]);
 
@@ -109,12 +115,12 @@ async function sendEveningSummaries(today: string) {
     const parts = [`🌙 <b>Итоги дня</b>`];
     parts.push(
       completedToday.length
-        ? `\n✅ Выполнено сегодня (${completedToday.length}):\n${completedToday.map((t) => `• ${escapeHtml(t.taskTitle)}`).join("\n")}`
+        ? `\n✅ Выполнено сегодня (${completedToday.length}):\n${completedToday.map((t) => `• ${t.taskId ? taskLink(t.taskId, t.taskTitle) : escapeHtml(t.taskTitle)}`).join("\n")}`
         : `\n✅ Сегодня ничего не отмечено выполненным.`
     );
     parts.push(`\n📋 Осталось открытых задач: ${openTasks.length}`);
     if (overdue.length) {
-      parts.push(`\n🔥 Просрочено: ${overdue.length}\n${overdue.map((t) => `• ${escapeHtml(t.title)}`).join("\n")}`);
+      parts.push(`\n🔥 Просрочено: ${overdue.length}\n${overdue.map((t) => `• ${taskLink(t.id, t.title)}`).join("\n")}`);
     }
 
     await sendTelegramMessage(user.telegramChatId!, parts.join(""));
@@ -140,7 +146,7 @@ async function sendDeadlineWarnings() {
     const due = task.dueDate ? task.dueDate.toLocaleString("ru-RU") : "";
     await sendTelegramMessage(
       task.assignee.telegramChatId,
-      `🔥 <b>Горит дедлайн!</b>\n«${escapeHtml(task.title)}» — срок до ${due} (${TASK_PRIORITY_LABEL[task.priority]})`
+      `🔥 <b>Горит дедлайн!</b>\n«${taskLink(task.id, task.title)}» — срок до ${due} (${TASK_PRIORITY_LABEL[task.priority]})`
     );
     await prisma.task.update({ where: { id: task.id }, data: { deadlineReminderSentAt: new Date() } });
   }
