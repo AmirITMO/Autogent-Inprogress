@@ -30,8 +30,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         notes: lead.notes,
         lost: lead.lost,
         lostReason: lead.lostReason,
-        prepayLabel: formatMoney(lead.prepay),
-        postpayLabel: formatMoney(lead.postpay),
+        prepayLabel: formatMoney(Number(lead.prepay)),
+        postpayLabel: formatMoney(Number(lead.postpay)),
       },
     });
   } catch (err) {
