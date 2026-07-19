@@ -25,7 +25,7 @@ export async function POST(req: Request) {
       endAt: body.endAt,
       attendeeIds: body.attendeeIds,
     });
-    if (result.error) return Response.json({ error: result.error }, { status: 400 });
+    if (!("event" in result)) return Response.json({ error: result.error }, { status: 400 });
 
     return Response.json({ id: result.event.id });
   } catch (err) {
