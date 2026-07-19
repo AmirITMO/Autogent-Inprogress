@@ -28,6 +28,7 @@ function nowInMoscow() {
 let lastDeadlineCheckAt = 0;
 
 export function startBotCron() {
+  console.log("[cron] startBotCron() called, BOT_PUSH_URL=", process.env.BOT_PUSH_URL);
   if (!process.env.BOT_PUSH_URL) return;
   setInterval(() => {
     tick().catch((err) => console.error("telegramCron tick failed", err));
@@ -39,6 +40,7 @@ async function tick() {
   if (!settings) return;
 
   const { date, time } = nowInMoscow();
+  console.log("[cron] tick", { date, time, morning: settings.morningSummaryTime, evening: settings.eveningSummaryTime });
 
   if (time === settings.morningSummaryTime) {
     await sendMorningReports(date);
