@@ -32,7 +32,10 @@ class BotApiClient:
 
     async def _request(self, method: str, path: str, **kwargs) -> dict[str, Any]:
         resp = await self._client.request(method, path, **kwargs)
-        data = resp.json() if resp.content else {}
+        try:
+            data = resp.json() if resp.content else {}
+        except ValueError:
+            raise ApiError(resp.status_code, {"error": "bad_response"})
         if resp.status_code >= 400:
             raise ApiError(resp.status_code, data)
         return data
