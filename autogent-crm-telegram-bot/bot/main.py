@@ -9,6 +9,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from . import config
 from .api_client import api
 from .handlers import router
+from .push_server import start_push_server
 
 
 async def main() -> None:
@@ -21,9 +22,11 @@ async def main() -> None:
     dp = Dispatcher(storage=MemoryStorage())
     dp.include_router(router)
 
+    push_runner = await start_push_server(bot)
     try:
         await dp.start_polling(bot)
     finally:
+        await push_runner.cleanup()
         await api.close()
         await bot.session.close()
 

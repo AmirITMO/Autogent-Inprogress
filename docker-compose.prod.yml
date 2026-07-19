@@ -26,16 +26,6 @@ services:
       - internal
       - n8n_default
 
-  bot:
-    build: ./autogent-crm-telegram-bot
-    restart: always
-    depends_on:
-      - app
-    env_file:
-      - .env.production
-    networks:
-      - internal
-
 networks:
   internal:
   n8n_default:

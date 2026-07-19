@@ -35,7 +35,7 @@ function escapeHtml(text: string) {
 let lastDeadlineCheckAt = 0;
 
 export function startBotCron() {
-  if (!process.env.TELEGRAM_BOT_TOKEN) return;
+  if (!process.env.BOT_PUSH_URL) return;
   setInterval(() => {
     tick().catch((err) => console.error("telegramCron tick failed", err));
   }, TICK_MS);
