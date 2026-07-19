@@ -1,0 +1,122 @@
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+
+PRIORITY_LABELS = {
+    "P0": "P0 — critical",
+    "P1": "P1 — high",
+    "P2": "P2 — normal",
+    "P3": "P3 — low",
+}
+
+
+def main_menu(can_manage: bool) -> InlineKeyboardMarkup:
+    rows = [
+        [InlineKeyboardButton(text="📋 Мои задачи", callback_data="menu:mine")],
+        [InlineKeyboardButton(text="✅ Выполненные", callback_data="menu:done")],
+        [InlineKeyboardButton(text="➕ Добавить задачу", callback_data="menu:add")],
+    ]
+    if can_manage:
+        rows.append([InlineKeyboardButton(text="👥 Сотрудники", callback_data="menu:employees")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def back_to_menu() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="⬅️ В меню", callback_data="menu:main")]])
+
+
+def task_list_keyboard(tasks: list[dict], page: int, total_pages: int) -> InlineKeyboardMarkup:
+    rows = []
+    for t in tasks:
+        icon = "🐞" if t.get("isBug") else "•"
+        rows.append([InlineKeyboardButton(text=f"{icon} {t['title'][:40]}", callback_data=f"open:{t['id']}")])
+
+    nav = []
+    if page > 1:
+        nav.append(InlineKeyboardButton(text="◀️", callback_data="page:prev"))
+    if total_pages > 1:
+        nav.append(InlineKeyboardButton(text=f"{page}/{total_pages}", callback_data="noop"))
+    if page < total_pages:
+        nav.append(InlineKeyboardButton(text="▶️", callback_data="page:next"))
+    if nav:
+        rows.append(nav)
+
+    rows.append([InlineKeyboardButton(text="⬅️ В меню", callback_data="menu:main")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def task_detail_keyboard(task_id: str, status: str, can_edit: bool) -> InlineKeyboardMarkup:
+    rows = []
+    if can_edit:
+        if status == "open":
+            rows.append([InlineKeyboardButton(text="✅ Выполнить", callback_data=f"complete:{task_id}")])
+        else:
+            rows.append([InlineKeyboardButton(text="📦 В архив", callback_data=f"archive:{task_id}")])
+    rows.append([InlineKeyboardButton(text="⬅️ Назад к списку", callback_data="back:list")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def employees_keyboard(employees: list[dict], page: int, total_pages: int) -> InlineKeyboardMarkup:
+    rows = [[InlineKeyboardButton(text=f"{e['name']}", callback_data=f"emp:open:{e['id']}")] for e in employees]
+    nav = []
+    if page > 1:
+        nav.append(InlineKeyboardButton(text="◀️", callback_data="emp:page:prev"))
+    if total_pages > 1:
+        nav.append(InlineKeyboardButton(text=f"{page}/{total_pages}", callback_data="noop"))
+    if page < total_pages:
+        nav.append(InlineKeyboardButton(text="▶️", callback_data="emp:page:next"))
+    if nav:
+        rows.append(nav)
+    rows.append([InlineKeyboardButton(text="⬅️ В меню", callback_data="menu:main")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def employee_card_keyboard(employee_id: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="📋 Активные задачи", callback_data=f"emp:mine:{employee_id}")],
+            [InlineKeyboardButton(text="✅ Выполненные задачи", callback_data=f"emp:done:{employee_id}")],
+            [InlineKeyboardButton(text="➕ Добавить задачу", callback_data=f"emp:add:{employee_id}")],
+            [InlineKeyboardButton(text="⬅️ К сотрудникам", callback_data="menu:employees")],
+        ]
+    )
+
+
+def priority_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text=label, callback_data=f"prio:{key}")] for key, label in PRIORITY_LABELS.items()]
+    )
+
+
+def yes_no_keyboard(prefix: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="Да", callback_data=f"{prefix}:yes"),
+                InlineKeyboardButton(text="Нет", callback_data=f"{prefix}:no"),
+            ]
+        ]
+    )
+
+
+def skip_keyboard(action: str = "skip") -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Пропустить", callback_data=action)]])
+
+
+def projects_keyboard(projects: list[dict]) -> InlineKeyboardMarkup:
+    rows = [[InlineKeyboardButton(text=p["name"], callback_data=f"proj:{p['id']}")] for p in projects]
+    rows.append([InlineKeyboardButton(text="Без проекта", callback_data="proj:none")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def assignee_keyboard(employees: list[dict]) -> InlineKeyboardMarkup:
+    rows = [[InlineKeyboardButton(text="Себе", callback_data="assignee:self")]]
+    rows += [[InlineKeyboardButton(text=e["name"], callback_data=f"assignee:{e['id']}")] for e in employees]
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def confirm_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="✅ Создать", callback_data="confirm")],
+            [InlineKeyboardButton(text="✖️ Отмена", callback_data="cancel")],
+        ]
+    )

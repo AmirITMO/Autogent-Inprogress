@@ -1,13 +1,16 @@
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/roles";
+import { getTelegramStatus } from "@/lib/actions/telegram";
 import { SettingsForm } from "./_components/SettingsForm";
 import { ProfileForm } from "./_components/ProfileForm";
 import { TeamSection } from "./_components/TeamSection";
+import { TelegramConnect } from "./_components/TelegramConnect";
 
 export default async function SettingsPage() {
   const sessionUser = await requireUser();
   const isAdmin = sessionUser.role === "ADMIN";
   const user = await prisma.user.findUniqueOrThrow({ where: { id: sessionUser.id } });
+  const telegramStatus = await getTelegramStatus();
 
   const settings = isAdmin
     ? await prisma.settings.upsert({
@@ -56,6 +59,7 @@ export default async function SettingsPage() {
                 hasMotivationPhoto: !!user.motivationPhotoKey,
               }}
             />
+            <TelegramConnect status={telegramStatus} />
           </div>
           {isAdmin && settings && (
             <div>
@@ -64,10 +68,9 @@ export default async function SettingsPage() {
               </h2>
               <SettingsForm settings={settings} />
               <p className="mt-4 max-w-lg text-xs text-muted">
-                Эти параметры сохраняются в базе и готовы к использованию будущим
-                Telegram-ботом уведомлений. Сама отправка сообщений (утренняя/вечерняя
-                сводка, напоминания о дедлайнах) требует отдельного bot-сервиса — в
-                этой версии платформы он не подключён, значения только хранятся.
+                По этому расписанию Telegram-бот присылает утреннюю сводку задач и
+                вечерний отчёт о выполненном. Сотрудник должен подключить Telegram
+                в своём профиле, чтобы получать сообщения.
               </p>
             </div>
           )}

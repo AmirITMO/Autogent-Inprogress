@@ -63,6 +63,11 @@ model User {
   lockedUntil         DateTime?
   createdAt    DateTime @default(now())
 
+  telegramChatId          BigInt?   @unique
+  telegramUsername        String?
+  telegramMorningSentDate String?
+  telegramEveningSentDate String?
+
   leads          Lead[]
   leadActivity   LeadActivity[]
   tasks          Task[]          @relation("TaskAssignee")
@@ -196,6 +201,7 @@ model Task {
   order          Int          @default(0)
   archived       Boolean      @default(false)
   completedAt    DateTime?
+  deadlineReminderSentAt DateTime?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 

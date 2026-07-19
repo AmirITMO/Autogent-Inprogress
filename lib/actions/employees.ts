@@ -65,8 +65,7 @@ export async function setEmployeePermissions(userId: string, permissions: Partia
   revalidatePath("/settings");
 }
 
-export async function getEmployeeReport(userId: string) {
-  await requireAdmin();
+export async function getEmployeeReportCore(userId: string) {
   const [completedCount, tasks] = await Promise.all([
     prisma.taskCompletion.count({ where: { userId } }),
     prisma.task.findMany({
@@ -81,4 +80,9 @@ export async function getEmployeeReport(userId: string) {
     openCount: openTasks.length,
     overdueCount,
   };
+}
+
+export async function getEmployeeReport(userId: string) {
+  await requireAdmin();
+  return getEmployeeReportCore(userId);
 }
