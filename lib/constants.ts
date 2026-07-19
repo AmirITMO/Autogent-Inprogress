@@ -39,6 +39,8 @@ export const DEFAULT_TASK_COLUMNS = [
 ];
 
 export const DONE_COLUMN_NAME = "Выполнено";
+export const IN_PROGRESS_COLUMN_NAME = "В работе";
+export const PAUSED_COLUMN_NAME = "На паузе";
 
 export const EXPENSE_CATEGORIES = [
   { name: "Налоги", isRecurring: false },
