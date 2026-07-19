@@ -20,7 +20,7 @@ export async function createTelegramLinkToken(): Promise<
   const botUsername = process.env.TELEGRAM_BOT_USERNAME;
   if (!botUsername) return { error: "Telegram-бот пока не настроен" };
 
-  const result = createLinkToken(user.id);
+  const result = await createLinkToken(user.id);
   if ("error" in result) return result;
   return { token: result.token, botUsername };
 }

@@ -14,7 +14,7 @@ export async function POST(req: Request) {
       return Response.json({ error: "token and chat_id required" }, { status: 400 });
     }
 
-    const consumed = consumeLinkToken(token);
+    const consumed = await consumeLinkToken(token);
     if (!consumed) return Response.json({ error: "invalid_or_expired_token" }, { status: 400 });
 
     const chatIdBig = BigInt(chatId);

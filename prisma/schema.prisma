@@ -298,6 +298,15 @@ model Kpi {
   updatedAt DateTime @updatedAt
 }
 
+// Токен привязки Telegram-аккаунта — в БД, а не в памяти процесса: переживает
+// рестарт/редеплой приложения между "нажал Подключить" и "написал боту /start".
+model TelegramLinkToken {
+  token     String   @id
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
 model Settings {
   id                     String @id @default("singleton")
   morningSummaryTime     String @default("09:00")
