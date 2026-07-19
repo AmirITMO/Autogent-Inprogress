@@ -29,6 +29,8 @@ def task_detail_text(task: dict[str, Any]) -> str:
     lines = [f"<b>{task_link(task['id'], task['title'])}</b>"]
     if task.get("isBug"):
         lines.append("🐞 Баг")
+    if task.get("columnName"):
+        lines.append(f"Статус: {_escape(task['columnName'])}")
     lines.append(f"Приоритет: {PRIORITY_LABELS.get(task['priority'], task['priority'])}")
     lines.append(f"Дедлайн: {_fmt_date(task.get('dueDate'))}")
     if task.get("projectName"):

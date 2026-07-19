@@ -8,7 +8,7 @@ from aiogram.types import CallbackQuery, Message
 
 from ..api_client import ApiError, api
 from ..common import require_linked
-from ..keyboards import attendees_keyboard, calendar_menu_keyboard, confirm_keyboard, duration_keyboard, main_menu
+from ..keyboards import attendees_keyboard, calendar_menu_keyboard, cancel_only_keyboard, confirm_keyboard, duration_keyboard, main_menu
 
 router = Router()
 
@@ -40,7 +40,7 @@ async def start_create_event(cb: CallbackQuery, state: FSMContext) -> None:
         return
     await state.set_state(CreateEvent.title)
     await state.update_data(draft={})
-    await cb.message.edit_text("Название созвона?")
+    await cb.message.edit_text("Название созвона?", reply_markup=cancel_only_keyboard())
     await cb.answer()
 
 
@@ -48,14 +48,14 @@ async def start_create_event(cb: CallbackQuery, state: FSMContext) -> None:
 async def set_event_title(message: Message, state: FSMContext) -> None:
     title = (message.text or "").strip()
     if not title:
-        await message.answer("Название не может быть пустым. Введите название созвона:")
+        await message.answer("Название не может быть пустым. Введите название созвона:", reply_markup=cancel_only_keyboard())
         return
     data = await state.get_data()
     draft = data["draft"]
     draft["title"] = title
     await state.update_data(draft=draft)
     await state.set_state(CreateEvent.date)
-    await message.answer("Дата созвона? Формат ДД.ММ.ГГГГ:")
+    await message.answer("Дата созвона? Формат ДД.ММ.ГГГГ:", reply_markup=cancel_only_keyboard())
 
 
 @router.message(CreateEvent.date)
@@ -64,10 +64,10 @@ async def set_event_date(message: Message, state: FSMContext) -> None:
     try:
         parsed = datetime.strptime(text, "%d.%m.%Y").date()
     except ValueError:
-        await message.answer("Не понял дату. Формат ДД.ММ.ГГГГ, например 25.12.2026:")
+        await message.answer("Не понял дату. Формат ДД.ММ.ГГГГ, например 25.12.2026:", reply_markup=cancel_only_keyboard())
         return
     if parsed < date.today():
-        await message.answer("Дата не может быть в прошлом. Введите дату ещё раз:")
+        await message.answer("Дата не может быть в прошлом. Введите дату ещё раз:", reply_markup=cancel_only_keyboard())
         return
 
     data = await state.get_data()
@@ -75,14 +75,14 @@ async def set_event_date(message: Message, state: FSMContext) -> None:
     draft["date"] = text
     await state.update_data(draft=draft)
     await state.set_state(CreateEvent.time)
-    await message.answer("Время начала? Формат ЧЧ:ММ (24-часовой), например 14:30:")
+    await message.answer("Время начала? Формат ЧЧ:ММ (24-часовой), например 14:30:", reply_markup=cancel_only_keyboard())
 
 
 @router.message(CreateEvent.time)
 async def set_event_time(message: Message, state: FSMContext) -> None:
     text = (message.text or "").strip()
     if not TIME_RE.match(text):
-        await message.answer("Не понял время. Формат ЧЧ:ММ, от 00:00 до 23:59, например 09:00:")
+        await message.answer("Не понял время. Формат ЧЧ:ММ, от 00:00 до 23:59, например 09:00:", reply_markup=cancel_only_keyboard())
         return
 
     data = await state.get_data()
@@ -184,15 +184,4 @@ async def confirm_create_event(cb: CallbackQuery, state: FSMContext) -> None:
     if profile:
         can_manage = profile["role"] == "ADMIN" or profile["permissions"]["editTasksOthers"]
         await cb.message.answer("Главное меню:", reply_markup=main_menu(can_manage))
-    await cb.answer()
-
-
-@router.callback_query(CreateEvent.confirm, F.data == "cancel")
-async def cancel_create_event(cb: CallbackQuery, state: FSMContext) -> None:
-    await state.clear()
-    profile = await require_linked(cb)
-    if not profile:
-        return
-    can_manage = profile["role"] == "ADMIN" or profile["permissions"]["editTasksOthers"]
-    await cb.message.edit_text("Отменено.", reply_markup=main_menu(can_manage))
     await cb.answer()

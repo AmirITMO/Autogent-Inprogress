@@ -62,8 +62,16 @@ class BotApiClient:
     async def create_task(self, chat_id: int, **fields: Any) -> dict[str, Any]:
         return await self._request("POST", "/api/bot/tasks", json={"chatId": chat_id, **fields})
 
-    async def complete_task(self, chat_id: int, task_id: str) -> dict[str, Any]:
-        return await self._request("PATCH", f"/api/bot/tasks/{task_id}/complete", json={"chatId": chat_id})
+    async def get_task(self, chat_id: int, task_id: str) -> dict[str, Any]:
+        return await self._request("GET", f"/api/bot/tasks/{task_id}", params={"chatId": chat_id})
+
+    async def get_task_columns(self, chat_id: int, task_id: str) -> dict[str, Any]:
+        return await self._request("GET", f"/api/bot/tasks/{task_id}/columns", params={"chatId": chat_id})
+
+    async def set_task_status(self, chat_id: int, task_id: str, column_id: str) -> dict[str, Any]:
+        return await self._request(
+            "PATCH", f"/api/bot/tasks/{task_id}/status", json={"chatId": chat_id, "columnId": column_id}
+        )
 
     async def archive_task(self, chat_id: int, task_id: str) -> dict[str, Any]:
         return await self._request("PATCH", f"/api/bot/tasks/{task_id}/archive", json={"chatId": chat_id})

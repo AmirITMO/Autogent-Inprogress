@@ -10,6 +10,7 @@ from ..common import require_linked
 from ..keyboards import (
     PRIORITY_LABELS,
     assignee_keyboard,
+    cancel_only_keyboard,
     confirm_keyboard,
     main_menu,
     priority_keyboard,
@@ -39,7 +40,7 @@ async def _start_flow(cb: CallbackQuery, state: FSMContext, preset_assignee: str
         return
     await state.set_state(CreateTask.title)
     await state.update_data(draft={}, preset_assignee=preset_assignee, can_manage=profile["role"] == "ADMIN" or profile["permissions"]["editTasksOthers"])
-    await cb.message.edit_text("Название задачи?")
+    await cb.message.edit_text("Название задачи?", reply_markup=cancel_only_keyboard())
     await cb.answer()
 
 
@@ -58,7 +59,7 @@ async def start_task_for_employee(cb: CallbackQuery, state: FSMContext) -> None:
 async def set_title(message: Message, state: FSMContext) -> None:
     title = (message.text or "").strip()
     if not title:
-        await message.answer("Название не может быть пустым. Введите название задачи:")
+        await message.answer("Название не может быть пустым. Введите название задачи:", reply_markup=cancel_only_keyboard())
         return
     data = await state.get_data()
     draft = data["draft"]
@@ -252,15 +253,4 @@ async def confirm_create(cb: CallbackQuery, state: FSMContext) -> None:
     if profile:
         can_manage = profile["role"] == "ADMIN" or profile["permissions"]["editTasksOthers"]
         await cb.message.answer("Главное меню:", reply_markup=main_menu(can_manage))
-    await cb.answer()
-
-
-@router.callback_query(CreateTask.confirm, F.data == "cancel")
-async def cancel_create(cb: CallbackQuery, state: FSMContext) -> None:
-    await state.clear()
-    profile = await require_linked(cb)
-    if not profile:
-        return
-    can_manage = profile["role"] == "ADMIN" or profile["permissions"]["editTasksOthers"]
-    await cb.message.edit_text("Отменено.", reply_markup=main_menu(can_manage))
     await cb.answer()

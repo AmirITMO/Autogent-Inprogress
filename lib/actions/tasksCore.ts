@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getPermissions, assertCanEditTask } from "@/lib/roles";
 import { DONE_COLUMN_NAME, TASK_PRIORITY_LABEL } from "@/lib/constants";
+import { notifyUser } from "@/lib/notify";
 
 export type Actor = { id: string; role: "ADMIN" | "EMPLOYEE" };
 
@@ -54,6 +55,17 @@ export async function createTaskCore(
     },
   });
 
+  if (assigneeId && assigneeId !== actor.id) {
+    const deadlineText = task.dueDate ? `, срок до ${task.dueDate.toLocaleDateString("ru-RU")}` : "";
+    await notifyUser({
+      userId: assigneeId,
+      type: "TASK_ASSIGNED",
+      title: `Вам поставили задачу «${task.title}»`,
+      body: `Приоритет: ${TASK_PRIORITY_LABEL[task.priority]}${deadlineText}`,
+      link: `/tasks?task=${task.id}`,
+    });
+  }
+
   return task;
 }
 
@@ -75,30 +87,6 @@ export async function moveTaskCore(actor: Actor, taskId: string, toColumnId: str
   );
 
   await markCompletedIfNeeded(taskId, task, toColumn.name);
-}
-
-// Используется ботом: переносит задачу в колонку "Выполнено" того же борда,
-// без пересчёта порядка соседей по всему борду (не нужно для бота — там нет
-// drag&drop), но с тем же самым правом доступа и дедупом факта выполнения.
-export async function completeTaskCore(actor: Actor, taskId: string) {
-  const task = await prisma.task.findUniqueOrThrow({ where: { id: taskId }, include: { column: true } });
-  await assertCanEditTask(actor.id, actor.role, task.assigneeId);
-
-  const doneColumn = await prisma.taskColumn.findFirstOrThrow({
-    where: { boardId: task.column.boardId, name: DONE_COLUMN_NAME },
-  });
-
-  const last = await prisma.task.findFirst({
-    where: { columnId: doneColumn.id },
-    orderBy: { order: "desc" },
-  });
-
-  await prisma.task.update({
-    where: { id: taskId },
-    data: { columnId: doneColumn.id, order: (last?.order ?? 0) + 1 },
-  });
-
-  await markCompletedIfNeeded(taskId, task, doneColumn.name);
 }
 
 async function markCompletedIfNeeded(
@@ -178,14 +166,12 @@ export async function updateTaskCore(
     const deadlineText = updated.dueDate
       ? `, срок до ${updated.dueDate.toLocaleDateString("ru-RU")}`
       : "";
-    await prisma.notification.create({
-      data: {
-        userId: data.assigneeId,
-        type: "TASK_ASSIGNED",
-        title: `Вам поставили задачу «${updated.title}»`,
-        body: `Приоритет: ${TASK_PRIORITY_LABEL[updated.priority]}${deadlineText}`,
-        link: `/tasks?task=${taskId}`,
-      },
+    await notifyUser({
+      userId: data.assigneeId,
+      type: "TASK_ASSIGNED",
+      title: `Вам поставили задачу «${updated.title}»`,
+      body: `Приоритет: ${TASK_PRIORITY_LABEL[updated.priority]}${deadlineText}`,
+      link: `/tasks?task=${taskId}`,
     });
   }
 

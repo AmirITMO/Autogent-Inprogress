@@ -1,20 +1,23 @@
 import { prisma } from "@/lib/prisma";
 import { toMoscowParts } from "@/lib/moscowTime";
+import { notifyUser } from "@/lib/notify";
 
 async function notifyAttendees(title: string, startAt: Date, attendeeIds: string[], excludeUserId: string) {
   const toNotify = attendeeIds.filter((id) => id !== excludeUserId);
   if (toNotify.length === 0) return;
   const { dateKey, timeLabel } = toMoscowParts(startAt);
   const [y, m, d] = dateKey.split("-");
-  await prisma.notification.createMany({
-    data: toNotify.map((userId) => ({
-      userId,
-      type: "CALL_INVITED" as const,
-      title: `Вас позвали на созвон «${title}»`,
-      body: `${d}.${m}.${y} в ${timeLabel} по МСК`,
-      link: "/calendar",
-    })),
-  });
+  await Promise.all(
+    toNotify.map((userId) =>
+      notifyUser({
+        userId,
+        type: "CALL_INVITED",
+        title: `Вас позвали на созвон «${title}»`,
+        body: `${d}.${m}.${y} в ${timeLabel} по МСК`,
+        link: "/calendar",
+      })
+    )
+  );
 }
 
 export async function createCalendarEventCore(

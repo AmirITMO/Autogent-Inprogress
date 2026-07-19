@@ -4,7 +4,7 @@ from aiogram.types import CallbackQuery
 
 from ..api_client import ApiError, api
 from ..common import require_linked
-from ..keyboards import main_menu, task_detail_keyboard, task_list_keyboard
+from ..keyboards import main_menu, status_picker_keyboard, task_detail_keyboard, task_list_keyboard
 from ..render import task_detail_text, task_list_title
 
 router = Router()
@@ -91,6 +91,10 @@ async def noop(cb: CallbackQuery) -> None:
     await cb.answer()
 
 
+def _can_edit_task(profile: dict, scope: str) -> bool:
+    return scope == "self" or profile["role"] == "ADMIN" or profile["permissions"]["editTasksOthers"]
+
+
 @router.callback_query(F.data.startswith("open:"))
 async def open_task(cb: CallbackQuery, state: FSMContext) -> None:
     task_id = cb.data.split(":", 1)[1]
@@ -104,26 +108,80 @@ async def open_task(cb: CallbackQuery, state: FSMContext) -> None:
     profile = await require_linked(cb)
     if not profile:
         return
-    scope = data.get("scope", "self")
-    can_edit = scope == "self" or profile["role"] == "ADMIN" or profile["permissions"]["editTasksOthers"]
+    can_edit = _can_edit_task(profile, data.get("scope", "self"))
 
+    await state.update_data(current_task_id=task_id)
     await cb.message.edit_text(
         task_detail_text(task),
-        reply_markup=task_detail_keyboard(task_id, data.get("status", "open"), can_edit),
+        reply_markup=task_detail_keyboard(task_id, task["columnName"], can_edit),
     )
     await cb.answer()
 
 
-@router.callback_query(F.data.startswith("complete:"))
-async def complete_task(cb: CallbackQuery, state: FSMContext) -> None:
-    task_id = cb.data.split(":", 1)[1]
-    try:
-        await api.complete_task(cb.message.chat.id, task_id)
-    except ApiError:
-        await cb.answer("Не удалось отметить задачу выполненной", show_alert=True)
+async def _reopen_task(cb: CallbackQuery, state: FSMContext, task_id: str) -> None:
+    profile = await require_linked(cb)
+    if not profile:
         return
-    await cb.answer("Готово ✅")
-    await _render_list(cb, state)
+    try:
+        result = await api.get_task(cb.message.chat.id, task_id)
+    except ApiError:
+        await cb.answer("Задача не найдена", show_alert=True)
+        return
+
+    data = await state.get_data()
+    can_edit = _can_edit_task(profile, data.get("scope", "self"))
+    task = result["task"]
+    await cb.message.edit_text(
+        task_detail_text(task),
+        reply_markup=task_detail_keyboard(task_id, task["columnName"], can_edit),
+    )
+    await cb.answer()
+
+
+@router.callback_query(F.data == "status:menu")
+async def open_status_menu(cb: CallbackQuery, state: FSMContext) -> None:
+    data = await state.get_data()
+    task_id = data.get("current_task_id")
+    if not task_id:
+        await cb.answer()
+        return
+    try:
+        result = await api.get_task_columns(cb.message.chat.id, task_id)
+    except ApiError:
+        await cb.answer("Не удалось загрузить статусы", show_alert=True)
+        return
+    await cb.message.edit_text(
+        "Выберите статус:", reply_markup=status_picker_keyboard(result["columns"], result["currentColumnId"])
+    )
+    await cb.answer()
+
+
+@router.callback_query(F.data == "status:back")
+async def status_back(cb: CallbackQuery, state: FSMContext) -> None:
+    data = await state.get_data()
+    task_id = data.get("current_task_id")
+    if not task_id:
+        await cb.answer()
+        return
+    await _reopen_task(cb, state, task_id)
+
+
+@router.callback_query(F.data.startswith("status:set:"))
+async def set_status(cb: CallbackQuery, state: FSMContext) -> None:
+    column_id = cb.data.split(":", 2)[2]
+    data = await state.get_data()
+    task_id = data.get("current_task_id")
+    if not task_id:
+        await cb.answer()
+        return
+    try:
+        await api.set_task_status(cb.message.chat.id, task_id, column_id)
+    except ApiError as err:
+        message = "Недостаточно прав" if err.code == "forbidden" else "Не удалось изменить статус"
+        await cb.answer(message, show_alert=True)
+        return
+    await cb.answer("Статус обновлён ✅")
+    await _reopen_task(cb, state, task_id)
 
 
 @router.callback_query(F.data.startswith("archive:"))

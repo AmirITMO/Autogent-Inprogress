@@ -5,7 +5,7 @@ from aiogram.types import CallbackQuery, Message
 
 from ..api_client import ApiError, api
 from ..common import require_linked
-from ..keyboards import confirm_keyboard, crm_menu_keyboard, lead_card_keyboard, leads_list_keyboard, main_menu, skip_keyboard
+from ..keyboards import cancel_only_keyboard, confirm_keyboard, crm_menu_keyboard, lead_card_keyboard, leads_list_keyboard, main_menu, skip_keyboard
 from ..render import _escape
 
 router = Router()
@@ -246,7 +246,7 @@ async def _apply_edit(message: Message, state: FSMContext) -> None:
 async def start_create_lead(cb: CallbackQuery, state: FSMContext) -> None:
     await state.update_data(lead_draft={})
     await state.set_state(CreateLead.title)
-    await cb.message.edit_text("Название сделки?")
+    await cb.message.edit_text("Название сделки?", reply_markup=cancel_only_keyboard())
     await cb.answer()
 
 
@@ -254,7 +254,7 @@ async def start_create_lead(cb: CallbackQuery, state: FSMContext) -> None:
 async def set_lead_title(message: Message, state: FSMContext) -> None:
     title = (message.text or "").strip()
     if not title:
-        await message.answer("Название не может быть пустым. Введите название сделки:")
+        await message.answer("Название не может быть пустым. Введите название сделки:", reply_markup=cancel_only_keyboard())
         return
     data = await state.get_data()
     draft = data["lead_draft"]
@@ -349,15 +349,4 @@ async def confirm_create_lead(cb: CallbackQuery, state: FSMContext) -> None:
     if profile:
         can_manage = profile["role"] == "ADMIN" or profile["permissions"]["editTasksOthers"]
         await cb.message.answer("Главное меню:", reply_markup=main_menu(can_manage))
-    await cb.answer()
-
-
-@router.callback_query(CreateLead.confirm, F.data == "cancel")
-async def cancel_create_lead(cb: CallbackQuery, state: FSMContext) -> None:
-    await state.clear()
-    profile = await require_linked(cb)
-    if not profile:
-        return
-    can_manage = profile["role"] == "ADMIN" or profile["permissions"]["editTasksOthers"]
-    await cb.message.edit_text("Отменено.", reply_markup=main_menu(can_manage))
     await cb.answer()

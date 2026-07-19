@@ -1,17 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { DONE_COLUMN_NAME, IN_PROGRESS_COLUMN_NAME, PAUSED_COLUMN_NAME, TASK_PRIORITY_LABEL } from "@/lib/constants";
 import { sendTelegramMessage } from "@/lib/telegram/send";
+import { escapeHtml, taskLink } from "@/lib/telegram/format";
 
 const SOON_DUE_MS = 2 * 24 * 60 * 60 * 1000; // "горящие" в утреннем отчёте — дедлайн в ближайшие 2 дня
 
 const TIMEZONE = "Europe/Moscow";
 const TICK_MS = 60_000;
-
-function taskLink(id: string, title: string) {
-  const base = process.env.APP_URL;
-  const text = escapeHtml(title);
-  return base ? `<a href="${base}/tasks?task=${id}">${text}</a>` : text;
-}
 
 function nowInMoscow() {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -28,10 +23,6 @@ function nowInMoscow() {
     date: `${get("year")}-${get("month")}-${get("day")}`,
     time: `${get("hour")}:${get("minute")}`,
   };
-}
-
-function escapeHtml(text: string) {
-  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 let lastDeadlineCheckAt = 0;
