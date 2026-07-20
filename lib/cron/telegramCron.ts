@@ -60,7 +60,10 @@ async function tick() {
 // 1) личный статус (сделано / в работе / сложности), 2) общий срез по всей команде.
 async function sendMorningReports(today: string) {
   const users = await prisma.user.findMany({
-    where: { telegramChatId: { not: null }, telegramMorningSentDate: { not: today } },
+    where: {
+      telegramChatId: { not: null },
+      OR: [{ telegramMorningSentDate: null }, { telegramMorningSentDate: { not: today } }],
+    },
     select: { id: true, name: true, telegramChatId: true },
   });
   console.log("[cron] sendMorningReports users found:", users.length);
@@ -170,7 +173,10 @@ async function buildTeamPlanText(): Promise<string | null> {
 // что выполнено сегодня и что осталось открытым.
 async function sendEveningSummary(today: string) {
   const users = await prisma.user.findMany({
-    where: { telegramChatId: { not: null }, telegramEveningSentDate: { not: today } },
+    where: {
+      telegramChatId: { not: null },
+      OR: [{ telegramEveningSentDate: null }, { telegramEveningSentDate: { not: today } }],
+    },
     select: { id: true, telegramChatId: true },
   });
   console.log("[cron] sendEveningSummary users found:", users.length);
