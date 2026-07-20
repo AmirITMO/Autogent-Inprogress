@@ -28,7 +28,6 @@ function nowInMoscow() {
 let lastDeadlineCheckAt = 0;
 
 export function startBotCron() {
-  console.log("[cron] startBotCron() called, BOT_PUSH_URL=", process.env.BOT_PUSH_URL);
   if (!process.env.BOT_PUSH_URL) return;
   setInterval(() => {
     tick().catch((err) => console.error("telegramCron tick failed", err));
@@ -40,7 +39,6 @@ async function tick() {
   if (!settings) return;
 
   const { date, time } = nowInMoscow();
-  console.log("[cron] tick", { date, time, morning: settings.morningSummaryTime, evening: settings.eveningSummaryTime });
 
   if (time === settings.morningSummaryTime) {
     await sendMorningReports(date);
@@ -66,7 +64,6 @@ async function sendMorningReports(today: string) {
     },
     select: { id: true, name: true, telegramChatId: true },
   });
-  console.log("[cron] sendMorningReports users found:", users.length);
   if (!users.length) return;
 
   const yesterdayStart = new Date(`${today}T00:00:00`);
@@ -179,7 +176,6 @@ async function sendEveningSummary(today: string) {
     },
     select: { id: true, telegramChatId: true },
   });
-  console.log("[cron] sendEveningSummary users found:", users.length);
   if (!users.length) return;
 
   const startOfDay = new Date(`${today}T00:00:00`);
