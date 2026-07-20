@@ -63,6 +63,7 @@ async function sendMorningReports(today: string) {
     where: { telegramChatId: { not: null }, telegramMorningSentDate: { not: today } },
     select: { id: true, name: true, telegramChatId: true },
   });
+  console.log("[cron] sendMorningReports users found:", users.length);
   if (!users.length) return;
 
   const yesterdayStart = new Date(`${today}T00:00:00`);
@@ -172,6 +173,7 @@ async function sendEveningSummary(today: string) {
     where: { telegramChatId: { not: null }, telegramEveningSentDate: { not: today } },
     select: { id: true, telegramChatId: true },
   });
+  console.log("[cron] sendEveningSummary users found:", users.length);
   if (!users.length) return;
 
   const startOfDay = new Date(`${today}T00:00:00`);
