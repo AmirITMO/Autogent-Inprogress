@@ -1,0 +1,11 @@
+telethon>=1.34
+openai>=1.0
+python-dotenv>=1.0
+
+# Нужен только для продакшена (Google Sheets). Для локального теста
+# используется local_sheet.py и этот пакет не требуется.
+gspread>=6.0
+
+# Опционально, только если подключаете панель управления из
+# STREAMLIT_UI_SNIPPET в main.py.
+# streamlit>=1.30

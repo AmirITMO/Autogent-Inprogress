@@ -1,0 +1,117 @@
+"""
+Общая конфигурация системы "ИИ-менеджеры вместо отдела продаж".
+
+Ничего не хардкодьте прямо тут в проде — читайте реальные секреты
+(api_id/api_hash/session/OpENAI_KEY) из переменных окружения или
+Streamlit secrets. Здесь только структура конфига.
+"""
+
+import os
+from dataclasses import dataclass, field
+from typing import List
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
+
+@dataclass
+class ManagerAccount:
+    """Один юзербот-аккаунт = один "менеджер" в глазах селлера."""
+    name: str            # человекочитаемое имя, например "Анна" — для промпта и логов
+    session: str         # путь/имя .session файла Telethon
+    api_id: int
+    api_hash: str
+    persona: str = (
+        "Ты — Анна, менеджер по работе с продавцами (селлерами) в нашей команде. "
+        "Общаешься в Telegram лично с продавцом, который состоит в наших рабочих группах. "
+        "Пишешь как живой человек: коротко, по-деловому, но дружелюбно, без канцелярита и без эмодзи-спама."
+    )
+
+
+@dataclass
+class WorkingHours:
+    timezone: str = "Europe/Moscow"
+    start_hour: int = 9      # включительно
+    end_hour: int = 20       # не включительно
+    workdays: tuple = (0, 1, 2, 3, 4)  # Пн-Пт (datetime.weekday(): 0=Пн)
+
+
+@dataclass
+class AppConfig:
+    openai_key: str = field(default_factory=lambda: os.environ.get("OPENAI_API_KEY", ""))
+    # Если задан (например, для OpenRouter: https://openrouter.ai/api/v1) — SDK openai
+    # ходит на этот адрес вместо api.openai.com. Пусто = обычный OpenAI.
+    openai_base_url: str | None = field(default_factory=lambda: os.environ.get("OPENAI_BASE_URL", "") or None)
+    # Для OpenRouter модели указываются с префиксом провайдера, напр. "openai/gpt-4o-mini".
+    chat_model: str = field(default_factory=lambda: os.environ.get("CHAT_MODEL", "gpt-4o-mini"))
+
+    # Единая таблица "база знаний": скаут пишет/обновляет профили,
+    # менеджер читает их перед первым и каждым следующим сообщением.
+    profiles_sheet_name: str = "Profiles"
+
+    # Группы, в которых аккаунты пула сидят как участники и слушают сообщения
+    # (username без @, либо numeric chat id группы).
+    target_groups: List[str] = field(default_factory=lambda: [
+        "-1004294205798",  # Город 1
+    ])
+
+    # Дешёвый предфильтр ДО вызова ИИ: сообщения короче этого — точно шум
+    # (стикеры/эмодзи/однословные реплики), их не имеет смысла анализировать.
+    scout_min_message_length: int = 15
+
+    # База знаний менеджера (ваши файлы 00-08 на рабочем столе) — RAG-поиск
+    # см. knowledge_base.py. cache_path — куда сложить посчитанные эмбеддинги,
+    # чтобы не пересчитывать их при каждом перезапуске.
+    kb_dir: str = os.path.join(os.path.dirname(os.path.abspath(__file__)), "База знаний менеджера")
+    kb_cache_path: str = "kb_index.json"
+    kb_top_k: int = 4
+
+    # В базе знаний прямо помечено, что часть цифр (проценты партнёрки, цена
+    # настройки ИИ, лимит кабинетов, требование карты на демо) расходится
+    # между разными звонками. Это правило добавляется в промпт каждого
+    # менеджера, чтобы агент не выдумывал точную цифру там, где команда сама
+    # её не знает наверняка.
+    kb_uncertainty_rule: str = (
+        "Если в справочной информации разные цифры по одному вопросу помечены как расходящиеся "
+        "(партнёрская программа, цена настройки ИИ, лимит кабинетов, условия демо-доступа) — "
+        "НЕ называй клиенту точное число как факт. Назови официальные цифры, если они явно даны "
+        "(подписка 5000₽/мес или 50000₽/год), а по спорным пунктам скажи, что уточнишь актуальные "
+        "условия, и не придумывай на ходу."
+    )
+
+    # Пул юзербот-аккаунтов ("менеджеров"). Добавляйте сюда реальные аккаунты —
+    # чем их больше, тем меньше исходящих сообщений в день падает на каждый
+    # отдельный аккаунт при массовой рассылке (ниже риск флуд-бана от Telegram).
+    managers: List[ManagerAccount] = field(default_factory=lambda: [
+        ManagerAccount(
+            name="Амир",
+            session="sessions/амир",
+            api_id=int(os.environ.get("TG_API_ID_1", "0") or "0"),
+            api_hash=os.environ.get("TG_API_HASH_1", ""),
+        ),
+    ])
+
+    working_hours: WorkingHours = field(default_factory=WorkingHours)
+
+    # Ограничения, чтобы не поймать флуд-бан на юзербот-аккаунте
+    max_outbound_per_account_per_day: int = 40
+    delay_between_outbound_seconds: float = 6.0
+
+    # "Человечность" ответов в реактивном режиме
+    typing_chars_per_second: float = 12.0   # скорость "печати" для имитации живого набора
+    min_reply_delay_seconds: float = 2.0
+    max_reply_delay_seconds: float = 25.0
+
+    # Что писать, если сообщение пришло вне рабочих часов
+    off_hours_auto_reply: str = (
+        "Привет! Я на связи в рабочее время ({start}:00–{end}:00, {tz}). "
+        "Отвечу вам, как только начнём работу — уже вижу ваш вопрос."
+    )
+
+    sqlite_path: str = "sales_agent.db"
+
+
+CONFIG = AppConfig()
