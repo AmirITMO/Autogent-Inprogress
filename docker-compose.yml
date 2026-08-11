@@ -1,0 +1,21 @@
+services:
+  sales-agent:
+    build: .
+    container_name: telegram_sales_agent
+    restart: unless-stopped
+    env_file:
+      - .env
+    stop_grace_period: 30s   # даём graceful shutdown (SIGTERM -> pool.stop_all()) время отработать
+    volumes:
+      # Telethon-сессии — стейт, создаётся ЛОКАЛЬНО через create_session.py
+      # (см. README.md), потом только читается/обновляется контейнером.
+      - ./sessions:/app/sessions
+      - ./sales_agent.db:/app/sales_agent.db
+      - ./kb_index.json:/app/kb_index.json
+
+      # Google Sheets в проде: положите service_account.json рядом с этим
+      # файлом и раскомментируйте строку ниже.
+      # - ./service_account.json:/app/service_account.json:ro
+
+      # Локальный тест без Google Sheets (LocalSheet, см. main.py):
+      # - ./profiles_local.json:/app/profiles_local.json

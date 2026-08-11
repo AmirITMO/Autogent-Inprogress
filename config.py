@@ -115,3 +115,44 @@ class AppConfig:
 
 
 CONFIG = AppConfig()
+
+
+class ConfigError(RuntimeError):
+    """
+    Обязательная переменная окружения отсутствует/пуста. Поднимается один
+    раз, явно, при старте процесса (см. validate() ниже) — специально
+    ЧТОБЫ НЕ упасть намного позже неявным образом: пустой OPENAI_API_KEY
+    иначе проявился бы только при первом входящем сообщении лида (ошибка
+    авторизации из недр openai SDK), а api_id=0/api_hash="" — только при
+    попытке TelegramClient.start() (невнятная ошибка Telethon про
+    api_id/hash combination). Если .env вообще отсутствует, все три поля
+    тихо становятся "0"/"" (см. os.environ.get(..., "") выше) и без этой
+    проверки процесс просто падает где-то в середине рантайма.
+    """
+
+
+def validate(cfg: AppConfig) -> None:
+    """Fail-fast проверка обязательных настроек. Вызывается из main.py до
+    старта пула аккаунтов и до первого обращения к LLM."""
+    problems: list[str] = []
+
+    if not cfg.openai_key:
+        problems.append("OPENAI_API_KEY не задан (переменная окружения или .env).")
+
+    if not cfg.managers:
+        problems.append("В config.py не задано ни одного аккаунта (managers пуст).")
+    for acc in cfg.managers:
+        if not acc.api_id:
+            problems.append(f"Аккаунт '{acc.name}': api_id не задан или равен 0 "
+                             f"(проверьте соответствующую TG_API_ID_* в .env).")
+        if not acc.api_hash:
+            problems.append(f"Аккаунт '{acc.name}': api_hash не задан "
+                             f"(проверьте соответствующую TG_API_HASH_* в .env).")
+
+    if problems:
+        details = "\n  - ".join(problems)
+        raise ConfigError(
+            "Конфигурация не прошла проверку при старте:\n  - " + details +
+            "\n\nСкопируйте .env.example в .env и заполните реальными значениями "
+            "(секреты нигде не логируются)."
+        )

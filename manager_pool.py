@@ -7,10 +7,14 @@
 прекрасно работает с несколькими клиентами в одном asyncio loop).
 """
 
+import logging
+
 from telethon import TelegramClient
 
 from config import AppConfig, ManagerAccount
 import storage
+
+logger = logging.getLogger(__name__)
 
 
 class ManagerPool:
@@ -24,18 +28,44 @@ class ManagerPool:
         storage.init_db(cfg.sqlite_path)
 
     async def start_all(self):
-        for acc in self.cfg.managers:
-            client = TelegramClient(acc.session, acc.api_id, acc.api_hash)
-            await client.start()
-            self.clients[acc.name] = client
-            me = await client.get_me()
-            self.own_user_ids.add(me.id)
-            print(f"[Пул менеджеров] Аккаунт '{acc.name}' запущен (id={me.id}).")
+        """
+        Если один из аккаунтов не смог подключиться/авторизоваться (битый
+        .session, невалидные api_id/api_hash, сеть недоступна), уже
+        запущенные до него клиенты раньше оставались висеть открытыми —
+        исключение из client.start() пробрасывалось наверх в main.py, но
+        соединения, поднятые для предыдущих аккаунтов в этом же цикле,
+        никто не закрывал (утечка сокетов/файлов сессии). Явно откатываем
+        частичный старт перед тем, как пробросить ошибку дальше.
+        """
+        # Явные connection_retries/retry_delay тут не задаём: Telethon и так
+        # ретраит соединение по умолчанию (auto_reconnect=True), а видимый
+        # снаружи backoff при полном исчерпании его попыток реализован на
+        # уровень выше, в main.py::_run_client_forever (иначе пришлось бы
+        # тянуть эти параметры через конструктор в тестовый фейк-клиент).
+        try:
+            for acc in self.cfg.managers:
+                client = TelegramClient(acc.session, acc.api_id, acc.api_hash)
+                logger.info("[Пул менеджеров] Запускаю аккаунт '%s'...", acc.name)
+                await client.start()
+                self.clients[acc.name] = client
+                me = await client.get_me()
+                self.own_user_ids.add(me.id)
+                logger.info("[Пул менеджеров] Аккаунт '%s' запущен (id=%s).", acc.name, me.id)
+        except Exception:
+            logger.exception("[Пул менеджеров] Не удалось запустить пул целиком — "
+                              "откатываю уже поднятые аккаунты.")
+            await self.stop_all()
+            raise
 
     async def stop_all(self):
-        for name, client in self.clients.items():
-            await client.disconnect()
-            print(f"[Пул менеджеров] Аккаунт '{name}' отключён.")
+        for name, client in list(self.clients.items()):
+            try:
+                await client.disconnect()
+                logger.info("[Пул менеджеров] Аккаунт '%s' отключён.", name)
+            except Exception:
+                logger.exception("[Пул менеджеров] Ошибка при отключении аккаунта '%s'.", name)
+            finally:
+                self.clients.pop(name, None)
 
     def account_names(self) -> list[str]:
         return list(self.accounts_by_name.keys())

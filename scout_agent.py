@@ -9,6 +9,7 @@
 """
 
 import asyncio
+import logging
 
 from telethon import events, utils
 
@@ -16,6 +17,15 @@ import profile_store
 from agent import analyze_group_message
 from config import AppConfig
 from manager_pool import ManagerPool
+
+logger = logging.getLogger(__name__)
+
+# Та же идемпотентность, что в reactive_handler.py: id сообщения в чате
+# монотонно растёт, дубль-апдейт (сеть/reconnect/ретрай Telegram) даёт тот
+# же id повторно — без дедупа один и тот же пост в группе дважды дёргал бы
+# платный вызов ИИ и мог дважды "накопительно" дописать один и тот же факт
+# в профиль лида.
+_last_seen_message_id: dict[tuple[str, int], int] = {}
 
 
 def _chat_matches_targets(chat, target_groups: list[str]) -> bool:
@@ -52,6 +62,12 @@ def _register_one(pool: ManagerPool, cfg: AppConfig, account_name: str, client, 
         if not _chat_matches_targets(chat, cfg.target_groups):
             return  # сообщение из группы, которая не в списке мониторинга
 
+        msg_id = event.message.id
+        dedup_key = (account_name, utils.get_peer_id(chat))
+        if msg_id is not None and _last_seen_message_id.get(dedup_key, 0) >= msg_id:
+            return  # дубль-апдейт того же сообщения (реконнект/ретрай Telegram)
+        _last_seen_message_id[dedup_key] = msg_id
+
         sender = await event.get_sender()
         username = getattr(sender, "username", "") or ""
         display_name = " ".join(
@@ -86,5 +102,5 @@ def _register_one(pool: ManagerPool, cfg: AppConfig, account_name: str, client, 
                 raw_last_message=text[:300],
             ),
         )
-        print(f"[Скаут:{account_name}] Обновлён профиль {sender_id} ({username or display_name}) "
-              f"из группы '{source_group}'.")
+        logger.info("[Скаут:%s] Обновлён профиль %s (%s) из группы '%s'.",
+                    account_name, sender_id, username or display_name, source_group)

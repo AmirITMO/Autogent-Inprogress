@@ -11,6 +11,7 @@
 """
 
 import asyncio
+import logging
 from datetime import datetime
 
 import profile_store
@@ -20,10 +21,12 @@ from working_hours import is_working_hours
 from agent import generate_opening_message
 from manager_pool import ManagerPool
 
+logger = logging.getLogger(__name__)
+
 
 async def broadcast_to_leads(pool: ManagerPool, cfg: AppConfig, profiles_sheet, limit: int = 100):
     if not is_working_hours(cfg.working_hours):
-        print("[Рассылка] Вне рабочих часов — рассылка не запускается.")
+        logger.info("[Рассылка] Вне рабочих часов — рассылка не запускается.")
         return {"sent": 0, "skipped": 0, "failed": 0, "reason": "off_hours"}
 
     loop = asyncio.get_event_loop()
@@ -36,7 +39,7 @@ async def broadcast_to_leads(pool: ManagerPool, cfg: AppConfig, profiles_sheet, 
 
         account_name = pool.account_with_capacity()
         if account_name is None:
-            print("[Рассылка] У всех аккаунтов исчерпан дневной лимит исходящих — стоп.")
+            logger.warning("[Рассылка] У всех аккаунтов исчерпан дневной лимит исходящих — стоп.")
             break
 
         client = pool.client_for_account(account_name)
@@ -63,12 +66,13 @@ async def broadcast_to_leads(pool: ManagerPool, cfg: AppConfig, profiles_sheet, 
             )
 
             results["sent"] += 1
-            print(f"[{account_name}] Открывающее сообщение {user_id} "
-                  f"({profile.get('username') or profile.get('display_name')}): {message_text[:80]}...")
+            logger.info("[%s] Открывающее сообщение %s (%s): %s...",
+                        account_name, user_id, profile.get("username") or profile.get("display_name"),
+                        message_text[:80])
 
-        except Exception as e:
+        except Exception:
             results["failed"] += 1
-            print(f"[Ошибка] {user_id}: {e}")
+            logger.exception("[Рассылка] Ошибка отправки лиду %s", user_id)
 
         await asyncio.sleep(cfg.delay_between_outbound_seconds)
 

@@ -22,8 +22,11 @@
 12 assigned_account  — какой аккаунт-менеджер закреплён
 """
 
+import logging
 import threading
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 COL_USER_ID = 1
 COL_USERNAME = 2
@@ -48,7 +51,11 @@ STATUS_NEW = "new"
 STATUS_CONTACTED = "contacted"
 STATUS_IN_DIALOGUE = "in_dialogue"
 
-_lock = threading.Lock()
+# RLock (не Lock): upsert_profile/set_status держат лок на ВСЮ операцию
+# read-then-write и при этом изнутри вызывают get_profile/_ensure_cache,
+# которые тоже берут этот же лок — обычный Lock тут словил бы deadlock
+# сам с собой в одном потоке.
+_lock = threading.RLock()
 _row_cache: dict[str, int] = {}   # user_id (str) -> номер строки в листе
 _cache_loaded_for = None          # id листа, для которого кэш валиден
 
@@ -68,12 +75,13 @@ def _ensure_cache(sheet):
 
 
 def get_profile(sheet, user_id) -> dict | None:
-    _ensure_cache(sheet)
-    uid = str(user_id)
-    row_idx = _row_cache.get(uid)
-    if row_idx is None:
-        return None
-    values = sheet.row_values(row_idx)
+    with _lock:
+        _ensure_cache(sheet)
+        uid = str(user_id)
+        row_idx = _row_cache.get(uid)
+        if row_idx is None:
+            return None
+        values = sheet.row_values(row_idx)
     values = values + [""] * (COL_ASSIGNED_ACCOUNT - len(values))
     return {
         "row_idx": row_idx,
@@ -98,62 +106,70 @@ def upsert_profile(sheet, user_id, username: str = "", display_name: str = "",
     """
     Создаёт профиль, если пользователя ещё нет, иначе обновляет только
     переданные (не-None) поля — остальное остаётся как было (накопительно).
+
+    Вся операция "проверить, есть ли профиль -> создать или обновить"
+    выполняется под ОДНИМ удержанием _lock. Раньше проверка "existing is
+    None" делалась вне лока: если один и тот же новый sender_id пишет два
+    сообщения в группу почти одновременно, два обработчика (два потока
+    executor'а) оба видят "профиля ещё нет" ДО того, как любой из них
+    выполнит append_row — итог: два дублирующих ряда для одного user_id,
+    после чего _row_cache помнит только последний, а первый ряд-дубль
+    остаётся в таблице мусором (и виден живым людям в Google Sheets).
     """
-    _ensure_cache(sheet)
     uid = str(user_id)
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    existing = get_profile(sheet, uid)
 
-    if existing is None:
-        row = [""] * len(HEADER)
-        row[COL_USER_ID - 1] = uid
-        row[COL_USERNAME - 1] = username
-        row[COL_DISPLAY_NAME - 1] = display_name
-        row[COL_FIRST_SEEN - 1] = now_str
-        row[COL_LAST_UPDATED - 1] = now_str
-        row[COL_SOURCE_GROUP - 1] = source_group
-        row[COL_PROBLEM - 1] = problem or ""
-        row[COL_NICHE_INFO - 1] = niche_info or ""
-        row[COL_BUDGET_TIME - 1] = budget_time or ""
-        row[COL_RAW_LAST_MESSAGE - 1] = raw_last_message or ""
-        row[COL_STATUS - 1] = STATUS_NEW
-        row[COL_ASSIGNED_ACCOUNT - 1] = ""
+    with _lock:
+        _ensure_cache(sheet)
+        existing = get_profile(sheet, uid)
 
-        with _lock:
+        if existing is None:
+            row = [""] * len(HEADER)
+            row[COL_USER_ID - 1] = uid
+            row[COL_USERNAME - 1] = username
+            row[COL_DISPLAY_NAME - 1] = display_name
+            row[COL_FIRST_SEEN - 1] = now_str
+            row[COL_LAST_UPDATED - 1] = now_str
+            row[COL_SOURCE_GROUP - 1] = source_group
+            row[COL_PROBLEM - 1] = problem or ""
+            row[COL_NICHE_INFO - 1] = niche_info or ""
+            row[COL_BUDGET_TIME - 1] = budget_time or ""
+            row[COL_RAW_LAST_MESSAGE - 1] = raw_last_message or ""
+            row[COL_STATUS - 1] = STATUS_NEW
+            row[COL_ASSIGNED_ACCOUNT - 1] = ""
+
             sheet.append_row(row)
             new_row_idx = len(sheet.get_all_values())
             _row_cache[uid] = new_row_idx
-        row_idx = new_row_idx
-    else:
-        row_idx = existing["row_idx"]
-        updates = {COL_LAST_UPDATED: now_str}
-        if username:
-            updates[COL_USERNAME] = username
-        if display_name:
-            updates[COL_DISPLAY_NAME] = display_name
-        if problem is not None:
-            updates[COL_PROBLEM] = problem
-        if niche_info is not None:
-            updates[COL_NICHE_INFO] = niche_info
-        if budget_time is not None:
-            updates[COL_BUDGET_TIME] = budget_time
-        if raw_last_message is not None:
-            updates[COL_RAW_LAST_MESSAGE] = raw_last_message
+        else:
+            row_idx = existing["row_idx"]
+            updates = {COL_LAST_UPDATED: now_str}
+            if username:
+                updates[COL_USERNAME] = username
+            if display_name:
+                updates[COL_DISPLAY_NAME] = display_name
+            if problem is not None:
+                updates[COL_PROBLEM] = problem
+            if niche_info is not None:
+                updates[COL_NICHE_INFO] = niche_info
+            if budget_time is not None:
+                updates[COL_BUDGET_TIME] = budget_time
+            if raw_last_message is not None:
+                updates[COL_RAW_LAST_MESSAGE] = raw_last_message
 
-        with _lock:
             for col, value in updates.items():
                 sheet.update_cell(row_idx, col, value)
 
-    return get_profile(sheet, uid)
+        return get_profile(sheet, uid)
 
 
 def set_status(sheet, user_id, status: str, assigned_account: str = None):
-    _ensure_cache(sheet)
-    uid = str(user_id)
-    row_idx = _row_cache.get(uid)
-    if row_idx is None:
-        return
     with _lock:
+        _ensure_cache(sheet)
+        uid = str(user_id)
+        row_idx = _row_cache.get(uid)
+        if row_idx is None:
+            return
         sheet.update_cell(row_idx, COL_STATUS, status)
         if assigned_account:
             sheet.update_cell(row_idx, COL_ASSIGNED_ACCOUNT, assigned_account)

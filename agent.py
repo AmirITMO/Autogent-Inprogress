@@ -9,11 +9,63 @@
 """
 
 import json
+import logging
+import time
 
-from openai import OpenAI
+from openai import OpenAI, APIConnectionError, APIStatusError, APITimeoutError, RateLimitError
 
 import knowledge_base
 from config import AppConfig
+
+logger = logging.getLogger(__name__)
+
+_RETRYABLE_ERRORS = (RateLimitError, APITimeoutError, APIConnectionError)
+
+
+class AgentGenerationError(RuntimeError):
+    """
+    Не удалось получить ответ от LLM: таймаут, rate limit (429), сетевая
+    ошибка сохранились после ретраев, либо провайдер вернул пустой/битый
+    ответ (нет choices/content). Раньше основные вызовы chat.completions.create
+    были вообще без try/except (только knowledge_base.retrieve был обёрнут) —
+    любой сбой OpenAI/OpenRouter ронял необработанным исключением обработчик
+    Telethon-события. Явный тип ошибки даёт вызывающему коду (reactive_handler,
+    queue_worker, outreach_broadcast) осознанно решить, что делать, вместо
+    случайного traceback где-то в середине личной переписки с лидом.
+    """
+
+
+def _create_completion(client: OpenAI, *, max_retries: int = 2, **kwargs):
+    """Обёртка над client.chat.completions.create с backoff-ретраями на
+    временные ошибки (429 / timeout / сеть) и явной ошибкой в конце."""
+    delay = 1.5
+    last_exc: Exception | None = None
+
+    for attempt in range(1, max_retries + 2):
+        try:
+            resp = client.chat.completions.create(**kwargs)
+        except _RETRYABLE_ERRORS as e:
+            last_exc = e
+            logger.warning("Вызов LLM не удался (попытка %d/%d): %s", attempt, max_retries + 1, e)
+            if attempt <= max_retries:
+                time.sleep(delay)
+                delay *= 2
+                continue
+            raise AgentGenerationError(f"LLM недоступен после {attempt} попыток: {e}") from e
+        except APIStatusError as e:
+            logger.exception("OpenAI/OpenRouter вернул ошибку статуса %s", getattr(e, "status_code", "?"))
+            raise AgentGenerationError(f"Ошибка API (status={getattr(e, 'status_code', '?')}): {e}") from e
+        except Exception as e:
+            logger.exception("Непредвиденная ошибка при вызове LLM")
+            raise AgentGenerationError(f"Непредвиденная ошибка LLM: {e}") from e
+
+        if not resp.choices or resp.choices[0].message is None or resp.choices[0].message.content is None:
+            logger.error("LLM вернул пустой/некорректный ответ (нет choices/content).")
+            raise AgentGenerationError("Пустой ответ от LLM (нет choices/content).")
+
+        return resp
+
+    raise AgentGenerationError(f"LLM недоступен: {last_exc}")
 
 
 def build_system_prompt(persona: str, cfg: AppConfig) -> str:
@@ -54,7 +106,7 @@ def _kb_context_block(query: str, cfg: AppConfig) -> str:
         return knowledge_base.retrieve(query, cfg.kb_dir, cfg.kb_cache_path, cfg.openai_key,
                                         top_k=cfg.kb_top_k, base_url=cfg.openai_base_url)
     except Exception as e:
-        print(f"[База знаний] Поиск не удался, отвечаем без неё: {e}")
+        logger.warning("Поиск по базе знаний не удался, отвечаем без неё: %s", e)
         return ""
 
 
@@ -84,11 +136,7 @@ def generate_reply(persona: str, history: list[dict], incoming_text: str, cfg: A
         messages.append({"role": role, "content": turn["content"]})
     messages.append({"role": "user", "content": incoming_text})
 
-    resp = client.chat.completions.create(
-        model=cfg.chat_model,
-        messages=messages,
-        temperature=0.6,
-    )
+    resp = _create_completion(client, model=cfg.chat_model, messages=messages, temperature=0.6)
     return resp.choices[0].message.content.strip()
 
 
@@ -110,7 +158,8 @@ def generate_opening_message(persona: str, profile: dict, cfg: AppConfig) -> str
 по-деловому, без канцелярита, без представления по шаблону "Здравствуйте, меня зовут...".
 Покажи, что понял именно его ситуацию (по тому, что он писал в группе), и задай один уточняющий вопрос."""
 
-    resp = client.chat.completions.create(
+    resp = _create_completion(
+        client,
         model=cfg.chat_model,
         messages=[
             {"role": "system", "content": system_prompt},
@@ -160,12 +209,20 @@ def analyze_group_message(text: str, existing_profile: dict | None, cfg: AppConf
 Ответь СТРОГО в формате JSON, без пояснений:
 {{"is_relevant": true/false, "problem": "..." or null, "niche_info": "..." or null, "budget_time": "..." or null}}"""
 
-    resp = client.chat.completions.create(
-        model=cfg.chat_model,
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.2,
-        response_format={"type": "json_object"},
-    )
+    try:
+        resp = _create_completion(
+            client,
+            model=cfg.chat_model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.2,
+            response_format={"type": "json_object"},
+        )
+    except AgentGenerationError as e:
+        # Скаут анализирует КАЖДОЕ сообщение в группе — сбой одного вызова
+        # не должен ронять обработчик события. Просто считаем сообщение
+        # нерелевантным и пробуем на следующем сообщении.
+        logger.warning("Анализ сообщения группы не удался, пропускаем: %s", e)
+        return {"is_relevant": False, "problem": None, "niche_info": None, "budget_time": None}
 
     try:
         data = json.loads(resp.choices[0].message.content)

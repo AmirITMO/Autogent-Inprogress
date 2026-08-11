@@ -6,6 +6,9 @@ python-dotenv>=1.0
 # используется local_sheet.py и этот пакет не требуется.
 gspread>=6.0
 
-# Опционально, только если подключаете панель управления из
-# STREAMLIT_UI_SNIPPET в main.py.
+# Опционально, только если запускаете панель управления app_streamlit.py.
 # streamlit>=1.30
+
+# Тестирование (не нужно в проде)
+pytest>=8.0
+pytest-asyncio>=0.23

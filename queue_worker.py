@@ -9,13 +9,16 @@
 """
 
 import asyncio
+import logging
 
 import profile_store
 import storage
 from config import AppConfig
 from working_hours import is_working_hours
-from agent import generate_reply
+from agent import AgentGenerationError, generate_reply
 from manager_pool import ManagerPool
+
+logger = logging.getLogger(__name__)
 
 
 async def run_queue_worker(pool: ManagerPool, cfg: AppConfig, profiles_sheet, poll_seconds: float = 60.0):
@@ -59,9 +62,15 @@ async def _send_queued_reply(pool: ManagerPool, cfg: AppConfig, account_name: st
     loop = asyncio.get_event_loop()
     profile = await loop.run_in_executor(None, profile_store.get_profile, profiles_sheet, chat_id)
 
-    reply_text = await loop.run_in_executor(
-        None, generate_reply, persona, context, incoming_text or "Продолжи разговор.", cfg, profile
-    )
+    try:
+        reply_text = await loop.run_in_executor(
+            None, generate_reply, persona, context, incoming_text or "Продолжи разговор.", cfg, profile
+        )
+    except AgentGenerationError:
+        # Сообщение остаётся в истории (уже сохранено), просто не отвечаем
+        # сейчас — следующий тик воркера/следующее сообщение лида попробуют снова.
+        logger.exception("[%s] Не удалось сгенерировать отложенный ответ для %s", account_name, chat_id)
+        return
 
     try:
         entity = await client.get_entity(int(chat_id))
@@ -73,4 +82,4 @@ async def _send_queued_reply(pool: ManagerPool, cfg: AppConfig, account_name: st
 
     await client.send_message(entity, reply_text)
     storage.save_message(cfg.sqlite_path, chat_id, account_name, role="manager", content=reply_text)
-    print(f"[{account_name}] Отложенный ответ отправлен {chat_id}: {reply_text[:80]}...")
+    logger.info("[%s] Отложенный ответ отправлен %s: %s...", account_name, chat_id, reply_text[:80])

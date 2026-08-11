@@ -9,6 +9,7 @@
 эмбеддинги не пересчитываются — экономит деньги и время старта.
 """
 
+import logging
 import os
 import re
 import json
@@ -16,6 +17,8 @@ import math
 import hashlib
 
 from openai import OpenAI
+
+logger = logging.getLogger(__name__)
 
 EMBED_MODEL = "text-embedding-3-small"
 MAX_CHUNK_CHARS = 1200
@@ -126,7 +129,7 @@ def _load_or_build_index(kb_dir: str, cache_path: str, openai_key: str, base_url
         except (json.JSONDecodeError, OSError):
             pass
 
-    print(f"[База знаний] Файлы изменились или индекс не найден — считаю эмбеддинги для '{kb_dir}'...")
+    logger.info("[База знаний] Файлы изменились или индекс не найден — считаю эмбеддинги для '%s'...", kb_dir)
     chunks = _load_all_documents(kb_dir)
     texts = [f"{c['source']} — {c['heading']}\n{c['text']}" for c in chunks]
     embeddings = _embed_texts(texts, openai_key, base_url)
@@ -139,10 +142,10 @@ def _load_or_build_index(kb_dir: str, cache_path: str, openai_key: str, base_url
         with open(cache_path, "w", encoding="utf-8") as f:
             json.dump(payload, f, ensure_ascii=False)
     except OSError as e:
-        print(f"[База знаний] Не удалось сохранить кэш индекса: {e}")
+        logger.warning("[База знаний] Не удалось сохранить кэш индекса: %s", e)
 
     _memory_cache[kb_dir] = payload
-    print(f"[База знаний] Готово: {len(chunks)} чанков из {kb_dir}.")
+    logger.info("[База знаний] Готово: %d чанков из %s.", len(chunks), kb_dir)
     return chunks
 
 

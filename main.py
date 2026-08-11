@@ -12,17 +12,80 @@ service_account.json не найден, автоматически исполь�
 (local_sheet.py) — тот же интерфейс, данные хранятся в JSON-файле на диске.
 
 Запуск отдельным процессом:  python main.py
+
+Панель управления Streamlit (опционально) вынесена в app_streamlit.py —
+запускается отдельно: streamlit run app_streamlit.py
 """
 
 import asyncio
+import logging
 import os
+import signal
+import sys
 
-from config import CONFIG
+from config import CONFIG, ConfigError, validate as validate_config
 from manager_pool import ManagerPool
 import scout_agent
 import reactive_handler
 import profile_store
 from queue_worker import run_queue_worker
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+# Включаем логи самого Telethon на уровне INFO — иначе обрывы связи и
+# попытки автопереподключения видны только на DEBUG и по факту незаметны
+# в проде (наблюдали живьём: клиент тихо висел в цикле неудачных
+# реконнектов без единого сигнала наружу).
+logging.getLogger("telethon").setLevel(logging.INFO)
+
+logger = logging.getLogger(__name__)
+
+# Сколько раз подряд пытаемся восстановить упавшее соединение одного
+# клиента, прежде чем сдаться и явно об этом сообщить (а не висеть тихо).
+CLIENT_RECONNECT_MAX_RETRIES = 10
+CLIENT_RECONNECT_BASE_DELAY = 5.0
+CLIENT_RECONNECT_MAX_DELAY = 120.0
+
+
+async def _run_client_forever(account_name: str, client) -> None:
+    """
+    run_until_disconnected() штатно возвращается только после явного
+    client.disconnect() (наш graceful shutdown). Если соединение обрывается
+    по вине сети, Telethon сам ретраит на уровне транспорта, но при полном
+    исчерпании его внутренних попыток (или прочих ошибках) корутина может
+    завершиться исключением — раньше это ничем не логировалось на уровне
+    приложения, и было не отличить "тихо висим" от "упали и не поднялись".
+    Явно перезапускаем клиента с backoff и логируем каждую попытку.
+    """
+    retry = 0
+    delay = CLIENT_RECONNECT_BASE_DELAY
+    while True:
+        try:
+            await client.run_until_disconnected()
+            return  # штатное отключение (pool.stop_all() / graceful shutdown)
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            retry += 1
+            if retry > CLIENT_RECONNECT_MAX_RETRIES:
+                logger.exception(
+                    "[%s] Соединение потеряно и не восстановлено после %d попыток — сдаюсь.",
+                    account_name, CLIENT_RECONNECT_MAX_RETRIES,
+                )
+                return
+            logger.warning(
+                "[%s] Разрыв соединения (%s). Попытка переподключения %d/%d через %.0f сек.",
+                account_name, e, retry, CLIENT_RECONNECT_MAX_RETRIES, delay,
+            )
+            await asyncio.sleep(delay)
+            delay = min(delay * 2, CLIENT_RECONNECT_MAX_DELAY)
+            try:
+                if not client.is_connected():
+                    await client.connect()
+            except Exception:
+                logger.exception("[%s] Ошибка при попытке переподключения.", account_name)
 
 
 async def main(profiles_sheet):
@@ -33,19 +96,48 @@ async def main(profiles_sheet):
     reactive_handler.register_all(pool, CONFIG, profiles_sheet)
 
     queue_task = asyncio.create_task(run_queue_worker(pool, CONFIG, profiles_sheet))
+    client_tasks = [
+        asyncio.create_task(_run_client_forever(name, client))
+        for name, client in pool.clients.items()
+    ]
 
-    print(f"[Готово] {len(pool.account_names())} аккаунт(ов) слушают группы {CONFIG.target_groups} "
-          f"и личные сообщения.")
-    print(f"Рабочие часы: {CONFIG.working_hours.start_hour}:00–{CONFIG.working_hours.end_hour}:00 "
-          f"({CONFIG.working_hours.timezone}), дни недели (0=Пн): {CONFIG.working_hours.workdays}")
+    # Graceful shutdown: по SIGINT/SIGTERM аккуратно останавливаем клиентов
+    # пула вместо резкого убийства процесса на живом соединении/транзакции.
+    stop_event = asyncio.Event()
 
+    def _request_shutdown(sig_name: str) -> None:
+        logger.info("Получен сигнал %s — начинаю остановку...", sig_name)
+        stop_event.set()
+
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        try:
+            loop.add_signal_handler(sig, _request_shutdown, sig.name)
+        except NotImplementedError:
+            # Windows: add_signal_handler недоступен для ProactorEventLoop —
+            # используем обычный signal.signal (годится и для Ctrl+C).
+            signal.signal(sig, lambda s, f: _request_shutdown(signal.Signals(s).name))
+
+    logger.info("[Готово] %d аккаунт(ов) слушают группы %s и личные сообщения.",
+                len(pool.account_names()), CONFIG.target_groups)
+    logger.info("Рабочие часы: %d:00-%d:00 (%s), дни недели (0=Пн): %s",
+                CONFIG.working_hours.start_hour, CONFIG.working_hours.end_hour,
+                CONFIG.working_hours.timezone, CONFIG.working_hours.workdays)
+
+    stop_task = asyncio.create_task(stop_event.wait())
     try:
-        await asyncio.gather(
-            queue_task,
-            *[client.run_until_disconnected() for client in pool.clients.values()],
+        await asyncio.wait(
+            [queue_task, stop_task, *client_tasks],
+            return_when=asyncio.FIRST_COMPLETED,
         )
     finally:
+        stop_task.cancel()
+        queue_task.cancel()
+        for t in client_tasks:
+            t.cancel()
+        await asyncio.gather(stop_task, queue_task, *client_tasks, return_exceptions=True)
         await pool.stop_all()
+        logger.info("Остановка завершена.")
 
 
 def _open_profiles_sheet():
@@ -58,101 +150,22 @@ def _open_profiles_sheet():
 
     from local_sheet import LocalSheet
 
-    print("[Локальный режим] service_account.json не найден — использую local_sheet.py "
-          "(profiles_local.json) вместо Google Sheets.")
+    logger.info("[Локальный режим] service_account.json не найден — использую local_sheet.py "
+                "(profiles_local.json) вместо Google Sheets.")
     return LocalSheet("profiles_local.json", header=profile_store.HEADER)
 
 
 if __name__ == "__main__":
+    try:
+        validate_config(CONFIG)
+    except ConfigError as e:
+        # Падаем сразу и понятно — не через сотню строк трейсбека из недр
+        # Telethon/openai SDK при первом реальном сообщении.
+        logger.error("%s", e)
+        sys.exit(1)
+
     profiles_sheet = _open_profiles_sheet()
-    asyncio.run(main(profiles_sheet))
-
-
-# ---------------------------------------------------------------------------
-# Streamlit-панель управления и ручной рассылки (опционально, отдельный файл
-# app.py). Тот же паттерн "клиенты живут в отдельном потоке со своим event
-# loop", только теперь клиентов несколько (пул), они слушают и группы, и
-# личку, плюс есть воркер очереди.
-# ---------------------------------------------------------------------------
-STREAMLIT_UI_SNIPPET = '''
-import threading
-import asyncio
-import streamlit as st
-
-from config import CONFIG
-from manager_pool import ManagerPool
-import scout_agent
-import reactive_handler
-from queue_worker import run_queue_worker
-from outreach_broadcast import broadcast_to_leads
-from working_hours import is_working_hours
-
-# profiles_sheet — открытый gspread-лист "Profiles", подключаете как раньше
-# (gspread.service_account(...).open(CONFIG.profiles_sheet_name).sheet1)
-profiles_sheet = ...
-
-if "pool" not in st.session_state:
-    st.session_state.pool = None
-    st.session_state.loop = None
-    st.session_state.agent_running = False
-
-
-async def _run_agent_core():
-    pool = ManagerPool(CONFIG)
-    await pool.start_all()
-    scout_agent.register_all(pool, CONFIG, profiles_sheet)
-    reactive_handler.register_all(pool, CONFIG, profiles_sheet)
-    st.session_state.pool = pool
-    asyncio.create_task(run_queue_worker(pool, CONFIG, profiles_sheet))
-
-    while st.session_state.agent_running:
-        await asyncio.sleep(1)
-
-    await pool.stop_all()
-
-
-def _run_async_loop(loop):
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(_run_agent_core())
-
-
-st.subheader("🕹️ ИИ-агенты (скаут + менеджеры, общий пул аккаунтов)")
-
-wh = CONFIG.working_hours
-st.caption(f"Рабочие часы: {wh.start_hour}:00–{wh.end_hour}:00 ({wh.timezone}) · "
-           f"Аккаунтов в пуле: {len(CONFIG.managers)} · Группы: {', '.join(CONFIG.target_groups)}")
-
-col1, col2 = st.columns(2)
-with col1:
-    if not st.session_state.agent_running:
-        if st.button("🚀 Запустить агентов", use_container_width=True, type="primary"):
-            st.session_state.agent_running = True
-            st.session_state.loop = asyncio.new_event_loop()
-            t = threading.Thread(target=_run_async_loop, args=(st.session_state.loop,), daemon=True)
-            t.start()
-            st.rerun()
-    else:
-        if st.button("🛑 Остановить агентов", use_container_width=True):
-            st.session_state.agent_running = False
-            st.rerun()
-with col2:
-    now_working = is_working_hours(wh)
-    st.metric("Статус", "🟢 Работает" if st.session_state.agent_running else "🔴 Выключен")
-    st.metric("Рабочее окно сейчас", "Да" if now_working else "Нет (сообщения — в очередь)")
-
-st.markdown("---")
-st.subheader("📤 Ручная рассылка первого сообщения по базе профилей (status = new)")
-
-if st.button("📨 Разослать (только в рабочие часы)"):
-    if not st.session_state.agent_running or st.session_state.pool is None:
-        st.error("Сначала запустите агентов.")
-    else:
-        # ВАЖНО: планируем корутину на loop пула, а не asyncio.run() —
-        # клиенты уже крутятся в этом loop в фоновом потоке.
-        future = asyncio.run_coroutine_threadsafe(
-            broadcast_to_leads(st.session_state.pool, CONFIG, profiles_sheet),
-            st.session_state.loop,
-        )
-        result = future.result()
-        st.write(result)
-'''
+    try:
+        asyncio.run(main(profiles_sheet))
+    except KeyboardInterrupt:
+        logger.info("Остановлено пользователем (Ctrl+C).")

@@ -9,6 +9,7 @@
 """
 
 import asyncio
+import logging
 
 from telethon import events
 
@@ -16,8 +17,18 @@ import profile_store
 import storage
 from config import AppConfig
 from working_hours import is_working_hours
-from agent import generate_reply
+from agent import AgentGenerationError, generate_reply
 from manager_pool import ManagerPool
+
+logger = logging.getLogger(__name__)
+
+# Идемпотентность на случай, если Telegram (обрыв связи, ретрай, повторная
+# доставка апдейта после reconnect) пришлёт одно и то же входящее сообщение
+# дважды. id сообщения в рамках чата монотонно растёт — храним последний
+# обработанный id на (account_name, chat_id) в памяти процесса и молча
+# пропускаем повтор. Без этого дубль-апдейт означал бы два вызова LLM и два
+# ответа лиду на одно и то же сообщение.
+_last_seen_message_id: dict[tuple[str, str], int] = {}
 
 
 def register_all(pool: ManagerPool, cfg: AppConfig, profiles_sheet):
@@ -35,6 +46,13 @@ def _register_one(pool: ManagerPool, cfg: AppConfig, account_name: str, client, 
             return
 
         chat_id = str(event.chat_id)
+        msg_id = event.message.id
+        dedup_key = (account_name, chat_id)
+        if msg_id is not None and _last_seen_message_id.get(dedup_key, 0) >= msg_id:
+            logger.info("[%s] Дубликат входящего сообщения id=%s в чате %s — пропускаю.",
+                        account_name, msg_id, chat_id)
+            return
+        _last_seen_message_id[dedup_key] = msg_id
 
         # Реальность Telegram уже решила: если селлер написал именно этому
         # аккаунту, он закреплён за ним — без round-robin переигровок.
@@ -64,9 +82,17 @@ async def _reply_now(pool: ManagerPool, cfg: AppConfig, account_name: str, clien
 
     loop = asyncio.get_event_loop()
     persona = pool.persona_for_account(account_name)
-    reply_text = await loop.run_in_executor(
-        None, generate_reply, persona, history_without_last, text, cfg, profile
-    )
+    try:
+        reply_text = await loop.run_in_executor(
+            None, generate_reply, persona, history_without_last, text, cfg, profile
+        )
+    except AgentGenerationError:
+        # LLM недоступен (таймаут/429/сеть/пустой ответ) после ретраев —
+        # не отправляем лиду ничего сломанного, явно логируем сбой и выходим.
+        # История лида уже сохранена, он не потерян: следующее сообщение или
+        # ручная проверка логов подхватят диалог.
+        logger.exception("[%s] Не удалось сгенерировать ответ для %s", account_name, chat_id)
+        return
 
     # Имитация живого набора текста — резкий мгновенный ответ на большое
     # сообщение выглядит подозрительно и снижает доверие к "менеджеру".
@@ -78,17 +104,18 @@ async def _reply_now(pool: ManagerPool, cfg: AppConfig, account_name: str, clien
 
     await event.reply(reply_text)
     storage.save_message(cfg.sqlite_path, chat_id, account_name, role="manager", content=reply_text)
-    print(f"[{account_name}] Ответ для {chat_id}: {reply_text[:80]}...")
+    logger.info("[%s] Ответ для %s: %s...", account_name, chat_id, reply_text[:80])
 
 
 async def _handle_off_hours(cfg: AppConfig, account_name: str, chat_id: str, text: str, event):
     # Короткое уведомление шлём только один раз за "простой" — если в очереди
     # уже есть неотправленный ответ для этого лида, повторно не дёргаем его.
-    already_pending = storage.has_pending_queue(cfg.sqlite_path, chat_id, account_name)
-
-    # Помечаем, что для этого лида нужен полноценный ответ при старте
-    # следующего рабочего окна (queue_worker сгенерирует его из истории).
-    storage.enqueue_message(cfg.sqlite_path, chat_id, account_name, content=text)
+    # check+insert выполняются атомарно одним вызовом (см. storage.py) —
+    # раздельные has_pending_queue()+enqueue_message() гонялись бы при двух
+    # почти одновременных сообщениях от одного лида (дубль уведомления).
+    already_pending = storage.enqueue_message_and_check_pending(
+        cfg.sqlite_path, chat_id, account_name, content=text
+    )
 
     if already_pending:
         return  # уведомление уже отправляли на предыдущее сообщение — не спамим
