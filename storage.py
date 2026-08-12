@@ -73,6 +73,11 @@ def init_db(db_path: str) -> None:
                 count INTEGER NOT NULL DEFAULT 0,
                 PRIMARY KEY (account_name, day)
             );
+
+            CREATE TABLE IF NOT EXISTS event_counters (
+                name TEXT PRIMARY KEY,
+                count INTEGER NOT NULL DEFAULT 0
+            );
             """
         )
 
@@ -250,3 +255,35 @@ def increment_outbound(db_path: str, account_name: str) -> None:
                ON CONFLICT(account_name, day) DO UPDATE SET count = count + 1""",
             (account_name, today),
         )
+
+
+# --- Событийные счётчики для периодического снимка метрик (см. --------------
+# metrics_reporter.py / crm_integration.py). Копятся между отправками снимка
+# и сбрасываются атомарно при каждой успешной отправке, чтобы CRM видела
+# дельту "за интервал", а не нарастающий с начала времён итог.
+
+def increment_counter(db_path: str, name: str) -> None:
+    with _cursor(db_path) as cur:
+        cur.execute(
+            """INSERT INTO event_counters (name, count) VALUES (?, 1)
+               ON CONFLICT(name) DO UPDATE SET count = count + 1""",
+            (name,),
+        )
+
+
+def snapshot_and_reset_counters(db_path: str, names: list[str]) -> dict[str, int]:
+    """
+    Атомарно читает текущие значения счётчиков и сбрасывает их в 0 — одним
+    удержанием лока, чтобы событие, записанное ровно между "прочитать" и
+    "сбросить", не потерялось (и не задвоилось при повторной отправке).
+    """
+    with _cursor(db_path) as cur:
+        result = dict.fromkeys(names, 0)
+        placeholders = ",".join("?" for _ in names)
+        rows = cur.execute(
+            f"SELECT name, count FROM event_counters WHERE name IN ({placeholders})", names
+        ).fetchall()
+        for n, c in rows:
+            result[n] = c
+        cur.executemany("UPDATE event_counters SET count = 0 WHERE name = ?", [(n,) for n in names])
+        return result

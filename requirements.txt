@@ -1,6 +1,7 @@
 telethon>=1.34
 openai>=1.0
 python-dotenv>=1.0
+httpx>=0.27
 
 # Нужен только для продакшена (Google Sheets). Для локального теста
 # используется local_sheet.py и этот пакет не требуется.

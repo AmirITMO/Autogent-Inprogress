@@ -127,3 +127,39 @@ def test_increment_outbound_scoped_per_account(db_path):
     storage.increment_outbound(db_path, "acc2")
     assert storage.outbound_count_today(db_path, "acc1") == 1
     assert storage.outbound_count_today(db_path, "acc2") == 2
+
+
+def test_snapshot_and_reset_counters_starts_at_zero(db_path):
+    assert storage.snapshot_and_reset_counters(db_path, ["a", "b"]) == {"a": 0, "b": 0}
+
+
+def test_increment_counter_accumulates(db_path):
+    storage.increment_counter(db_path, "messages_scanned")
+    storage.increment_counter(db_path, "messages_scanned")
+    storage.increment_counter(db_path, "messages_scanned")
+    assert storage.snapshot_and_reset_counters(db_path, ["messages_scanned"]) == {"messages_scanned": 3}
+
+
+def test_increment_counter_scoped_per_name(db_path):
+    storage.increment_counter(db_path, "messages_scanned")
+    storage.increment_counter(db_path, "triggers_found")
+    storage.increment_counter(db_path, "triggers_found")
+    snapshot = storage.snapshot_and_reset_counters(db_path, ["messages_scanned", "triggers_found"])
+    assert snapshot == {"messages_scanned": 1, "triggers_found": 2}
+
+
+def test_snapshot_and_reset_counters_resets_to_zero(db_path):
+    storage.increment_counter(db_path, "messages_scanned")
+    first = storage.snapshot_and_reset_counters(db_path, ["messages_scanned"])
+    second = storage.snapshot_and_reset_counters(db_path, ["messages_scanned"])
+    assert first == {"messages_scanned": 1}
+    assert second == {"messages_scanned": 0}
+
+
+def test_snapshot_and_reset_counters_ignores_unrequested_names(db_path):
+    storage.increment_counter(db_path, "messages_scanned")
+    storage.increment_counter(db_path, "outbound_sent")
+    snapshot = storage.snapshot_and_reset_counters(db_path, ["messages_scanned"])
+    assert snapshot == {"messages_scanned": 1}
+    # "outbound_sent" не запрашивали — он не должен быть сброшен предыдущим вызовом
+    assert storage.snapshot_and_reset_counters(db_path, ["outbound_sent"]) == {"outbound_sent": 1}

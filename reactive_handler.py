@@ -104,6 +104,7 @@ async def _reply_now(pool: ManagerPool, cfg: AppConfig, account_name: str, clien
 
     await event.reply(reply_text)
     storage.save_message(cfg.sqlite_path, chat_id, account_name, role="manager", content=reply_text)
+    storage.increment_counter(cfg.sqlite_path, "outbound_sent")
     logger.info("[%s] Ответ для %s: %s...", account_name, chat_id, reply_text[:80])
 
 

@@ -14,8 +14,10 @@ import logging
 from telethon import events, utils
 
 import profile_store
+import storage
 from agent import analyze_group_message
 from config import AppConfig
+from crm_integration import push_lead
 from manager_pool import ManagerPool
 
 logger = logging.getLogger(__name__)
@@ -77,6 +79,11 @@ def _register_one(pool: ManagerPool, cfg: AppConfig, account_name: str, client, 
 
         loop = asyncio.get_event_loop()
 
+        # Счётчик "просмотрено сообщений" — только те, что реально дошли до
+        # платного вызова ИИ (прошли дешёвые локальные фильтры выше), для
+        # снимка метрик в CRM (см. metrics_reporter.py).
+        await loop.run_in_executor(None, storage.increment_counter, cfg.sqlite_path, "messages_scanned")
+
         existing_profile = await loop.run_in_executor(
             None, profile_store.get_profile, profiles_sheet, sender_id
         )
@@ -88,7 +95,9 @@ def _register_one(pool: ManagerPool, cfg: AppConfig, account_name: str, client, 
         if not analysis["is_relevant"]:
             return
 
-        await loop.run_in_executor(
+        await loop.run_in_executor(None, storage.increment_counter, cfg.sqlite_path, "triggers_found")
+
+        profile = await loop.run_in_executor(
             None,
             lambda: profile_store.upsert_profile(
                 profiles_sheet,
@@ -104,3 +113,11 @@ def _register_one(pool: ManagerPool, cfg: AppConfig, account_name: str, client, 
         )
         logger.info("[Скаут:%s] Обновлён профиль %s (%s) из группы '%s'.",
                     account_name, sender_id, username or display_name, source_group)
+
+        # В CRM отправляем лида только один раз — когда профиля ДО этого
+        # апдейта ещё не было (existing_profile получен выше, до upsert).
+        # Уже существующий профиль, который просто дополнился новой
+        # информацией, повторно не шлём — иначе в воронке CRM плодились бы
+        # дубли сделок на одного и того же человека.
+        if existing_profile is None and profile:
+            await push_lead(cfg, profile)

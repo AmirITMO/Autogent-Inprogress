@@ -48,6 +48,20 @@ class AppConfig:
     # Для OpenRouter модели указываются с префиксом провайдера, напр. "openai/gpt-4o-mini".
     chat_model: str = field(default_factory=lambda: os.environ.get("CHAT_MODEL", "gpt-4o-mini"))
 
+    # Push-интеграция с внешним CRM (см. crm_integration.py): найденные лиды
+    # и периодический снимок метрик отправляются туда сами (push), а не
+    # наоборот — CRM не сможет достучаться до локально запущенного агента
+    # без публичного адреса, а агенту исходящий интернет и так нужен для
+    # Telegram/OpenAI. Полностью опционально: пустой crm_api_url отключает
+    # интеграцию целиком, без fail-fast — это не критичная для работы
+    # агента зависимость.
+    crm_api_url: str | None = field(default_factory=lambda: os.environ.get("CRM_API_URL", "") or None)
+    crm_api_key: str = field(default_factory=lambda: os.environ.get("CRM_API_KEY", ""))
+    crm_channel_id: str = field(default_factory=lambda: os.environ.get("CRM_CHANNEL_ID", ""))
+    crm_metrics_interval_seconds: int = field(
+        default_factory=lambda: int(os.environ.get("CRM_METRICS_INTERVAL_SECONDS", "300") or "300")
+    )
+
     # Единая таблица "база знаний": скаут пишет/обновляет профили,
     # менеджер читает их перед первым и каждым следующим сообщением.
     profiles_sheet_name: str = "Profiles"

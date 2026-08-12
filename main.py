@@ -29,6 +29,7 @@ import scout_agent
 import reactive_handler
 import profile_store
 from queue_worker import run_queue_worker
+from metrics_reporter import run_metrics_reporter
 
 logging.basicConfig(
     level=logging.INFO,
@@ -96,6 +97,7 @@ async def main(profiles_sheet):
     reactive_handler.register_all(pool, CONFIG, profiles_sheet)
 
     queue_task = asyncio.create_task(run_queue_worker(pool, CONFIG, profiles_sheet))
+    metrics_task = asyncio.create_task(run_metrics_reporter(pool, CONFIG))
     client_tasks = [
         asyncio.create_task(_run_client_forever(name, client))
         for name, client in pool.clients.items()
@@ -127,15 +129,16 @@ async def main(profiles_sheet):
     stop_task = asyncio.create_task(stop_event.wait())
     try:
         await asyncio.wait(
-            [queue_task, stop_task, *client_tasks],
+            [queue_task, metrics_task, stop_task, *client_tasks],
             return_when=asyncio.FIRST_COMPLETED,
         )
     finally:
         stop_task.cancel()
         queue_task.cancel()
+        metrics_task.cancel()
         for t in client_tasks:
             t.cancel()
-        await asyncio.gather(stop_task, queue_task, *client_tasks, return_exceptions=True)
+        await asyncio.gather(stop_task, queue_task, metrics_task, *client_tasks, return_exceptions=True)
         await pool.stop_all()
         logger.info("Остановка завершена.")
 

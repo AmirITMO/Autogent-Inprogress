@@ -59,6 +59,7 @@ async def broadcast_to_leads(pool: ManagerPool, cfg: AppConfig, profiles_sheet, 
             await client.send_message(entity, message_text)
             storage.save_message(cfg.sqlite_path, user_id, account_name, role="manager", content=message_text)
             storage.increment_outbound(cfg.sqlite_path, account_name)
+            storage.increment_counter(cfg.sqlite_path, "outbound_sent")
 
             await loop.run_in_executor(
                 None, profile_store.set_status, profiles_sheet, user_id,
