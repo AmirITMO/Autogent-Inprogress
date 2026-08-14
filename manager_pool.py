@@ -17,6 +17,19 @@ import storage
 logger = logging.getLogger(__name__)
 
 
+def _build_proxy(cfg: AppConfig) -> tuple | None:
+    """
+    Telethon принимает proxy как кортеж для PySocks: (тип, host, port, rdns,
+    username, password). Возвращает None, если TG_PROXY_HOST не задан —
+    тогда TelegramClient(proxy=None) ведёт себя как раньше, без прокси.
+    """
+    if not cfg.tg_proxy_host or not cfg.tg_proxy_port:
+        return None
+    import socks
+    return (socks.SOCKS5, cfg.tg_proxy_host, cfg.tg_proxy_port, True,
+            cfg.tg_proxy_username, cfg.tg_proxy_password)
+
+
 class ManagerPool:
     def __init__(self, cfg: AppConfig):
         self.cfg = cfg
@@ -42,9 +55,13 @@ class ManagerPool:
         # снаружи backoff при полном исчерпании его попыток реализован на
         # уровень выше, в main.py::_run_client_forever (иначе пришлось бы
         # тянуть эти параметры через конструктор в тестовый фейк-клиент).
+        proxy = _build_proxy(self.cfg)
+        if proxy:
+            logger.info("[Пул менеджеров] Соединение с Telegram через SOCKS5-прокси %s:%s.",
+                        self.cfg.tg_proxy_host, self.cfg.tg_proxy_port)
         try:
             for acc in self.cfg.managers:
-                client = TelegramClient(acc.session, acc.api_id, acc.api_hash)
+                client = TelegramClient(acc.session, acc.api_id, acc.api_hash, proxy=proxy)
                 logger.info("[Пул менеджеров] Запускаю аккаунт '%s'...", acc.name)
                 await client.start()
                 self.clients[acc.name] = client

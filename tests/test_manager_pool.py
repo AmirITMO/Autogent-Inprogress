@@ -17,10 +17,11 @@ class _FakeTelegramClient:
     """Достаточно, чтобы удовлетворить start_all()/stop_all()."""
     instances = []
 
-    def __init__(self, session, api_id, api_hash):
+    def __init__(self, session, api_id, api_hash, proxy=None):
         self.session = session
         self.api_id = api_id
         self.api_hash = api_hash
+        self.proxy = proxy
         self.disconnected = False
         _FakeTelegramClient.instances.append(self)
 
@@ -94,6 +95,41 @@ async def test_stop_all_disconnects_every_client(monkeypatch, pool):
     await pool.stop_all()
 
     assert all(c.disconnected for c in _FakeTelegramClient.instances)
+
+
+def test_build_proxy_none_when_host_not_set(cfg):
+    assert manager_pool._build_proxy(cfg) is None
+
+
+def test_build_proxy_none_when_port_not_set(tmp_path):
+    cfg = AppConfig(managers=[], sqlite_path=str(tmp_path / "p.db"), tg_proxy_host="1.2.3.4")
+    assert manager_pool._build_proxy(cfg) is None
+
+
+def test_build_proxy_returns_socks5_tuple(tmp_path):
+    import socks
+    cfg = AppConfig(
+        managers=[], sqlite_path=str(tmp_path / "p.db"),
+        tg_proxy_host="1.2.3.4", tg_proxy_port=1080,
+        tg_proxy_username="u", tg_proxy_password="p",
+    )
+    assert manager_pool._build_proxy(cfg) == (socks.SOCKS5, "1.2.3.4", 1080, True, "u", "p")
+
+
+@pytest.mark.asyncio
+async def test_start_all_passes_proxy_to_telegram_client(monkeypatch, tmp_path):
+    monkeypatch.setattr(manager_pool, "TelegramClient", _FakeTelegramClient)
+    cfg = AppConfig(
+        managers=[ManagerAccount(name="acc1", session="sessions/acc1", api_id=1, api_hash="h1")],
+        sqlite_path=str(tmp_path / "pool.db"),
+        tg_proxy_host="1.2.3.4", tg_proxy_port=1080,
+    )
+    pool = ManagerPool(cfg)
+
+    await pool.start_all()
+
+    import socks
+    assert pool.client_for_account("acc1").proxy == (socks.SOCKS5, "1.2.3.4", 1080, True, None, None)
 
 
 def test_assign_lead_is_stable_across_calls(pool):

@@ -62,6 +62,18 @@ class AppConfig:
         default_factory=lambda: int(os.environ.get("CRM_METRICS_INTERVAL_SECONDS", "300") or "300")
     )
 
+    # SOCKS5-прокси для соединения с Telegram (Telethon) — нужен, если сервер,
+    # где крутится агент, не может напрямую достучаться до серверов Telegram
+    # (DPI-блокировка на уровне провайдера/датацентра — наблюдали это вживую
+    # на VPS: ping до Telegram проходит, TCP:443 до него глохнет, при этом
+    # остальной интернет работает нормально). Пусто = без прокси, прямое
+    # соединение (как раньше). ManagerAccount.proxy формируется из этих
+    # значений в manager_pool.py.
+    tg_proxy_host: str | None = field(default_factory=lambda: os.environ.get("TG_PROXY_HOST", "") or None)
+    tg_proxy_port: int = field(default_factory=lambda: int(os.environ.get("TG_PROXY_PORT", "0") or "0"))
+    tg_proxy_username: str | None = field(default_factory=lambda: os.environ.get("TG_PROXY_USERNAME", "") or None)
+    tg_proxy_password: str | None = field(default_factory=lambda: os.environ.get("TG_PROXY_PASSWORD", "") or None)
+
     # Единая таблица "база знаний": скаут пишет/обновляет профили,
     # менеджер читает их перед первым и каждым следующим сообщением.
     profiles_sheet_name: str = "Profiles"
