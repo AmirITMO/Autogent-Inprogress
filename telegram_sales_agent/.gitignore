@@ -1,0 +1,10 @@
+.env
+sessions/
+*.session
+*.session-journal
+profiles_local*.json
+kb_index.json
+sales_agent.db
+__pycache__/
+*.pyc
+.pytest_cache/
