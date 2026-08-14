@@ -17,6 +17,7 @@ from datetime import datetime
 import profile_store
 import storage
 from config import AppConfig
+from crm_integration import push_contact, STATUS_WRITTEN
 from working_hours import is_working_hours
 from agent import generate_opening_message
 from manager_pool import ManagerPool
@@ -64,6 +65,19 @@ async def broadcast_to_leads(pool: ManagerPool, cfg: AppConfig, profiles_sheet, 
             await loop.run_in_executor(
                 None, profile_store.set_status, profiles_sheet, user_id,
                 profile_store.STATUS_CONTACTED, account_name,
+            )
+
+            await push_contact(
+                cfg,
+                external_id=user_id,
+                status=STATUS_WRITTEN,
+                dialogue=[{"from": "scout", "text": message_text, "at": datetime.now().isoformat()}],
+                name=profile.get("display_name") or None,
+                telegram_username=profile.get("username") or None,
+                source_chat_name=profile.get("source_group") or None,
+                trigger_message=profile.get("raw_last_message") or None,
+                trigger_reason=profile.get("problem") or profile.get("niche_info") or None,
+                outreach_account=account_name,
             )
 
             results["sent"] += 1

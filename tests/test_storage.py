@@ -163,3 +163,29 @@ def test_snapshot_and_reset_counters_ignores_unrequested_names(db_path):
     assert snapshot == {"messages_scanned": 1}
     # "outbound_sent" не запрашивали — он не должен быть сброшен предыдущим вызовом
     assert storage.snapshot_and_reset_counters(db_path, ["outbound_sent"]) == {"outbound_sent": 1}
+
+
+def test_get_full_history_includes_timestamps(db_path):
+    storage.save_message(db_path, "chat1", "acc1", "lead", "Привет")
+    storage.save_message(db_path, "chat1", "acc1", "manager", "Здравствуйте")
+
+    history = storage.get_full_history(db_path, "chat1", "acc1")
+    assert [h["role"] for h in history] == ["lead", "manager"]
+    assert [h["content"] for h in history] == ["Привет", "Здравствуйте"]
+    assert all("ts" in h and h["ts"] for h in history)
+
+
+def test_mark_lead_pushed_if_new_true_on_first_call(db_path):
+    assert storage.mark_lead_pushed_if_new(db_path, "chat1") is True
+
+
+def test_mark_lead_pushed_if_new_false_on_repeat_calls(db_path):
+    storage.mark_lead_pushed_if_new(db_path, "chat1")
+    assert storage.mark_lead_pushed_if_new(db_path, "chat1") is False
+    assert storage.mark_lead_pushed_if_new(db_path, "chat1") is False
+
+
+def test_mark_lead_pushed_if_new_scoped_per_chat(db_path):
+    assert storage.mark_lead_pushed_if_new(db_path, "chat1") is True
+    assert storage.mark_lead_pushed_if_new(db_path, "chat2") is True
+    assert storage.mark_lead_pushed_if_new(db_path, "chat1") is False

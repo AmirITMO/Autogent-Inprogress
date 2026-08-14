@@ -16,6 +16,7 @@ from telethon import events
 import profile_store
 import storage
 from config import AppConfig
+from crm_integration import push_contact, push_lead, STATUS_REPLIED
 from working_hours import is_working_hours
 from agent import AgentGenerationError, generate_reply
 from manager_pool import ManagerPool
@@ -67,10 +68,50 @@ def _register_one(pool: ManagerPool, cfg: AppConfig, account_name: str, client, 
                 profile_store.STATUS_IN_DIALOGUE, account_name,
             )
 
+        storage.increment_counter(cfg.sqlite_path, "responses_received")
+
         if is_working_hours(cfg.working_hours):
             await _reply_now(pool, cfg, account_name, client, event, chat_id, text, profile)
         else:
             await _handle_off_hours(cfg, account_name, chat_id, text, event)
+
+        # CRM: контакт обновляем на КАЖДОЕ новое сообщение в диалоге (полная
+        # история целиком — так проще и надёжнее, чем гонять дельты). Лида
+        # передаём в отдел продаж только ОДИН раз на контакт — здесь это
+        # первый реальный ответ человека, а не сам факт детекта в группе
+        # (то происходит намного раньше, ещё в scout_agent.py, и ничего в
+        # CRM не отправляет: детект — это гипотеза, ответ человека — сигнал).
+        sender = await event.get_sender()
+        full_history = await loop.run_in_executor(
+            None, storage.get_full_history, cfg.sqlite_path, chat_id, account_name
+        )
+        await push_contact(
+            cfg,
+            external_id=chat_id,
+            status=STATUS_REPLIED,
+            dialogue=full_history,
+            name=(profile.get("display_name") if profile else None)
+            or " ".join(filter(None, [getattr(sender, "first_name", ""), getattr(sender, "last_name", "")])).strip()
+            or None,
+            telegram_username=(profile.get("username") if profile else None) or getattr(sender, "username", None),
+            source_chat_name=profile.get("source_group") if profile else None,
+            trigger_message=profile.get("raw_last_message") if profile else None,
+            trigger_reason=(profile.get("problem") or profile.get("niche_info")) if profile else None,
+            outreach_account=account_name,
+        )
+
+        is_first_reply = await loop.run_in_executor(
+            None, storage.mark_lead_pushed_if_new, cfg.sqlite_path, chat_id
+        )
+        if is_first_reply:
+            title = (profile.get("problem") or profile.get("niche_info") if profile else None) or "Ответил в личных сообщениях"
+            await push_lead(
+                cfg,
+                contact_external_id=chat_id,
+                title=title,
+                contact_name=(profile.get("display_name") if profile else None) or getattr(sender, "first_name", None),
+                contact=f"@{sender.username}" if getattr(sender, "username", None) else None,
+            )
 
 
 async def _reply_now(pool: ManagerPool, cfg: AppConfig, account_name: str, client, event,

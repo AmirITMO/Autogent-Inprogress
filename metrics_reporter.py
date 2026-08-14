@@ -16,7 +16,7 @@ from manager_pool import ManagerPool
 
 logger = logging.getLogger(__name__)
 
-COUNTER_NAMES = ["messages_scanned", "triggers_found", "outbound_sent"]
+COUNTER_NAMES = ["messages_scanned", "triggers_found", "outbound_sent", "responses_received"]
 
 
 async def run_metrics_reporter(pool: ManagerPool, cfg: AppConfig) -> None:
@@ -45,6 +45,7 @@ async def run_metrics_reporter(pool: ManagerPool, cfg: AppConfig) -> None:
                 "messagesScanned": counters["messages_scanned"],
                 "triggersFound": counters["triggers_found"],
                 "outboundSent": counters["outbound_sent"],
+                "responsesReceived": counters["responses_received"],
                 "accounts": accounts,
             }
             await push_metrics(cfg, snapshot)

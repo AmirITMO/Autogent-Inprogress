@@ -78,6 +78,11 @@ def init_db(db_path: str) -> None:
                 name TEXT PRIMARY KEY,
                 count INTEGER NOT NULL DEFAULT 0
             );
+
+            CREATE TABLE IF NOT EXISTS crm_lead_pushed (
+                chat_id TEXT PRIMARY KEY,
+                pushed_at TEXT NOT NULL
+            );
             """
         )
 
@@ -174,6 +179,22 @@ def get_history(db_path: str, chat_id: str, account_name: str, limit: int = 20) 
             (chat_id, account_name, limit),
         ).fetchall()
     return [{"role": r[0], "content": r[1]} for r in reversed(rows)]
+
+
+def get_full_history(db_path: str, chat_id: str, account_name: str, limit: int = 100) -> list[dict]:
+    """
+    То же самое, что get_history(), но с таймстампом ('ts') — нужен только для
+    экспорта диалога в CRM (crm_integration.push_contact), get_history() для
+    промпта LLM таймстампы не использует и намеренно их не отдаёт.
+    """
+    with _cursor(db_path) as cur:
+        rows = cur.execute(
+            """SELECT role, content, ts FROM conversations
+               WHERE chat_id = ? AND account_name = ?
+               ORDER BY id DESC LIMIT ?""",
+            (chat_id, account_name, limit),
+        ).fetchall()
+    return [{"role": r[0], "content": r[1], "ts": r[2]} for r in reversed(rows)]
 
 
 # --- Очередь ответов вне рабочих часов --------------------------------------
@@ -287,3 +308,20 @@ def snapshot_and_reset_counters(db_path: str, names: list[str]) -> dict[str, int
             result[n] = c
         cur.executemany("UPDATE event_counters SET count = 0 WHERE name = ?", [(n,) for n in names])
         return result
+
+
+# --- Идемпотентная передача лида в CRM (см. crm_integration.push_lead) ------
+
+def mark_lead_pushed_if_new(db_path: str, chat_id: str) -> bool:
+    """
+    Атомарно отмечает контакт как переданный в CRM отделу продаж.
+    Возвращает True только при ПЕРВОЙ отметке — вызывающий код должен
+    отправлять /leads только когда результат True, иначе на каждый
+    следующий ответ того же контакта в CRM плодились бы дубли сделок.
+    """
+    with _cursor(db_path) as cur:
+        cur.execute(
+            "INSERT OR IGNORE INTO crm_lead_pushed (chat_id, pushed_at) VALUES (?, ?)",
+            (chat_id, datetime.now().isoformat()),
+        )
+        return cur.rowcount > 0

@@ -17,7 +17,6 @@ import profile_store
 import storage
 from agent import analyze_group_message
 from config import AppConfig
-from crm_integration import push_lead
 from manager_pool import ManagerPool
 
 logger = logging.getLogger(__name__)
@@ -97,7 +96,7 @@ def _register_one(pool: ManagerPool, cfg: AppConfig, account_name: str, client, 
 
         await loop.run_in_executor(None, storage.increment_counter, cfg.sqlite_path, "triggers_found")
 
-        profile = await loop.run_in_executor(
+        await loop.run_in_executor(
             None,
             lambda: profile_store.upsert_profile(
                 profiles_sheet,
@@ -113,11 +112,6 @@ def _register_one(pool: ManagerPool, cfg: AppConfig, account_name: str, client, 
         )
         logger.info("[Скаут:%s] Обновлён профиль %s (%s) из группы '%s'.",
                     account_name, sender_id, username or display_name, source_group)
-
-        # В CRM отправляем лида только один раз — когда профиля ДО этого
-        # апдейта ещё не было (existing_profile получен выше, до upsert).
-        # Уже существующий профиль, который просто дополнился новой
-        # информацией, повторно не шлём — иначе в воронке CRM плодились бы
-        # дубли сделок на одного и того же человека.
-        if existing_profile is None and profile:
-            await push_lead(cfg, profile)
+        # В CRM ничего не отправляем здесь — это только детект и профилирование.
+        # push_contact/push_lead происходят позже, когда реально начинается
+        # переписка (см. outreach_broadcast.py / reactive_handler.py).
