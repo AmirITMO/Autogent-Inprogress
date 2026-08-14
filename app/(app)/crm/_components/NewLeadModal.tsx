@@ -2,14 +2,18 @@
 
 import { useState } from "react";
 import { createLead } from "@/lib/actions/leads";
+import { LEAD_STAGES, type LeadStageId } from "@/lib/constants";
 
 export function NewLeadModal({
   channels,
+  initialStage,
   onClose,
 }: {
   channels: { id: string; name: string }[];
+  initialStage?: LeadStageId;
   onClose: () => void;
 }) {
+  const stageTitle = LEAD_STAGES.find((s) => s.id === initialStage)?.title;
   const [form, setForm] = useState({
     title: "",
     company: "",
@@ -30,6 +34,7 @@ export function NewLeadModal({
       contactName: form.contactName.trim() || undefined,
       contact: form.contact.trim() || undefined,
       channelId: form.channelId || undefined,
+      stage: initialStage,
     });
     setSaving(false);
     onClose();
@@ -55,7 +60,9 @@ export function NewLeadModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
       <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl border border-border bg-surface p-6">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-foreground">Новый лид</h2>
+          <h2 className="text-lg font-semibold text-foreground">
+            Новый лид{stageTitle ? ` — ${stageTitle}` : ""}
+          </h2>
           <button onClick={onClose} className="text-muted hover:text-foreground">
             ✕
           </button>

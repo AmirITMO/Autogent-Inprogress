@@ -18,10 +18,16 @@ export function CrmBoard({
   channels: { id: string; name: string }[];
   canEdit: boolean;
 }) {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
   const [query, setQuery] = useState("");
   const [showLost, setShowLost] = useState(false);
-  const [activeLead, setActiveLead] = useState<LeadCardData | null>(null);
-  const [creating, setCreating] = useState(false);
+  const [activeLead, setActiveLead] = useState<LeadCardData | null>(() => {
+    const leadId = searchParams.get("lead");
+    return leadId ? (initialLeads.find((l) => l.id === leadId) ?? null) : null;
+  });
+  const [creatingStage, setCreatingStage] = useState<LeadStageId | null>(null);
   const [, startTransition] = useTransition();
 
   const filtered = useMemo(() => {
@@ -53,17 +59,20 @@ export function CrmBoard({
       accent: stage.accent,
       items,
       summary: total > 0 ? formatMoney(total) : undefined,
+      headerExtra: canEdit ? (
+        <button
+          onClick={() => setCreatingStage(stage.id)}
+          title="Добавить лида на этот этап"
+          className="flex h-6 w-6 items-center justify-center rounded-full text-muted hover:bg-surface-2 hover:text-foreground"
+        >
+          +
+        </button>
+      ) : undefined,
     };
   });
 
-  const searchParams = useSearchParams();
-  const router = useRouter();
   useEffect(() => {
-    const leadId = searchParams.get("lead");
-    if (!leadId) return;
-    const found = initialLeads.find((l) => l.id === leadId);
-    if (found) setActiveLead(found);
-    router.replace("/crm");
+    if (searchParams.get("lead")) router.replace("/crm");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -95,7 +104,7 @@ export function CrmBoard({
         <div className="hidden flex-1 sm:block" />
         {canEdit && (
           <button
-            onClick={() => setCreating(true)}
+            onClick={() => setCreatingStage(LEAD_STAGES[0].id)}
             className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent-hover"
           >
             + Новый лид
@@ -122,7 +131,13 @@ export function CrmBoard({
           onClose={() => setActiveLead(null)}
         />
       )}
-      {creating && canEdit && <NewLeadModal channels={channels} onClose={() => setCreating(false)} />}
+      {creatingStage && canEdit && (
+        <NewLeadModal
+          channels={channels}
+          initialStage={creatingStage}
+          onClose={() => setCreatingStage(null)}
+        />
+      )}
     </div>
   );
 }

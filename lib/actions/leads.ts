@@ -20,6 +20,7 @@ export async function createLead(data: {
   contactName?: string;
   contact?: string;
   channelId?: string;
+  stage?: LeadStageId;
 }) {
   const user = await requireUser();
   const lead = await createLeadCore(user, data);

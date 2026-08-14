@@ -21,11 +21,13 @@ export async function createLeadCore(
     contactName?: string;
     contact?: string;
     channelId?: string;
+    stage?: LeadStageId;
   }
 ) {
   await assertCanEditCrm(actor.id, actor.role);
+  const stage = data.stage ?? "SCHEDULED_CALL";
   const last = await prisma.lead.findFirst({
-    where: { stage: "SCHEDULED_CALL" },
+    where: { stage },
     orderBy: { order: "desc" },
   });
 
@@ -37,7 +39,7 @@ export async function createLeadCore(
       contactName: data.contactName,
       contact: data.contact,
       channelId: data.channelId || undefined,
-      stage: "SCHEDULED_CALL",
+      stage,
       order: (last?.order ?? 0) + 1,
       ownerId: actor.id,
     },
