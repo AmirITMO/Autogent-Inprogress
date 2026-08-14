@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import { hash } from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { testUser } from "../testUser";
 
@@ -8,11 +9,18 @@ vi.mock("@/lib/roles", () => ({
 
 const { updateProfile } = await import("@/lib/actions/profile");
 
+const CURRENT_PASSWORD = "correct-current-password";
+
 beforeEach(async () => {
   await prisma.user.deleteMany();
 
   const user = await prisma.user.create({
-    data: { name: "Тест", email: `user-${Date.now()}@test.local`, passwordHash: "x", role: "EMPLOYEE" },
+    data: {
+      name: "Тест",
+      email: `user-${Date.now()}@test.local`,
+      passwordHash: await hash(CURRENT_PASSWORD, 10),
+      role: "EMPLOYEE",
+    },
   });
   testUser.id = user.id;
 });
@@ -33,11 +41,54 @@ describe("updateProfile", () => {
   it("returns an error instead of throwing when the new password is weak", async () => {
     const before = await prisma.user.findUniqueOrThrow({ where: { id: testUser.id } });
 
-    const result = await updateProfile({ name: "Тест", email: before.email, password: "11112222" });
+    const result = await updateProfile({
+      name: "Тест",
+      email: before.email,
+      currentPassword: CURRENT_PASSWORD,
+      newPassword: "11112222",
+    });
 
     expect(result.error).toBeTruthy();
     const after = await prisma.user.findUniqueOrThrow({ where: { id: testUser.id } });
     expect(after.passwordHash).toBe(before.passwordHash);
+  });
+
+  it("returns an error when currentPassword is missing but newPassword is given", async () => {
+    const before = await prisma.user.findUniqueOrThrow({ where: { id: testUser.id } });
+
+    const result = await updateProfile({ name: "Тест", email: before.email, newPassword: "a-strong-new-pass" });
+
+    expect(result.error).toBeTruthy();
+  });
+
+  it("returns an error when currentPassword is wrong", async () => {
+    const before = await prisma.user.findUniqueOrThrow({ where: { id: testUser.id } });
+
+    const result = await updateProfile({
+      name: "Тест",
+      email: before.email,
+      currentPassword: "not-the-real-password",
+      newPassword: "a-strong-new-pass",
+    });
+
+    expect(result.error).toBeTruthy();
+    const after = await prisma.user.findUniqueOrThrow({ where: { id: testUser.id } });
+    expect(after.passwordHash).toBe(before.passwordHash);
+  });
+
+  it("updates the password when currentPassword is correct and newPassword is strong", async () => {
+    const before = await prisma.user.findUniqueOrThrow({ where: { id: testUser.id } });
+
+    const result = await updateProfile({
+      name: "Тест",
+      email: before.email,
+      currentPassword: CURRENT_PASSWORD,
+      newPassword: "a-strong-new-pass",
+    });
+
+    expect(result.error).toBeUndefined();
+    const after = await prisma.user.findUniqueOrThrow({ where: { id: testUser.id } });
+    expect(after.passwordHash).not.toBe(before.passwordHash);
   });
 
   it("returns an error instead of throwing when the email is already taken", async () => {

@@ -66,6 +66,20 @@ describe("createLead", () => {
     const second = await createLead({ title: "Вторая" });
     expect(second.order).toBeGreaterThan(first.order);
   });
+
+  it("creates a lead directly in the given stage when stage is passed (per-column + button)", async () => {
+    const lead = await createLead({ title: "Уже был созвон", stage: "CALL_DONE" });
+    expect(lead.stage).toBe("CALL_DONE");
+  });
+
+  it("computes order per-stage, not globally — a lead in a fresh stage starts fresh, not after leads in other stages", async () => {
+    await createLead({ title: "В первом этапе A" });
+    await createLead({ title: "В первом этапе B" });
+    // Ни одной сделки ещё не было на CALL_DONE — order должен начаться заново,
+    // а не продолжить счётчик SCHEDULED_CALL (там уже 2 сделки с order 1 и 2).
+    const lead = await createLead({ title: "Сразу на втором этапе", stage: "CALL_DONE" });
+    expect(lead.order).toBe(1);
+  });
 });
 
 describe("moveLead", () => {

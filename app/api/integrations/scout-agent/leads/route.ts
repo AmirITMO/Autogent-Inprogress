@@ -37,6 +37,12 @@ export async function POST(req: Request) {
       if (!scoutContact) {
         return Response.json({ error: "unknown_contact" }, { status: 400 });
       }
+      // Идемпотентность на случай ретрая: контакт уже привязан к сделке —
+      // отдаём её же, а не плодим вторую сделку с той же историей.
+      if (scoutContact.leadId) {
+        const existing = await prisma.lead.findUniqueOrThrow({ where: { id: scoutContact.leadId } });
+        return Response.json({ id: existing.id, title: existing.title, channelId: existing.channelId });
+      }
     }
 
     const lead = await createLeadCore(
