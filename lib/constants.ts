@@ -17,6 +17,11 @@ export type LeadStageId = (typeof LEAD_STAGES)[number]["id"];
 // Сотрудник переназначает лида на себя вручную при разборе.
 export const SCOUT_AGENT_USER_ID = "user-scout-agent";
 
+// Аналогично, для B2B email-агента — полностью автоматическая отправка,
+// нужен свой сервисный владелец лида. У Instagram-канала своего сервисного
+// User нет: там лид заводит вручную реальный сотрудник через UI.
+export const B2B_EMAIL_AGENT_USER_ID = "user-b2b-email-agent";
+
 export const TASK_PRIORITIES = ["P0", "P1", "P2", "P3"] as const;
 
 export const TASK_PRIORITY_LABEL: Record<string, string> = {

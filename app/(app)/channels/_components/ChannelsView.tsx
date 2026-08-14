@@ -17,7 +17,7 @@ type ChannelMetrics = {
   id: string;
   name: string;
   isActive: boolean;
-  hasScoutAgent: boolean;
+  type: "MANUAL" | "SCOUT_TELEGRAM" | "INSTAGRAM" | "B2B_EMAIL";
   totalLeads: number;
   lostLeads: number;
   paidLeads: number;
@@ -28,6 +28,12 @@ type ChannelMetrics = {
   cac: number | null;
   avgCheck: number | null;
   spends: Spend[];
+};
+
+const CHANNEL_TYPE_LINK_LABEL: Record<string, string> = {
+  SCOUT_TELEGRAM: "Аналитика скаут-агента",
+  INSTAGRAM: "База контактов Instagram",
+  B2B_EMAIL: "Аналитика email-рассылок",
 };
 
 function pct(v: number) {
@@ -177,12 +183,12 @@ function ChannelCard({ metrics: m }: { metrics: ChannelMetrics }) {
       </div>
       {error && <div className="mt-1 text-xs text-danger">{error}</div>}
 
-      {m.hasScoutAgent && (
+      {m.type !== "MANUAL" && (
         <Link
           href={`/channels/${m.id}`}
           className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline"
         >
-          Аналитика скаут-агента →
+          {CHANNEL_TYPE_LINK_LABEL[m.type]} →
         </Link>
       )}
 

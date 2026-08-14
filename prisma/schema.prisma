@@ -127,25 +127,42 @@ model Lead {
   channelId   String?
   channel     TrafficChannel? @relation(fields: [channelId], references: [id])
 
-  activity     LeadActivity[]
-  transactions Transaction[]
-  scoutContact ScoutAgentContact?
+  activity      LeadActivity[]
+  transactions  Transaction[]
+  scoutContact  ScoutAgentContact?
+  instagramContact InstagramContact?
+  b2bEmailContact  B2bEmailContact?
 
   @@index([stage])
   @@index([channelId])
 }
 
-model TrafficChannel {
-  id        String   @id @default(cuid())
-  name      String
-  isActive  Boolean  @default(true)
-  order     Int      @default(0)
-  createdAt DateTime @default(now())
+// MANUAL — обычные каналы (реклама и т.п.), заводятся и ведутся руками,
+// без внешнего агента. Остальные значения — канал обслуживается внешним
+// агентом, который пушит данные через /api/integrations/*.
+enum TrafficChannelType {
+  MANUAL
+  SCOUT_TELEGRAM
+  INSTAGRAM
+  B2B_EMAIL
+}
 
-  leads           Lead[]
-  spends          ChannelSpend[]
-  metricSnapshots ScoutAgentMetricSnapshot[]
-  scoutContacts   ScoutAgentContact[]
+model TrafficChannel {
+  id        String             @id @default(cuid())
+  name      String
+  type      TrafficChannelType @default(MANUAL)
+  isActive  Boolean            @default(true)
+  order     Int                @default(0)
+  createdAt DateTime           @default(now())
+
+  leads              Lead[]
+  spends             ChannelSpend[]
+  metricSnapshots    ScoutAgentMetricSnapshot[]
+  scoutContacts      ScoutAgentContact[]
+  instagramContacts  InstagramContact[]
+  instagramSnapshots InstagramMetricSnapshot[]
+  b2bEmailContacts   B2bEmailContact[]
+  b2bEmailSnapshots  B2bEmailMetricSnapshot[]
 }
 
 enum ScoutContactStatus {
@@ -187,6 +204,95 @@ model ScoutAgentContact {
 // работает). Payload намеренно нетипизированный JSON: набор полей на стороне агента
 // ещё не стабилен, поэтому здесь не заводим Prisma-модель под каждую метрику отдельно.
 model ScoutAgentMetricSnapshot {
+  id        String         @id @default(cuid())
+  channelId String
+  channel   TrafficChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  payload   Json
+  createdAt DateTime       @default(now())
+
+  @@index([channelId, createdAt])
+}
+
+enum InstagramContactStatus {
+  FOUND
+  CONTACTED
+  LEAD_CREATED
+  DECLINED
+}
+
+// Спарсенный Instagram-аккаунт — база собирается агентом автоматически,
+// но пишут людям вручную сотрудники (см. AGENTS.md по этому проекту —
+// массовый автообзвон в Instagram сознательно не делаем). Статус двигает
+// сотрудник в CRM, не агент.
+model InstagramContact {
+  id          String                  @id @default(cuid())
+  channelId   String
+  channel     TrafficChannel          @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  externalId  String
+  username    String
+  fullName    String?
+  bio         String?
+  category    String?
+  followers   Int?
+  contactInfo String?
+  sourceTag   String?
+  status      InstagramContactStatus  @default(FOUND)
+  leadId      String?                 @unique
+  lead        Lead?                   @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  foundAt     DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+
+  @@unique([channelId, externalId])
+  @@index([channelId, foundAt])
+  @@index([status])
+}
+
+// Снимки метрик от Instagram-парсера — сколько аккаунтов просканировано/найдено
+// за период. Payload свободный JSON, тот же принцип, что у ScoutAgentMetricSnapshot.
+model InstagramMetricSnapshot {
+  id        String         @id @default(cuid())
+  channelId String
+  channel   TrafficChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  payload   Json
+  createdAt DateTime       @default(now())
+
+  @@index([channelId, createdAt])
+}
+
+enum B2bEmailContactStatus {
+  WRITTEN
+  REPLIED
+  CALL_SCHEDULED
+  LEAD_CREATED
+  DECLINED
+}
+
+// Компания, которой агент отправляет холодные email — полностью автоматизировано
+// (парсинг сайта, персонализация, отправка, фоллоу-апы), в отличие от Instagram.
+model B2bEmailContact {
+  id             String                 @id @default(cuid())
+  channelId      String
+  channel        TrafficChannel         @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  externalId     String
+  companyName    String?
+  website        String?
+  contactEmail   String?
+  triggerReason  String?
+  dialogue       Json?
+  status         B2bEmailContactStatus  @default(WRITTEN)
+  followUpCount  Int                    @default(0)
+  nextFollowUpAt DateTime?
+  leadId         String?                @unique
+  lead           Lead?                  @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  contactedAt    DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  @@unique([channelId, externalId])
+  @@index([channelId, contactedAt])
+  @@index([status])
+}
+
+model B2bEmailMetricSnapshot {
   id        String         @id @default(cuid())
   channelId String
   channel   TrafficChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)

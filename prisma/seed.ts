@@ -1,7 +1,13 @@
 import { randomUUID } from "crypto";
 import { PrismaClient } from "@prisma/client";
 import { hash } from "bcryptjs";
-import { DEFAULT_TASK_COLUMNS, EXPENSE_CATEGORIES, INCOME_CATEGORIES, SCOUT_AGENT_USER_ID } from "../lib/constants";
+import {
+  DEFAULT_TASK_COLUMNS,
+  EXPENSE_CATEGORIES,
+  INCOME_CATEGORIES,
+  SCOUT_AGENT_USER_ID,
+  B2B_EMAIL_AGENT_USER_ID,
+} from "../lib/constants";
 
 const prisma = new PrismaClient();
 
@@ -38,10 +44,38 @@ async function main() {
     },
   });
 
+  // Сервисный аккаунт для лидов от B2B email-агента — та же логика, что у скаута:
+  // рассылка полностью автоматическая, реального сотрудника-инициатора нет.
+  await prisma.user.upsert({
+    where: { id: B2B_EMAIL_AGENT_USER_ID },
+    update: {},
+    create: {
+      id: B2B_EMAIL_AGENT_USER_ID,
+      name: "B2B Email-агент",
+      email: "b2b-email-agent@autogentgroup.ru",
+      passwordHash: await hash(randomUUID(), 10),
+      role: "EMPLOYEE",
+      isBlocked: true,
+      editCrm: true,
+    },
+  });
+
   await prisma.trafficChannel.upsert({
     where: { id: "channel-scout-agent-marketai" },
-    update: {},
-    create: { id: "channel-scout-agent-marketai", name: "Скаут-агент — МаркетАИ" },
+    update: { type: "SCOUT_TELEGRAM" },
+    create: { id: "channel-scout-agent-marketai", name: "Скаут-агент — МаркетАИ", type: "SCOUT_TELEGRAM" },
+  });
+
+  await prisma.trafficChannel.upsert({
+    where: { id: "channel-instagram-marketai" },
+    update: { type: "INSTAGRAM" },
+    create: { id: "channel-instagram-marketai", name: "Instagram — холодная база", type: "INSTAGRAM" },
+  });
+
+  await prisma.trafficChannel.upsert({
+    where: { id: "channel-b2b-email-marketai" },
+    update: { type: "B2B_EMAIL" },
+    create: { id: "channel-b2b-email-marketai", name: "B2B email-рассылки", type: "B2B_EMAIL" },
   });
 
   for (const cat of INCOME_CATEGORIES) {
