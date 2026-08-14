@@ -6,6 +6,13 @@ services:
     env_file:
       - .env
     stop_grace_period: 30s   # даём graceful shutdown (SIGTERM -> pool.stop_all()) время отработать
+    extra_hosts:
+      # Нужно для TG_PROXY_HOST=host.docker.internal — Cloudflare WARP в
+      # proxy-режиме слушает SOCKS5 на localhost ХОСТА (127.0.0.1:40000), а
+      # 127.0.0.1 внутри контейнера — это сам контейнер, не хост. На Linux
+      # (в отличие от Docker Desktop) host.docker.internal не резолвится
+      # автоматически — host-gateway явно это чинит (Docker Engine 20.10+).
+      - "host.docker.internal:host-gateway"
     dns:
       # Явный публичный DNS вместо унаследованного от хоста — на машине
       # разработки локальный прокси (Koala Clash) подменяет резолв в
