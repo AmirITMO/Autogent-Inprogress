@@ -1,0 +1,12 @@
+node_modules
+.next
+.git
+*.tsbuildinfo
+
+# Соседние проекты в этом же репозитории — не часть образа CRM,
+# не должны раздувать docker build context/образ.
+telegram_sales_agent
+autogent-crm-telegram-bot
+
+# транспортные артефакты
+agent.tar.gz

@@ -43,6 +43,10 @@ scripts/import-leads-*.ts
 # загруженные файлы задач, аватарки, фото мотивации (хранятся на сервере в volume, не в репо)
 /uploads
 
+# транспортные архивы (например, ручной перенос telegram_sales_agent) — не коммитим,
+# внутри может быть упакован .env с секретами
+*.tar.gz
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
