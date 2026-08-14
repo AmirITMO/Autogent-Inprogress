@@ -129,6 +129,7 @@ model Lead {
 
   activity     LeadActivity[]
   transactions Transaction[]
+  scoutContact ScoutAgentContact?
 
   @@index([stage])
   @@index([channelId])
@@ -141,8 +142,58 @@ model TrafficChannel {
   order     Int      @default(0)
   createdAt DateTime @default(now())
 
-  leads  Lead[]
-  spends ChannelSpend[]
+  leads           Lead[]
+  spends          ChannelSpend[]
+  metricSnapshots ScoutAgentMetricSnapshot[]
+  scoutContacts   ScoutAgentContact[]
+}
+
+enum ScoutContactStatus {
+  WRITTEN
+  REPLIED
+  CALL_SCHEDULED
+  LEAD_CREATED
+  DECLINED
+}
+
+// Один человек, которому написал скаут-агент — с диалогом и статусом продвижения.
+// Апсертится агентом по (channelId, externalId), т.к. агент — источник истины
+// для переписки, а не CRM.
+model ScoutAgentContact {
+  id               String             @id @default(cuid())
+  channelId        String
+  channel          TrafficChannel     @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  externalId       String
+  name             String?
+  telegramUsername String?
+  sourceChatName   String?
+  triggerMessage   String?
+  triggerReason    String?
+  outreachAccount  String?
+  dialogue         Json?
+  status           ScoutContactStatus @default(WRITTEN)
+  leadId           String?            @unique
+  lead             Lead?              @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  contactedAt      DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  @@unique([channelId, externalId])
+  @@index([channelId, contactedAt])
+  @@index([status])
+}
+
+// Снимки метрик от скаут-агента (Telethon-юзербот) — приходят push'ем, т.к. агент
+// крутится локально без публичного адреса и сам достучаться до него нельзя (pull не
+// работает). Payload намеренно нетипизированный JSON: набор полей на стороне агента
+// ещё не стабилен, поэтому здесь не заводим Prisma-модель под каждую метрику отдельно.
+model ScoutAgentMetricSnapshot {
+  id        String         @id @default(cuid())
+  channelId String
+  channel   TrafficChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  payload   Json
+  createdAt DateTime       @default(now())
+
+  @@index([channelId, createdAt])
 }
 
 model ChannelSpend {

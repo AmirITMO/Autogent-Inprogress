@@ -7,7 +7,10 @@ export default async function ChannelsPage() {
   await requirePagePermission("viewChannels");
 
   const [channels, leads, spends] = await Promise.all([
-    prisma.trafficChannel.findMany({ orderBy: { order: "asc" } }),
+    prisma.trafficChannel.findMany({
+      orderBy: { order: "asc" },
+      include: { _count: { select: { scoutContacts: true } } },
+    }),
     prisma.lead.findMany({
       select: { id: true, channelId: true, stage: true, lost: true, prepay: true, postpay: true },
     }),
@@ -27,6 +30,7 @@ export default async function ChannelsPage() {
       id: c.id,
       name: c.name,
       isActive: c.isActive,
+      hasScoutAgent: c._count.scoutContacts > 0,
       totalLeads: channelLeads.length,
       lostLeads: channelLeads.length - activeLeads.length,
       paidLeads: paidLeads.length,

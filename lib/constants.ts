@@ -13,6 +13,10 @@ export const LEAD_STAGES = [
 
 export type LeadStageId = (typeof LEAD_STAGES)[number]["id"];
 
+// Сервисный User, от имени которого скаут-агент создаёт лидов (ownerId у Lead обязателен).
+// Сотрудник переназначает лида на себя вручную при разборе.
+export const SCOUT_AGENT_USER_ID = "user-scout-agent";
+
 export const TASK_PRIORITIES = ["P0", "P1", "P2", "P3"] as const;
 
 export const TASK_PRIORITY_LABEL: Record<string, string> = {

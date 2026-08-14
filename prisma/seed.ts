@@ -1,6 +1,7 @@
+import { randomUUID } from "crypto";
 import { PrismaClient } from "@prisma/client";
 import { hash } from "bcryptjs";
-import { DEFAULT_TASK_COLUMNS, EXPENSE_CATEGORIES, INCOME_CATEGORIES } from "../lib/constants";
+import { DEFAULT_TASK_COLUMNS, EXPENSE_CATEGORIES, INCOME_CATEGORIES, SCOUT_AGENT_USER_ID } from "../lib/constants";
 
 const prisma = new PrismaClient();
 
@@ -20,6 +21,28 @@ async function main() {
   });
 
   console.log(`Admin ready: ${adminEmail} / ${adminPassword}`);
+
+  // Сервисный аккаунт для лидов от скаут-агента: не логинится (isBlocked),
+  // но editCrm нужен, т.к. роль EMPLOYEE проходит проверку прав на создание лида.
+  await prisma.user.upsert({
+    where: { id: SCOUT_AGENT_USER_ID },
+    update: {},
+    create: {
+      id: SCOUT_AGENT_USER_ID,
+      name: "Скаут-агент",
+      email: "scout-agent@autogentgroup.ru",
+      passwordHash: await hash(randomUUID(), 10),
+      role: "EMPLOYEE",
+      isBlocked: true,
+      editCrm: true,
+    },
+  });
+
+  await prisma.trafficChannel.upsert({
+    where: { id: "channel-scout-agent-marketai" },
+    update: {},
+    create: { id: "channel-scout-agent-marketai", name: "Скаут-агент — МаркетАИ" },
+  });
 
   for (const cat of INCOME_CATEGORIES) {
     await prisma.transactionCategory.upsert({

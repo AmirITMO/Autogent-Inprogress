@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { formatMoney } from "@/lib/constants";
 import {
   createChannel,
@@ -16,6 +17,7 @@ type ChannelMetrics = {
   id: string;
   name: string;
   isActive: boolean;
+  hasScoutAgent: boolean;
   totalLeads: number;
   lostLeads: number;
   paidLeads: number;
@@ -174,6 +176,15 @@ function ChannelCard({ metrics: m }: { metrics: ChannelMetrics }) {
         </div>
       </div>
       {error && <div className="mt-1 text-xs text-danger">{error}</div>}
+
+      {m.hasScoutAgent && (
+        <Link
+          href={`/channels/${m.id}`}
+          className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline"
+        >
+          Аналитика скаут-агента →
+        </Link>
+      )}
 
       <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Metric label="Лидов" value={String(m.totalLeads)} />
