@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requirePagePermission } from "@/lib/roles";
-import { stageAtOrAfter } from "@/lib/accounting";
+import { computeChannelFinancials } from "@/lib/channelFinancials";
 import { ChannelsView } from "./_components/ChannelsView";
 
 export default async function ChannelsPage() {
@@ -18,35 +18,21 @@ export default async function ChannelsPage() {
 
   const metrics = channels.map((c) => {
     const channelLeads = leads.filter((l) => l.channelId === c.id);
-    const activeLeads = channelLeads.filter((l) => !l.lost);
-    const paidLeads = activeLeads.filter((l) => stageAtOrAfter(l.stage, "PAID"));
-    const revenue = activeLeads.reduce((sum, l) => sum + Number(l.prepay) + Number(l.postpay), 0);
-    const spend = spends
-      .filter((s) => s.channelId === c.id)
-      .reduce((sum, s) => sum + Number(s.amount), 0);
+    const channelSpends = spends.filter((s) => s.channelId === c.id);
+    const financials = computeChannelFinancials(channelLeads, channelSpends);
 
     return {
       id: c.id,
       name: c.name,
       isActive: c.isActive,
       type: c.type,
-      totalLeads: channelLeads.length,
-      lostLeads: channelLeads.length - activeLeads.length,
-      paidLeads: paidLeads.length,
-      conversionRate: channelLeads.length > 0 ? (paidLeads.length / channelLeads.length) * 100 : 0,
-      revenue,
-      spend,
-      roi: spend > 0 ? ((revenue - spend) / spend) * 100 : null,
-      cac: paidLeads.length > 0 ? spend / paidLeads.length : null,
-      avgCheck: paidLeads.length > 0 ? revenue / paidLeads.length : null,
-      spends: spends
-        .filter((s) => s.channelId === c.id)
-        .map((s) => ({
-          id: s.id,
-          amount: Number(s.amount),
-          date: s.date.toISOString(),
-          note: s.note,
-        })),
+      ...financials,
+      spends: channelSpends.map((s) => ({
+        id: s.id,
+        amount: Number(s.amount),
+        date: s.date.toISOString(),
+        note: s.note,
+      })),
     };
   });
 

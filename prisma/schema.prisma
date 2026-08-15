@@ -163,6 +163,32 @@ model TrafficChannel {
   instagramSnapshots InstagramMetricSnapshot[]
   b2bEmailContacts   B2bEmailContact[]
   b2bEmailSnapshots  B2bEmailMetricSnapshot[]
+  knowledgeBase      AgentKnowledgeBase?
+  kbMessages         AgentKbMessage[]
+}
+
+// Единая база знаний/правил на канал, редактируемая через чат в разделе
+// «Управление» (см. AgentManagementPanel) — LLM читает её как контекст и
+// может переписать через tool-call update_knowledge_base. Внешний агент
+// (Python) забирает актуальный content через GET .../knowledge-base —
+// именно агент инициирует запрос, не CRM, т.к. у агента нет публичного
+// адреса (тот же принцип push/pull, что и везде в этой интеграции).
+model AgentKnowledgeBase {
+  channelId String         @id
+  channel   TrafficChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  content   String         @default("") @db.Text
+  updatedAt DateTime       @updatedAt
+}
+
+model AgentKbMessage {
+  id        String         @id @default(cuid())
+  channelId String
+  channel   TrafficChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  role      String
+  content   String         @db.Text
+  createdAt DateTime       @default(now())
+
+  @@index([channelId, createdAt])
 }
 
 enum ScoutContactStatus {

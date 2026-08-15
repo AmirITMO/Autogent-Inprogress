@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requirePagePermission } from "@/lib/roles";
+import { computeChannelFinancials } from "@/lib/channelFinancials";
 import { ScoutAgentDashboard } from "./_components/ScoutAgentDashboard";
 import { InstagramDashboard } from "./_components/InstagramDashboard";
 import { B2bEmailDashboard } from "./_components/B2bEmailDashboard";
@@ -36,7 +37,7 @@ export default async function ChannelDetailPage({ params }: { params: Promise<{ 
 }
 
 async function ScoutChannel({ channelId }: { channelId: string }) {
-  const [snapshots, contacts] = await Promise.all([
+  const [snapshots, contacts, leads, spends, kb, kbMessages] = await Promise.all([
     prisma.scoutAgentMetricSnapshot.findMany({
       where: { channelId },
       orderBy: { createdAt: "desc" },
@@ -48,10 +49,32 @@ async function ScoutChannel({ channelId }: { channelId: string }) {
       take: 200,
       include: { lead: { select: { id: true, stage: true } } },
     }),
+    prisma.lead.findMany({
+      where: { channelId },
+      select: { stage: true, lost: true, prepay: true, postpay: true },
+    }),
+    prisma.channelSpend.findMany({ where: { channelId } }),
+    prisma.agentKnowledgeBase.findUnique({ where: { channelId } }),
+    prisma.agentKbMessage.findMany({ where: { channelId }, orderBy: { createdAt: "asc" }, take: 200 }),
   ]);
+
+  const financials = computeChannelFinancials(
+    leads.map((l) => ({ ...l, prepay: Number(l.prepay), postpay: Number(l.postpay) })),
+    spends.map((s) => ({ amount: Number(s.amount) }))
+  );
 
   return (
     <ScoutAgentDashboard
+      channelId={channelId}
+      financials={financials}
+      kbContent={kb?.content ?? ""}
+      kbUpdatedAt={kb?.updatedAt?.toISOString() ?? null}
+      kbMessages={kbMessages.map((m) => ({
+        id: m.id,
+        role: m.role as "user" | "assistant",
+        content: m.content,
+        createdAt: m.createdAt.toISOString(),
+      }))}
       snapshots={snapshots
         .slice()
         .reverse()
