@@ -98,7 +98,7 @@ async function ScoutChannel({ channelId }: { channelId: string }) {
 }
 
 async function InstagramChannel({ channelId }: { channelId: string }) {
-  const [snapshots, contacts] = await Promise.all([
+  const [snapshots, contacts, searchProfiles] = await Promise.all([
     prisma.instagramMetricSnapshot.findMany({
       where: { channelId },
       orderBy: { createdAt: "desc" },
@@ -110,10 +110,21 @@ async function InstagramChannel({ channelId }: { channelId: string }) {
       take: 500,
       include: { lead: { select: { id: true, stage: true } } },
     }),
+    prisma.instagramSearchProfile.findMany({
+      where: { channelId },
+      orderBy: { createdAt: "desc" },
+    }),
   ]);
 
   return (
     <InstagramDashboard
+      channelId={channelId}
+      searchProfiles={searchProfiles.map((p) => ({
+        id: p.id,
+        name: p.name,
+        criteria: p.criteria,
+        createdAt: p.createdAt.toISOString(),
+      }))}
       snapshots={snapshots
         .slice()
         .reverse()
@@ -131,13 +142,14 @@ async function InstagramChannel({ channelId }: { channelId: string }) {
         foundAt: c.foundAt.toISOString(),
         leadId: c.leadId,
         leadStage: c.lead?.stage ?? null,
+        draftMessage: c.draftMessage,
       }))}
     />
   );
 }
 
 async function B2bEmailChannel({ channelId }: { channelId: string }) {
-  const [snapshots, contacts] = await Promise.all([
+  const [snapshots, contacts, leads, spends, kb, kbMessages] = await Promise.all([
     prisma.b2bEmailMetricSnapshot.findMany({
       where: { channelId },
       orderBy: { createdAt: "desc" },
@@ -149,10 +161,29 @@ async function B2bEmailChannel({ channelId }: { channelId: string }) {
       take: 200,
       include: { lead: { select: { id: true, stage: true } } },
     }),
+    prisma.lead.findMany({
+      where: { channelId },
+      select: { stage: true, lost: true, prepay: true, postpay: true },
+    }),
+    prisma.channelSpend.findMany({ where: { channelId } }),
+    prisma.agentKnowledgeBase.findUnique({ where: { channelId } }),
+    prisma.agentKbMessage.findMany({ where: { channelId }, orderBy: { createdAt: "asc" }, take: 200 }),
   ]);
+
+  const financials = computeChannelFinancials(leads, spends);
 
   return (
     <B2bEmailDashboard
+      channelId={channelId}
+      financials={financials}
+      kbContent={kb?.content ?? ""}
+      kbUpdatedAt={kb?.updatedAt?.toISOString() ?? null}
+      kbMessages={kbMessages.map((m) => ({
+        id: m.id,
+        role: m.role as "user" | "assistant",
+        content: m.content,
+        createdAt: m.createdAt.toISOString(),
+      }))}
       snapshots={snapshots
         .slice()
         .reverse()

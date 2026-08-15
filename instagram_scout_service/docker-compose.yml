@@ -1,0 +1,11 @@
+services:
+  instagram-scout:
+    build: .
+    container_name: instagram_scout_service
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      # Instagram-сессия (aiograpi) — стейт, создаётся при первом логине,
+      # дальше только читается/обновляется контейнером.
+      - ./sessions:/app/sessions

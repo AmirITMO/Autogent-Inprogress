@@ -11,6 +11,8 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
+import { formatMoney } from "@/lib/constants";
+import { AgentManagementPanel } from "./AgentManagementPanel";
 
 type ContactStatus = "WRITTEN" | "REPLIED" | "CALL_SCHEDULED" | "LEAD_CREATED" | "DECLINED";
 
@@ -32,6 +34,20 @@ type Contact = {
 };
 
 type Snapshot = { id: string; createdAt: string; payload: unknown };
+
+type Financials = {
+  totalLeads: number;
+  lostLeads: number;
+  paidLeads: number;
+  conversionRate: number;
+  revenue: number;
+  spend: number;
+  roi: number | null;
+  cac: number | null;
+  avgCheck: number | null;
+};
+
+type KbMessage = { id: string; role: "user" | "assistant"; content: string; createdAt: string };
 
 type SnapshotPayload = {
   companiesParsed?: number;
@@ -87,12 +103,23 @@ function asDialogue(value: unknown): DialogueMessage[] {
 }
 
 export function B2bEmailDashboard({
+  channelId,
   snapshots,
   contacts,
+  financials,
+  kbContent,
+  kbUpdatedAt,
+  kbMessages,
 }: {
+  channelId: string;
   snapshots: Snapshot[];
   contacts: Contact[];
+  financials: Financials;
+  kbContent: string;
+  kbUpdatedAt: string | null;
+  kbMessages: KbMessage[];
 }) {
+  const [topTab, setTopTab] = useState<"manage" | "analytics" | "details">("analytics");
   const [tab, setTab] = useState<"contacts" | "summary">("contacts");
   const [period, setPeriod] = useState<(typeof PERIODS)[number]["id"]>("7d");
 
@@ -114,6 +141,12 @@ export function B2bEmailDashboard({
     return { written, replied, callScheduled, reachedCrm };
   }, [filteredContacts]);
 
+  const textToCallConversion = useMemo(() => {
+    if (contacts.length === 0) return 0;
+    const callScheduled = contacts.filter((c) => ["CALL_SCHEDULED", "LEAD_CREATED"].includes(c.status)).length;
+    return (callScheduled / contacts.length) * 100;
+  }, [contacts]);
+
   const trend = useMemo(
     () =>
       snapshots.map((s) => {
@@ -133,6 +166,54 @@ export function B2bEmailDashboard({
   }, [snapshots]);
 
   return (
+    <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex gap-1 border-b border-border px-5 pt-3">
+        <TopTabButton active={topTab === "manage"} onClick={() => setTopTab("manage")}>
+          Управление
+        </TopTabButton>
+        <TopTabButton active={topTab === "analytics"} onClick={() => setTopTab("analytics")}>
+          Аналитика
+        </TopTabButton>
+        <TopTabButton active={topTab === "details"} onClick={() => setTopTab("details")}>
+          Подробности
+        </TopTabButton>
+      </div>
+
+      {topTab === "manage" && (
+        <AgentManagementPanel
+          channelId={channelId}
+          initialContent={kbContent}
+          initialUpdatedAt={kbUpdatedAt}
+          initialMessages={kbMessages}
+        />
+      )}
+
+      {topTab === "analytics" && (
+        <div className="flex-1 overflow-y-auto p-5">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <StatTile label="Лидов принесено" value={String(financials.totalLeads)} />
+            <StatTile label="Выручка" value={formatMoney(financials.revenue)} accent="success" />
+            <StatTile label="Затраты" value={formatMoney(financials.spend)} />
+            <StatTile
+              label="ROI"
+              value={financials.roi == null ? "—" : `${financials.roi >= 0 ? "+" : ""}${financials.roi.toFixed(0)}%`}
+              accent={financials.roi != null ? (financials.roi >= 0 ? "success" : "danger") : undefined}
+            />
+            <StatTile label="CAC" value={financials.cac == null ? "—" : formatMoney(financials.cac)} />
+            <StatTile label="Отказов" value={String(financials.lostLeads)} accent={financials.lostLeads > 0 ? "danger" : undefined} />
+            <StatTile label="Конверсия из текста в созвон" value={`${textToCallConversion.toFixed(1)}%`} accent="warning" />
+          </div>
+
+          <button
+            onClick={() => setTopTab("details")}
+            className="mt-4 rounded-lg border border-border px-3 py-1.5 text-sm text-muted hover:text-foreground"
+          >
+            Подробности →
+          </button>
+        </div>
+      )}
+
+      {topTab === "details" && (
     <div className="flex-1 overflow-y-auto p-5">
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex rounded-lg border border-border p-0.5">
@@ -231,6 +312,31 @@ export function B2bEmailDashboard({
         </div>
       )}
     </div>
+      )}
+    </div>
+  );
+}
+
+function TopTabButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`rounded-t-lg px-4 py-2 text-sm font-medium transition ${
+        active
+          ? "border-b-2 border-accent text-accent"
+          : "border-b-2 border-transparent text-muted hover:text-foreground"
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -255,7 +361,15 @@ function TabButton({
   );
 }
 
-function StatTile({ label, value, accent }: { label: string; value: string; accent?: "success" | "warning" }) {
+function StatTile({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: string;
+  accent?: "success" | "warning" | "danger";
+}) {
   return (
     <div className="rounded-xl border border-border bg-surface p-3">
       <div className="text-xs text-muted">{label}</div>

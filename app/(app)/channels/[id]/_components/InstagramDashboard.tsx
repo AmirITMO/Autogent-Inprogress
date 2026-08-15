@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { convertInstagramContactToLead, markInstagramContactStatus } from "@/lib/actions/instagramContacts";
+import { InstagramSearchLauncher } from "./InstagramSearchLauncher";
 
 type ContactStatus = "FOUND" | "CONTACTED" | "LEAD_CREATED" | "DECLINED";
 
@@ -18,7 +19,10 @@ type Contact = {
   foundAt: string;
   leadId: string | null;
   leadStage: string | null;
+  draftMessage: string | null;
 };
+
+type SearchProfile = { id: string; name: string; criteria: unknown; createdAt: string };
 
 type Snapshot = { id: string; createdAt: string; payload: unknown };
 
@@ -43,11 +47,15 @@ const STATUS_ACCENT: Record<ContactStatus, "success" | "danger" | "warning" | "a
 };
 
 export function InstagramDashboard({
+  channelId,
   snapshots,
   contacts,
+  searchProfiles,
 }: {
+  channelId: string;
   snapshots: Snapshot[];
   contacts: Contact[];
+  searchProfiles: SearchProfile[];
 }) {
   const [query, setQuery] = useState("");
 
@@ -83,11 +91,15 @@ export function InstagramDashboard({
         />
       </div>
 
+      <div className="mt-4">
+        <InstagramSearchLauncher channelId={channelId} searchProfiles={searchProfiles} />
+      </div>
+
       <input
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Поиск по юзернейму, имени, категории…"
-        className="mt-4 w-full max-w-sm rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-sm text-foreground outline-none focus:border-accent"
+        className="mt-3 w-full max-w-sm rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-sm text-foreground outline-none focus:border-accent"
       />
 
       <div className="mt-3 overflow-x-auto rounded-xl border border-border">
@@ -98,6 +110,7 @@ export function InstagramDashboard({
               <th className="px-3 py-2 font-medium">Категория</th>
               <th className="px-3 py-2 font-medium">Подписчики</th>
               <th className="px-3 py-2 font-medium">Контакт</th>
+              <th className="px-3 py-2 font-medium">Черновик оффера</th>
               <th className="px-3 py-2 font-medium">Статус</th>
               <th className="px-3 py-2 font-medium">Найден</th>
               <th className="px-3 py-2 font-medium">Действия</th>
@@ -106,7 +119,7 @@ export function InstagramDashboard({
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-sm text-muted">
+                <td colSpan={8} className="px-3 py-6 text-center text-sm text-muted">
                   Ничего не найдено
                 </td>
               </tr>
@@ -158,6 +171,9 @@ function ContactRow({ contact: c }: { contact: Contact }) {
       <td className="px-3 py-2 text-muted">{c.category ?? "—"}</td>
       <td className="px-3 py-2 text-muted">{c.followers?.toLocaleString("ru-RU") ?? "—"}</td>
       <td className="px-3 py-2 text-muted">{c.contactInfo ?? "—"}</td>
+      <td className="max-w-[220px] truncate px-3 py-2 text-muted" title={c.draftMessage ?? ""}>
+        {c.draftMessage ?? "—"}
+      </td>
       <td className="px-3 py-2">
         <span
           className="rounded-full px-2 py-0.5 text-[11px] font-medium"

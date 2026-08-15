@@ -15,6 +15,7 @@ export async function POST(req: Request) {
       followers?: number;
       contactInfo?: string;
       sourceTag?: string;
+      draftMessage?: string;
     };
 
     if (!body.channelId?.trim()) {
@@ -40,6 +41,7 @@ export async function POST(req: Request) {
       followers: body.followers,
       contactInfo: body.contactInfo,
       sourceTag: body.sourceTag,
+      draftMessage: body.draftMessage,
     };
 
     const contact = await prisma.instagramContact.upsert({

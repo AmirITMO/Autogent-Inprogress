@@ -165,6 +165,8 @@ model TrafficChannel {
   b2bEmailSnapshots  B2bEmailMetricSnapshot[]
   knowledgeBase      AgentKnowledgeBase?
   kbMessages         AgentKbMessage[]
+  instagramSearchProfiles InstagramSearchProfile[]
+  instagramScrapeJobs     InstagramScrapeJob[]
 }
 
 // Единая база знаний/правил на канал, редактируемая через чат в разделе
@@ -262,6 +264,7 @@ model InstagramContact {
   followers   Int?
   contactInfo String?
   sourceTag   String?
+  draftMessage String?
   status      InstagramContactStatus  @default(FOUND)
   leadId      String?                 @unique
   lead        Lead?                   @relation(fields: [leadId], references: [id], onDelete: SetNull)
@@ -271,6 +274,49 @@ model InstagramContact {
   @@unique([channelId, externalId])
   @@index([channelId, foundAt])
   @@index([status])
+}
+
+// Сохранённый профиль поиска ("опиши своего лида") — заполняется через диалог
+// в CRM (5 вопросов), даёт повторно запускать парсинг по тем же критериям
+// без нового интервью.
+model InstagramSearchProfile {
+  id        String   @id @default(cuid())
+  channelId String
+  channel   TrafficChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  name      String
+  criteria  Json
+  createdAt DateTime @default(now())
+
+  jobs InstagramScrapeJob[]
+
+  @@index([channelId])
+}
+
+enum InstagramJobStatus {
+  PENDING
+  IN_PROGRESS
+  DONE
+  FAILED
+}
+
+// Задание на парсинг — CRM инициирует (кнопка «Спарсить N»), но у внешнего
+// Instagram-сервиса нет публичного адреса, поэтому он сам забирает задания
+// через GET .../jobs?status=pending (тот же pull-принцип, что у базы знаний
+// скаута) и закрывает через POST .../jobs/:id/complete.
+model InstagramScrapeJob {
+  id              String                 @id @default(cuid())
+  channelId       String
+  channel         TrafficChannel         @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  searchProfileId String
+  searchProfile   InstagramSearchProfile @relation(fields: [searchProfileId], references: [id], onDelete: Cascade)
+  requestedCount  Int
+  status          InstagramJobStatus     @default(PENDING)
+  foundCount      Int                    @default(0)
+  errorMessage    String?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  @@index([channelId, status])
 }
 
 // Снимки метрик от Instagram-парсера — сколько аккаунтов просканировано/найдено
