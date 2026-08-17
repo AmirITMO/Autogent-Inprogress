@@ -115,10 +115,14 @@ export async function sendManagementMessage(
   await assertCanEditCrm(user.id, user.role);
   if (!userMessage.trim()) throw new Error("Пустое сообщение");
 
-  const [kb, history] = await Promise.all([
+  const [kb, recentHistory] = await Promise.all([
     prisma.agentKnowledgeBase.findUnique({ where: { channelId } }),
-    prisma.agentKbMessage.findMany({ where: { channelId }, orderBy: { createdAt: "asc" }, take: 40 }),
+    // desc+take, затем reverse — иначе take:40 с orderBy asc берёт САМЫЕ
+    // СТАРЫЕ 40 сообщений навсегда, а не последние: после 40-го сообщения
+    // модель перестаёт видеть весь недавний контекст диалога.
+    prisma.agentKbMessage.findMany({ where: { channelId }, orderBy: { createdAt: "desc" }, take: 40 }),
   ]);
+  const history = recentHistory.reverse();
 
   const systemPrompt =
     mode === "interview" ? interviewSystemPrompt(kb?.content ?? "") : chatSystemPrompt(kb?.content ?? "");
@@ -144,7 +148,13 @@ export async function sendManagementMessage(
     const followUp: ChatMessage[] = [...messages, { role: "assistant", content: msg.content ?? "", tool_calls: msg.tool_calls }];
 
     for (const call of msg.tool_calls) {
-      if (call.function.name !== "update_knowledge_base") continue;
+      // Каждому tool_call_id из ответа модели ОБЯЗАТЕЛЬНО нужна пара role:"tool"
+      // в следующем запросе — иначе OpenAI отклонит весь follow-up 400-й ошибкой.
+      // Поэтому даже нераспознанный вызов получает ответ, а не молча пропускается.
+      if (call.function.name !== "update_knowledge_base") {
+        followUp.push({ role: "tool", tool_call_id: call.id, content: "Неизвестный инструмент, игнорирую." });
+        continue;
+      }
       const args = JSON.parse(call.function.arguments) as { content: string; change_summary: string };
       await prisma.agentKnowledgeBase.upsert({
         where: { channelId },

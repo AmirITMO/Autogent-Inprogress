@@ -24,6 +24,8 @@ async def process_job(cfg: Config, job: crm_client.ScrapeJob) -> None:
         return
 
     found = 0
+    errors = 0
+    last_error: str | None = None
     for account in accounts:
         try:
             draft = await draft_offer(cfg, job.search_profile.criteria, account)
@@ -41,10 +43,20 @@ async def process_job(cfg: Config, job: crm_client.ScrapeJob) -> None:
                 source_tag=job.search_profile.name,
             )
             found += 1
-        except Exception:
+        except Exception as e:
+            errors += 1
+            last_error = str(e)
             logger.exception("Не удалось обработать аккаунт @%s в задании %s", account.username, job.id)
 
-    await crm_client.complete_job(cfg, job.id, found_count=found)
+    if found == 0 and errors > 0:
+        # Иначе "все N попыток упали" выглядит для CRM неотличимо от "честно
+        # нашли 0 подходящих аккаунтов" — оба варианта дают found_count=0.
+        await crm_client.complete_job(
+            cfg, job.id, found_count=0,
+            error=f"Все {errors} найденных аккаунтов не удалось обработать (последняя ошибка: {last_error})",
+        )
+    else:
+        await crm_client.complete_job(cfg, job.id, found_count=found)
     logger.info("Задание %s завершено: найдено %d из %d запрошенных", job.id, found, job.requested_count)
 
 

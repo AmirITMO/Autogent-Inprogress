@@ -95,7 +95,9 @@ async def push_contact(
 
 async def complete_job(cfg: Config, job_id: str, *, found_count: int, error: str | None = None) -> None:
     payload: dict = {"foundCount": found_count}
-    if error:
+    if error is not None:
+        # Не "if error:" — исключение с пустым текстом (str(e) == "") тоже
+        # означает "была ошибка", просто truthy-проверка это скрывала бы.
         payload["errorMessage"] = error
     async with httpx.AsyncClient(timeout=15.0) as client:
         resp = await client.post(

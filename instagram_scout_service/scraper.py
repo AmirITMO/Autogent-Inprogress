@@ -63,6 +63,7 @@ async def search_accounts(cfg: Config, criteria: dict, limit: int) -> list[Accou
     """criteria — произвольная структура из диалога настройки поиска (см.
     lib/actions/instagramSearch.ts): ожидаем как минимум criteria["keywords"]
     (список хэштегов/ключевых слов) — по ним ищем через hashtag-поиск."""
+    global _client
     client = await _get_client(cfg)
     keywords: list[str] = criteria.get("keywords") or []
     if not keywords:
@@ -77,6 +78,15 @@ async def search_accounts(cfg: Config, criteria: dict, limit: int) -> list[Accou
             break
         try:
             medias = await client.hashtag_medias_recent(keyword.lstrip("#"), amount=limit)
+        except LoginRequired:
+            # LoginRequired — подкласс ClientError: без отдельного except выше
+            # общего он тихо ловился бы как "поиск по ключевому слову не
+            # удался", и кэшированный global _client молча оставался бы
+            # мёртвым навсегда — каждое следующее задание находило бы 0
+            # аккаунтов без единой явной ошибки. Сбрасываем кэш и валим
+            # задание наружу, чтобы это стало видно.
+            _client = None
+            raise
         except ClientError as e:
             logger.warning("Поиск по '%s' не удался: %s", keyword, e)
             continue
@@ -92,6 +102,9 @@ async def search_accounts(cfg: Config, criteria: dict, limit: int) -> list[Accou
             await asyncio.sleep(cfg.request_pause_seconds)
             try:
                 info = await client.user_info_by_username(username)
+            except LoginRequired:
+                _client = None
+                raise
             except ClientError as e:
                 logger.warning("Не удалось получить профиль '%s': %s", username, e)
                 continue

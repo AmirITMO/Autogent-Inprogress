@@ -18,12 +18,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     // Идемпотентно — повторный вызов (ретрай сети со стороны сервиса) просто
     // перезаписывает итог, а не падает ошибкой.
+    // != null (не просто truthy) — сервис может прислать errorMessage: ""
+    // для исключения без текста, это всё равно означает "была ошибка".
+    const hasError = body.errorMessage != null;
     const updated = await prisma.instagramScrapeJob.update({
       where: { id },
       data: {
-        status: body.errorMessage ? "FAILED" : "DONE",
+        status: hasError ? "FAILED" : "DONE",
         foundCount: body.foundCount,
-        errorMessage: body.errorMessage ?? null,
+        errorMessage: hasError ? body.errorMessage : null,
       },
     });
 

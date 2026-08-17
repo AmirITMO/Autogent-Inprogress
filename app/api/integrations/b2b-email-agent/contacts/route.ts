@@ -37,6 +37,16 @@ export async function POST(req: Request) {
       return Response.json({ error: "invalid_status" }, { status: 400 });
     }
 
+    // new Date("что угодно") не бросает исключение сама по себе — молча даёт
+    // Invalid Date, которая падает уже внутри Prisma некрасивой 500-й.
+    let nextFollowUpAt: Date | undefined;
+    if (body.nextFollowUpAt) {
+      nextFollowUpAt = new Date(body.nextFollowUpAt);
+      if (Number.isNaN(nextFollowUpAt.getTime())) {
+        return Response.json({ error: "invalid_nextFollowUpAt" }, { status: 400 });
+      }
+    }
+
     const channel = await prisma.trafficChannel.findUnique({ where: { id: body.channelId } });
     if (!channel) {
       return Response.json({ error: "unknown_channel" }, { status: 400 });
@@ -49,7 +59,7 @@ export async function POST(req: Request) {
       triggerReason: body.triggerReason,
       dialogue: body.dialogue,
       followUpCount: body.followUpCount,
-      nextFollowUpAt: body.nextFollowUpAt ? new Date(body.nextFollowUpAt) : undefined,
+      nextFollowUpAt,
     };
 
     const contact = await prisma.b2bEmailContact.upsert({

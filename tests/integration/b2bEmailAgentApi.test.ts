@@ -111,6 +111,16 @@ describe("POST /api/integrations/b2b-email-agent/contacts", () => {
     // Это важно: агенту не нужно каждый раз слать все поля заново, только изменившиеся.
     expect(all[0].companyName).toBe("ООО Ромашка");
   });
+
+  // Регрессия: new Date("мусор") не бросает исключение, а молча даёт Invalid
+  // Date — раньше это долетало до Prisma и падало некрасивой 500-й вместо
+  // понятной 400-й на этапе валидации входа.
+  it("отклоняет невалидный nextFollowUpAt как 400, а не 500", async () => {
+    const res = await contactsPost(req({ channelId, externalId: "c1", nextFollowUpAt: "не дата" }));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBe("invalid_nextFollowUpAt");
+  });
 });
 
 describe("POST /api/integrations/b2b-email-agent/leads", () => {

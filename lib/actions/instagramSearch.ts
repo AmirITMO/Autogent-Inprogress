@@ -71,7 +71,7 @@ function systemPrompt() {
 
 type ChatMessage = { role: string; content: string; tool_call_id?: string; tool_calls?: unknown };
 
-async function callOpenAI(messages: ChatMessage[]) {
+async function callOpenAI(messages: ChatMessage[], withTools: boolean) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     throw new Error("OPENAI_API_KEY не задан на сервере CRM — обратитесь к администратору");
@@ -83,8 +83,10 @@ async function callOpenAI(messages: ChatMessage[]) {
     body: JSON.stringify({
       model: OPENAI_MODEL,
       messages,
-      tools: [SAVE_PROFILE_TOOL, CREATE_JOB_TOOL],
-      tool_choice: "auto",
+      // Follow-up после инструментов зовём БЕЗ tools: иначе модель может опять
+      // ответить tool_call вместо текста, а мы читаем только .content — второй
+      // вызов create_scrape_job/save_search_profile в follow-up тихо терялся бы.
+      ...(withTools ? { tools: [SAVE_PROFILE_TOOL, CREATE_JOB_TOOL], tool_choice: "auto" } : {}),
     }),
   });
 
@@ -125,7 +127,7 @@ export async function sendSearchSetupMessage(
     { role: "user", content: userMessage },
   ];
 
-  const completion = await callOpenAI(messages);
+  const completion = await callOpenAI(messages, true);
   const msg = completion.choices[0].message as {
     content: string | null;
     tool_calls?: { id: string; function: { name: string; arguments: string } }[];
@@ -178,10 +180,15 @@ export async function sendSearchSetupMessage(
           content: `Задание создано, будет найдено до ${args.count} аккаунтов.`,
         });
       }
+      continue;
     }
+
+    // Каждому tool_call_id обязательно нужна пара role:"tool" в следующем
+    // запросе, иначе OpenAI отклонит follow-up 400-й ошибкой целиком.
+    followUp.push({ role: "tool", tool_call_id: call.id, content: "Неизвестный инструмент, игнорирую." });
   }
 
-  const followUpCompletion = await callOpenAI(followUp);
+  const followUpCompletion = await callOpenAI(followUp, false);
   const reply = followUpCompletion.choices[0].message.content ?? "Готово.";
 
   if (jobId) revalidatePath(`/channels/${channelId}`);

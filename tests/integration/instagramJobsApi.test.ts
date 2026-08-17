@@ -192,6 +192,20 @@ describe("POST /api/integrations/instagram-agent/jobs/:id/complete", () => {
     const updated = await prisma.instagramScrapeJob.findUniqueOrThrow({ where: { id: job.id } });
     expect(updated.foundCount).toBe(15);
   });
+
+  // Регрессия: "status: body.errorMessage ? ... " (truthy-проверка) считала
+  // пустую строку отсутствием ошибки — исключение без текста (str(e) === "")
+  // молча помечало бы задание DONE вместо FAILED.
+  it("помечает FAILED даже при errorMessage: '' (пустая строка — не 'ошибки нет')", async () => {
+    const job = await prisma.instagramScrapeJob.create({
+      data: { channelId, searchProfileId: profileId, requestedCount: 20 },
+    });
+    const res = await completePost(completeReq({ foundCount: 0, errorMessage: "" }), {
+      params: Promise.resolve({ id: job.id }),
+    });
+    const body = await res.json();
+    expect(body.status).toBe("FAILED");
+  });
 });
 
 describe("POST /api/integrations/instagram-agent/contacts — draftMessage", () => {
