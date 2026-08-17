@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useRef, useTransition } from "react";
 import { sendSearchSetupMessage, rerunSearchProfile } from "@/lib/actions/instagramSearch";
 
 type SearchProfile = { id: string; name: string; criteria: unknown; createdAt: string };
@@ -21,9 +21,14 @@ export function InstagramSearchLauncher({
   const [jobStarted, setJobStarted] = useState(false);
   const [profileId, setProfileId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  // Тот же класс гонки, что чинили в AgentManagementPanel: state обновляется
+  // асинхронно, быстрые повторные клики до перерисовки проходят проверку
+  // на старом sending=false. ref — синхронная защита.
+  const sendingRef = useRef(false);
 
   async function send(text: string) {
-    if (!text.trim() || sending) return;
+    if (!text.trim() || sendingRef.current) return;
+    sendingRef.current = true;
     setError("");
     setSending(true);
     setMessages((prev) => [...prev, { role: "user", content: text }]);
@@ -37,6 +42,7 @@ export function InstagramSearchLauncher({
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не удалось отправить сообщение");
     } finally {
+      sendingRef.current = false;
       setSending(false);
     }
   }

@@ -68,3 +68,64 @@ describe("sendManagementMessage — окно истории", () => {
     delete process.env.OPENAI_API_KEY;
   });
 });
+
+// Регрессия из прода: тройной клик по "Пройти опрос по продукту" (UI-гонка,
+// починена в AgentManagementPanel через ref) породил три параллельных
+// sendManagementMessage на канал без ещё существующей AgentKnowledgeBase —
+// два параллельных upsert.create() на один channelId столкнулись конфликтом
+// первичного ключа (P2002), необработанным исключением уронив рендер
+// Server Component. Здесь бьём по этому же сценарию напрямую.
+describe("sendManagementMessage — параллельная запись базы знаний на свежий канал", () => {
+  it("два одновременных вызова, оба обновляющие KB, не падают", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init: RequestInit) => {
+        const body = JSON.parse(init.body as string);
+        const isFollowUp = body.messages.some((m: { role: string }) => m.role === "tool");
+
+        if (!isFollowUp) {
+          return new Response(
+            JSON.stringify({
+              choices: [
+                {
+                  message: {
+                    content: null,
+                    tool_calls: [
+                      {
+                        id: "call_1",
+                        function: {
+                          name: "update_knowledge_base",
+                          arguments: JSON.stringify({ content: "Продукт: CRM", change_summary: "старт" }),
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            }),
+            { status: 200 }
+          );
+        }
+        return new Response(JSON.stringify({ choices: [{ message: { content: "Записал." } }] }), { status: 200 });
+      })
+    );
+    process.env.OPENAI_API_KEY = "test-key";
+
+    // На чистом канале строки AgentKnowledgeBase ещё нет — ровно условие гонки.
+    const existing = await prisma.agentKnowledgeBase.findUnique({ where: { channelId } });
+    expect(existing).toBeNull();
+
+    const results = await Promise.allSettled([
+      sendManagementMessage(channelId, "Давай начнём опрос", "interview"),
+      sendManagementMessage(channelId, "Давай начнём опрос", "interview"),
+    ]);
+
+    expect(results.every((r) => r.status === "fulfilled")).toBe(true);
+
+    const kb = await prisma.agentKnowledgeBase.findUnique({ where: { channelId } });
+    expect(kb?.content).toBe("Продукт: CRM");
+
+    vi.unstubAllGlobals();
+    delete process.env.OPENAI_API_KEY;
+  });
+});

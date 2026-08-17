@@ -62,6 +62,26 @@ ${kbContent || "(пока пусто)"}
 
 type ChatMessage = { role: string; content: string; tool_call_id?: string; tool_calls?: unknown };
 
+// prisma.upsert не атомарен против настоящего одновременного create с двух
+// сторон — два параллельных апсерта на ещё не существующую строку оба видят
+// "строки нет" и оба пытаются create; проигравший ловит конфликт первичного
+// ключа (P2002). Такое реально бывает: дубль-клик по кнопке "Пройти опрос"
+// успевал уйти в проде до того, как UI-стейт блокировал повторную отправку.
+// Одна попытка повтора как update покрывает этот случай.
+async function upsertKnowledgeBase(channelId: string, content: string) {
+  try {
+    await prisma.agentKnowledgeBase.upsert({
+      where: { channelId },
+      update: { content },
+      create: { channelId, content },
+    });
+  } catch (err) {
+    const code = (err as { code?: string } | null)?.code;
+    if (code !== "P2002") throw err;
+    await prisma.agentKnowledgeBase.update({ where: { channelId }, data: { content } });
+  }
+}
+
 async function callOpenAI(messages: ChatMessage[], withTools: boolean) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -156,11 +176,7 @@ export async function sendManagementMessage(
         continue;
       }
       const args = JSON.parse(call.function.arguments) as { content: string; change_summary: string };
-      await prisma.agentKnowledgeBase.upsert({
-        where: { channelId },
-        update: { content: args.content },
-        create: { channelId, content: args.content },
-      });
+      await upsertKnowledgeBase(channelId, args.content);
       kbUpdated = true;
       followUp.push({ role: "tool", tool_call_id: call.id, content: `Обновлено. ${args.change_summary}` });
     }

@@ -24,13 +24,19 @@ export function AgentManagementPanel({
   const [error, setError] = useState("");
   const [showKb, setShowKb] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  // React обновляет state асинхронно — несколько кликов подряд, попавшие до
+  // перерисовки, все ещё читают старое sending=false ("Пройти опрос по
+  // продукту" в проде отправлялся 3 раза с одного клика). ref обновляется
+  // синхронно и даёт настоящую взаимоисключающую защиту.
+  const sendingRef = useRef(false);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   async function send(text: string, mode: "chat" | "interview" = "chat") {
-    if (!text.trim() || sending) return;
+    if (!text.trim() || sendingRef.current) return;
+    sendingRef.current = true;
     setError("");
     setSending(true);
 
@@ -57,6 +63,7 @@ export function AgentManagementPanel({
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не удалось отправить сообщение");
     } finally {
+      sendingRef.current = false;
       setSending(false);
     }
   }
