@@ -63,7 +63,7 @@ async function main() {
   await prisma.trafficChannel.upsert({
     where: { id: "channel-scout-agent-marketai" },
     update: { type: "SCOUT_TELEGRAM" },
-    create: { id: "channel-scout-agent-marketai", name: "Скаут-агент — МаркетАИ", type: "SCOUT_TELEGRAM" },
+    create: { id: "channel-scout-agent-marketai", name: "Скаут-агент", type: "SCOUT_TELEGRAM" },
   });
 
   await prisma.trafficChannel.upsert({
