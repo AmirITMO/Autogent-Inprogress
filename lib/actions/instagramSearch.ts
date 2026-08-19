@@ -71,13 +71,18 @@ function systemPrompt() {
 
 type ChatMessage = { role: string; content: string; tool_call_id?: string; tool_calls?: unknown };
 
+// См. lib/actions/agentKnowledgeBase.ts — прямые запросы на api.openai.com
+// с российских IP получают 403 unsupported_country_region_territory,
+// OPENAI_BASE_URL даёт подставить прокси/шлюз.
+const OPENAI_BASE_URL = (process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/+$/, "");
+
 async function callOpenAI(messages: ChatMessage[], withTools: boolean) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     throw new Error("OPENAI_API_KEY не задан на сервере CRM — обратитесь к администратору");
   }
 
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+  const res = await fetch(`${OPENAI_BASE_URL}/chat/completions`, {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -98,6 +103,25 @@ async function callOpenAI(messages: ChatMessage[], withTools: boolean) {
 }
 
 export async function sendSearchSetupMessage(
+  channelId: string,
+  history: { role: "user" | "assistant"; content: string }[],
+  userMessage: string,
+  existingProfileId: string | null = null
+): Promise<{ reply: string; profileSaved: boolean; profileId: string | null; jobId: string | null }> {
+  try {
+    return await sendSearchSetupMessageInner(channelId, history, userMessage, existingProfileId);
+  } catch (err) {
+    // См. lib/actions/agentKnowledgeBase.ts — необработанное исключение из
+    // Server Action валит весь рендер страницы, даже если вызывающий код
+    // формально оборачивает вызов в try/catch. Поэтому action никогда не
+    // бросает наружу.
+    console.error("sendSearchSetupMessage failed:", err);
+    const message = err instanceof Error ? err.message : "Неизвестная ошибка";
+    return { reply: `⚠️ ${message}`, profileSaved: false, profileId: existingProfileId, jobId: null };
+  }
+}
+
+async function sendSearchSetupMessageInner(
   channelId: string,
   history: { role: "user" | "assistant"; content: string }[],
   userMessage: string,

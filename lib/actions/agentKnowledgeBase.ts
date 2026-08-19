@@ -82,13 +82,19 @@ async function upsertKnowledgeBase(channelId: string, content: string) {
   }
 }
 
+// По умолчанию — настоящий OpenAI. Прямые запросы туда с российских IP
+// получают 403 unsupported_country_region_territory (см. digest 1056835678
+// в проде) — OPENAI_BASE_URL даёт подставить прокси/шлюз, тот же приём уже
+// применяется в telegram_sales_agent/config.py (openai_base_url).
+const OPENAI_BASE_URL = (process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/+$/, "");
+
 async function callOpenAI(messages: ChatMessage[], withTools: boolean) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     throw new Error("OPENAI_API_KEY не задан на сервере CRM — обратитесь к администратору");
   }
 
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+  const res = await fetch(`${OPENAI_BASE_URL}/chat/completions`, {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -130,7 +136,26 @@ export async function sendManagementMessage(
   channelId: string,
   userMessage: string,
   mode: "chat" | "interview" = "chat"
-) {
+): Promise<{ reply: string; kbUpdated: boolean }> {
+  try {
+    return await sendManagementMessageInner(channelId, userMessage, mode);
+  } catch (err) {
+    // Доказано на практике (403 от OpenAI из региона, digest 1056835678):
+    // необработанное исключение из Server Action здесь валит весь рендер
+    // страницы генерик-баннером "Server Components render", даже когда
+    // вызывающий клиентский код формально оборачивает вызов в try/catch.
+    // Поэтому action НИКОГДА не бросает наружу — только возвращает значение.
+    console.error("sendManagementMessage failed:", err);
+    const message = err instanceof Error ? err.message : "Неизвестная ошибка";
+    return { reply: `⚠️ ${message}`, kbUpdated: false };
+  }
+}
+
+async function sendManagementMessageInner(
+  channelId: string,
+  userMessage: string,
+  mode: "chat" | "interview"
+): Promise<{ reply: string; kbUpdated: boolean }> {
   const user = await requireUser();
   await assertCanEditCrm(user.id, user.role);
   if (!userMessage.trim()) throw new Error("Пустое сообщение");
