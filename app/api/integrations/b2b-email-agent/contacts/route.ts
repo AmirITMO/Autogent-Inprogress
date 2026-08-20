@@ -4,6 +4,8 @@ import { verifyIntegrationApiKey, integrationError } from "@/lib/integrations/au
 
 const VALID_STATUSES: B2bEmailContactStatus[] = [
   "WRITTEN",
+  "FOUND",
+  "SENT",
   "REPLIED",
   "CALL_SCHEDULED",
   "LEAD_CREATED",
@@ -21,6 +23,7 @@ export async function POST(req: Request) {
       website?: string;
       contactEmail?: string;
       triggerReason?: string;
+      draftMessage?: string;
       status?: string;
       followUpCount?: number;
       nextFollowUpAt?: string;
@@ -57,6 +60,7 @@ export async function POST(req: Request) {
       website: body.website,
       contactEmail: body.contactEmail,
       triggerReason: body.triggerReason,
+      draftMessage: body.draftMessage,
       dialogue: body.dialogue,
       followUpCount: body.followUpCount,
       nextFollowUpAt,
@@ -69,7 +73,10 @@ export async function POST(req: Request) {
         ...data,
         channelId: channel.id,
         externalId: body.externalId,
-        status: (body.status as B2bEmailContactStatus | undefined) ?? "WRITTEN",
+        // FOUND, не WRITTEN — агент только парсит и составляет черновик,
+        // письмо ещё не ушло: отправка требует ручного одобрения сотрудником
+        // в CRM (см. lib/actions/b2bEmailSend.ts).
+        status: (body.status as B2bEmailContactStatus | undefined) ?? "FOUND",
       },
     });
 

@@ -12,12 +12,18 @@
 
 Раз в `POLL_INTERVAL_SECONDS` (по умолчанию 30с) сервис спрашивает CRM
 про задания в статусе `PENDING` (`GET /api/integrations/instagram-agent/
-jobs?status=pending`). Для каждого — парсит до `requestedCount` аккаунтов
-по критериям сохранённого профиля поиска (aiograpi, один настоящий
-Instagram-аккаунт, без прокси-ферм — см. `docs/pipeline/spikes/
-FINDINGS.md` в основном репозитории), генерирует черновик оффера через
-OpenAI на каждый найденный аккаунт, пушит результат (`POST .../contacts`)
-и закрывает задание (`POST .../jobs/:id/complete`).
+jobs?status=pending`). Для каждого — ищет до `requestedCount` аккаунтов по
+критериям сохранённого профиля поиска через Apify (`scraper.py`):
+одновременно по хэштегам и по свободному текстовому поиску (ниша+гео), затем
+одним LLM-вызовом ранжирует всех кандидатов по полным критериям
+(niche/city/excludeIf/followers). Свой Instagram-аккаунт для поиска не
+нужен — раньше (aiograpi) поиск шёл только по хэштегам через реальный
+залогиненный аккаунт, что и уже, и рискованно для аккаунта (приватный API
+не по ToS Instagram — см. `docs/pipeline/spikes/FINDINGS.md` в основном
+репозитории); Apify исполняет запросы на своей инфраструктуре. Дальше — как
+раньше: генерирует черновик оффера через OpenAI на каждый найденный
+аккаунт, пушит результат (`POST .../contacts`) и закрывает задание
+(`POST .../jobs/:id/complete`).
 
 ## Переменные окружения (`.env`, рядом с этим файлом, не коммитить)
 
@@ -25,11 +31,10 @@ OpenAI на каждый найденный аккаунт, пушит резу�
 |---|---|
 | `CRM_API_URL` | базовый адрес CRM, например `https://crm.autogentgroup.ru` |
 | `INSTAGRAM_AGENT_API_KEY` | тот же секрет, что в `.env.production` CRM |
-| `OPENAI_API_KEY` | свой ключ, для черновиков офферов (не путать с ключом CRM) |
-| `IG_USERNAME` / `IG_PASSWORD` | логин Instagram-аккаунта, с которого парсим |
-| `IG_SESSION_PATH` | куда сохранять сессию aiograpi (по умолчанию `sessions/ig_session.json`) |
+| `OPENAI_API_KEY` | свой ключ, для ранжирования кандидатов и черновиков офферов (не путать с ключом CRM) |
+| `APIFY_TOKEN` | токен Apify — обязателен, поиск полностью на нём |
+| `APIFY_INSTAGRAM_ACTOR` | id актора Apify для поиска, по умолчанию `apify/instagram-scraper` — сверяй input schema с Input tab в Apify Store при смене |
 | `POLL_INTERVAL_SECONDS` | интервал опроса CRM, по умолчанию 30 |
-| `REQUEST_PAUSE_SECONDS` | пауза между запросами к Instagram внутри одного задания, по умолчанию 3 |
 
 ## Локальный запуск
 
@@ -39,18 +44,11 @@ pip install -r requirements.txt
 python main.py
 ```
 
-Первый запуск сам логинится в Instagram и сохраняет сессию в
-`IG_SESSION_PATH` — дальше использует её, повторный логин не требуется,
-пока сессия валидна.
-
 ## Docker
 
 ```bash
 docker compose up -d --build
 ```
-
-`sessions/` монтируется как volume — тот же принцип, что у
-`telegram_sales_agent/sessions/`: сессия это стейт, не часть образа.
 
 ## Тесты
 
@@ -59,7 +57,7 @@ pip install -r requirements.txt
 pytest
 ```
 
-`scraper.py`/`offer_writer.py` не покрыты тестами, требующими реального
-логина в Instagram/вызова OpenAI — это заведомо неполное тестовое покрытие,
+`scraper.py` покрыт тестами с замоканным Apify/OpenAI (без сети) —
+`offer_writer.py` по-прежнему не покрыт (требует реального вызова OpenAI),
 задокументировано в `docs/pipeline/decisions.md` основного репозитория.
-`crm_client.py` протестирован полностью (httpx замокан, без сети).
+`crm_client.py` протестирован полностью.

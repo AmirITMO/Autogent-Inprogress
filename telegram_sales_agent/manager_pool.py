@@ -87,6 +87,15 @@ class ManagerPool:
     def account_names(self) -> list[str]:
         return list(self.accounts_by_name.keys())
 
+    def outbound_account_names(self) -> list[str]:
+        """account_names() без scout_only-аккаунтов — используется везде,
+        где аккаунт может ОТПРАВИТЬ сообщение (reactive_handler,
+        outreach_broadcast через assign_lead/account_with_capacity ниже).
+        scout_agent.register_all по-прежнему слушает через account_names()
+        целиком — scout_only-аккаунт продолжает читать группы, просто
+        никогда не попадает в пул для исходящих."""
+        return [name for name, acc in self.accounts_by_name.items() if not acc.scout_only]
+
     def client_for_account(self, account_name: str) -> TelegramClient:
         return self.clients[account_name]
 
@@ -95,7 +104,7 @@ class ManagerPool:
 
     def assign_lead(self, chat_id: str) -> str:
         """Закрепляет лида за наименее загруженным аккаунтом (стабильно, один раз)."""
-        return storage.assign_account(self.cfg.sqlite_path, chat_id, self.account_names())
+        return storage.assign_account(self.cfg.sqlite_path, chat_id, self.outbound_account_names())
 
     def client_for_lead(self, chat_id: str) -> tuple[str, TelegramClient]:
         account_name = self.assign_lead(chat_id)
@@ -106,8 +115,8 @@ class ManagerPool:
         return used < self.cfg.max_outbound_per_account_per_day
 
     def account_with_capacity(self) -> str | None:
-        """Первый аккаунт, у которого ещё есть дневная квота на исходящие."""
-        for name in self.account_names():
+        """Первый аккаунт (кроме scout_only), у которого ещё есть дневная квота на исходящие."""
+        for name in self.outbound_account_names():
             if self.has_daily_capacity(name):
                 return name
         return None

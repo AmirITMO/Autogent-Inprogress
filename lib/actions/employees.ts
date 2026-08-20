@@ -13,6 +13,7 @@ export type EmployeePermissions = {
   viewChannels: boolean;
   editCrm: boolean;
   editTasksOthers: boolean;
+  viewSupport: boolean;
 };
 
 export async function createEmployee(data: {

@@ -78,6 +78,12 @@ async function main() {
     create: { id: "channel-b2b-email-marketai", name: "B2B email-рассылки", type: "B2B_EMAIL" },
   });
 
+  await prisma.trafficChannel.upsert({
+    where: { id: "channel-tg-autocomment" },
+    update: { type: "TG_AUTOCOMMENT" },
+    create: { id: "channel-tg-autocomment", name: "Автокомментинг в Telegram", type: "TG_AUTOCOMMENT" },
+  });
+
   for (const cat of INCOME_CATEGORIES) {
     await prisma.transactionCategory.upsert({
       where: { id: `income-${cat.name}` },

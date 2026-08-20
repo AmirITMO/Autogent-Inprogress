@@ -19,6 +19,7 @@ let channelId: string;
 
 beforeEach(async () => {
   await prisma.agentKbMessage.deleteMany();
+  await prisma.agentKnowledgeCard.deleteMany();
   await prisma.agentKnowledgeBase.deleteMany();
   await prisma.user.deleteMany();
   await prisma.trafficChannel.deleteMany();
@@ -74,7 +75,9 @@ describe("sendManagementMessage — окно истории", () => {
 // sendManagementMessage на канал без ещё существующей AgentKnowledgeBase —
 // два параллельных upsert.create() на один channelId столкнулись конфликтом
 // первичного ключа (P2002), необработанным исключением уронив рендер
-// Server Component. Здесь бьём по этому же сценарию напрямую.
+// Server Component. Здесь бьём по этому же сценарию напрямую — теперь запись
+// идёт через save_knowledge_card/AgentKnowledgeCard, но пересборка плоского
+// AgentKnowledgeBase.content ниже по стеку та же самая гонка.
 describe("sendManagementMessage — параллельная запись базы знаний на свежий канал", () => {
   it("два одновременных вызова, оба обновляющие KB, не падают", async () => {
     vi.stubGlobal(
@@ -94,8 +97,8 @@ describe("sendManagementMessage — параллельная запись баз
                       {
                         id: "call_1",
                         function: {
-                          name: "update_knowledge_base",
-                          arguments: JSON.stringify({ content: "Продукт: CRM", change_summary: "старт" }),
+                          name: "save_knowledge_card",
+                          arguments: JSON.stringify({ topic: "Продукт", content: "Продукт: CRM" }),
                         },
                       },
                     ],
@@ -122,8 +125,43 @@ describe("sendManagementMessage — параллельная запись баз
 
     expect(results.every((r) => r.status === "fulfilled")).toBe(true);
 
+    const card = await prisma.agentKnowledgeCard.findUnique({
+      where: { channelId_topic: { channelId, topic: "Продукт" } },
+    });
+    expect(card?.content).toBe("Продукт: CRM");
+
     const kb = await prisma.agentKnowledgeBase.findUnique({ where: { channelId } });
-    expect(kb?.content).toBe("Продукт: CRM");
+    expect(kb?.content).toContain("Продукт: CRM");
+
+    vi.unstubAllGlobals();
+    delete process.env.OPENAI_API_KEY;
+  });
+});
+
+// Раньше системный промпт был захардкожен под скаута буквально текстом
+// "Скаут — это Telegram-юзербот..." даже для B2B email-канала — сотрудник на
+// интервью email-канала получал вопросы и контекст не по делу.
+describe("sendManagementMessage — промпт зависит от типа канала", () => {
+  it("для B2B_EMAIL канала не упоминает скаута/Telegram-юзербота", async () => {
+    const emailChannel = await prisma.trafficChannel.create({
+      data: { name: "Тестовый email-канал", type: "B2B_EMAIL" },
+    });
+
+    let systemPrompt = "";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init: RequestInit) => {
+        const body = JSON.parse(init.body as string);
+        systemPrompt = body.messages.find((m: { role: string }) => m.role === "system")?.content ?? "";
+        return new Response(JSON.stringify({ choices: [{ message: { content: "ok" } }] }), { status: 200 });
+      })
+    );
+    process.env.OPENAI_API_KEY = "test-key";
+
+    await sendManagementMessage(emailChannel.id, "Как сейчас настроен агент?");
+
+    expect(systemPrompt).toContain("email-агентом");
+    expect(systemPrompt).not.toContain("Скаут — это Telegram-юзербот");
 
     vi.unstubAllGlobals();
     delete process.env.OPENAI_API_KEY;

@@ -33,8 +33,10 @@ _last_seen_message_id: dict[tuple[str, str], int] = {}
 
 
 def register_all(pool: ManagerPool, cfg: AppConfig, profiles_sheet):
-    """Вешает обработчик входящих личных сообщений на КАЖДЫЙ аккаунт из пула."""
-    for account_name in pool.account_names():
+    """Вешает обработчик входящих личных сообщений на каждый аккаунт из пула,
+    КРОМЕ scout_only — те только слушают группы и никогда не пишут сами
+    (см. ManagerAccount.scout_only в config.py)."""
+    for account_name in pool.outbound_account_names():
         client = pool.client_for_account(account_name)
         _register_one(pool, cfg, account_name, client, profiles_sheet)
 

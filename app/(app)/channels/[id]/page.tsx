@@ -6,11 +6,13 @@ import { computeChannelFinancials } from "@/lib/channelFinancials";
 import { ScoutAgentDashboard } from "./_components/ScoutAgentDashboard";
 import { InstagramDashboard } from "./_components/InstagramDashboard";
 import { B2bEmailDashboard } from "./_components/B2bEmailDashboard";
+import { TgAutoCommentDashboard } from "./_components/TgAutoCommentDashboard";
 
 const TYPE_SUBTITLE: Record<string, string> = {
   SCOUT_TELEGRAM: "Аналитика скаут-агента: контакты, диалоги, здоровье аккаунтов",
   INSTAGRAM: "База контактов, собранная агентом — переписку ведут сотрудники вручную",
   B2B_EMAIL: "Аналитика email-рассылок: контакты, диалоги, фоллоу-апы",
+  TG_AUTOCOMMENT: "Черновики комментариев под чужими постами — публикация только после одобрения",
 };
 
 export default async function ChannelDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -32,12 +34,13 @@ export default async function ChannelDetailPage({ params }: { params: Promise<{ 
       {channel.type === "SCOUT_TELEGRAM" && <ScoutChannel channelId={id} />}
       {channel.type === "INSTAGRAM" && <InstagramChannel channelId={id} />}
       {channel.type === "B2B_EMAIL" && <B2bEmailChannel channelId={id} />}
+      {channel.type === "TG_AUTOCOMMENT" && <TgAutoCommentChannel channelId={id} />}
     </div>
   );
 }
 
 async function ScoutChannel({ channelId }: { channelId: string }) {
-  const [snapshots, contacts, leads, spends, kb, kbMessages] = await Promise.all([
+  const [snapshots, contacts, leads, spends, kb, kbMessages, kbCards] = await Promise.all([
     prisma.scoutAgentMetricSnapshot.findMany({
       where: { channelId },
       orderBy: { createdAt: "desc" },
@@ -56,6 +59,7 @@ async function ScoutChannel({ channelId }: { channelId: string }) {
     prisma.channelSpend.findMany({ where: { channelId } }),
     prisma.agentKnowledgeBase.findUnique({ where: { channelId } }),
     prisma.agentKbMessage.findMany({ where: { channelId }, orderBy: { createdAt: "asc" }, take: 200 }),
+    prisma.agentKnowledgeCard.findMany({ where: { channelId }, orderBy: { discussedAt: "desc" } }),
   ]);
 
   const financials = computeChannelFinancials(
@@ -74,6 +78,12 @@ async function ScoutChannel({ channelId }: { channelId: string }) {
         role: m.role as "user" | "assistant",
         content: m.content,
         createdAt: m.createdAt.toISOString(),
+      }))}
+      kbCards={kbCards.map((c) => ({
+        id: c.id,
+        topic: c.topic,
+        content: c.content,
+        discussedAt: c.discussedAt.toISOString(),
       }))}
       snapshots={snapshots
         .slice()
@@ -149,7 +159,7 @@ async function InstagramChannel({ channelId }: { channelId: string }) {
 }
 
 async function B2bEmailChannel({ channelId }: { channelId: string }) {
-  const [snapshots, contacts, leads, spends, kb, kbMessages] = await Promise.all([
+  const [snapshots, contacts, leads, spends, kb, kbMessages, kbCards] = await Promise.all([
     prisma.b2bEmailMetricSnapshot.findMany({
       where: { channelId },
       orderBy: { createdAt: "desc" },
@@ -168,6 +178,7 @@ async function B2bEmailChannel({ channelId }: { channelId: string }) {
     prisma.channelSpend.findMany({ where: { channelId } }),
     prisma.agentKnowledgeBase.findUnique({ where: { channelId } }),
     prisma.agentKbMessage.findMany({ where: { channelId }, orderBy: { createdAt: "asc" }, take: 200 }),
+    prisma.agentKnowledgeCard.findMany({ where: { channelId }, orderBy: { discussedAt: "desc" } }),
   ]);
 
   const financials = computeChannelFinancials(leads, spends);
@@ -184,6 +195,12 @@ async function B2bEmailChannel({ channelId }: { channelId: string }) {
         content: m.content,
         createdAt: m.createdAt.toISOString(),
       }))}
+      kbCards={kbCards.map((c) => ({
+        id: c.id,
+        topic: c.topic,
+        content: c.content,
+        discussedAt: c.discussedAt.toISOString(),
+      }))}
       snapshots={snapshots
         .slice()
         .reverse()
@@ -194,6 +211,7 @@ async function B2bEmailChannel({ channelId }: { channelId: string }) {
         website: c.website,
         contactEmail: c.contactEmail,
         triggerReason: c.triggerReason,
+        draftMessage: c.draftMessage,
         dialogue: c.dialogue,
         status: c.status,
         followUpCount: c.followUpCount,
@@ -201,6 +219,51 @@ async function B2bEmailChannel({ channelId }: { channelId: string }) {
         contactedAt: c.contactedAt.toISOString(),
         leadId: c.leadId,
         leadStage: c.lead?.stage ?? null,
+      }))}
+    />
+  );
+}
+
+async function TgAutoCommentChannel({ channelId }: { channelId: string }) {
+  const [snapshots, drafts, kb, kbMessages, kbCards] = await Promise.all([
+    prisma.tgCommentMetricSnapshot.findMany({ where: { channelId }, orderBy: { createdAt: "desc" }, take: 200 }),
+    prisma.tgCommentDraft.findMany({ where: { channelId }, orderBy: { createdAt: "desc" }, take: 200 }),
+    prisma.agentKnowledgeBase.findUnique({ where: { channelId } }),
+    prisma.agentKbMessage.findMany({ where: { channelId }, orderBy: { createdAt: "asc" }, take: 200 }),
+    prisma.agentKnowledgeCard.findMany({ where: { channelId }, orderBy: { discussedAt: "desc" } }),
+  ]);
+
+  return (
+    <TgAutoCommentDashboard
+      channelId={channelId}
+      kbContent={kb?.content ?? ""}
+      kbUpdatedAt={kb?.updatedAt?.toISOString() ?? null}
+      kbMessages={kbMessages.map((m) => ({
+        id: m.id,
+        role: m.role as "user" | "assistant",
+        content: m.content,
+        createdAt: m.createdAt.toISOString(),
+      }))}
+      kbCards={kbCards.map((c) => ({
+        id: c.id,
+        topic: c.topic,
+        content: c.content,
+        discussedAt: c.discussedAt.toISOString(),
+      }))}
+      snapshots={snapshots
+        .slice()
+        .reverse()
+        .map((s) => ({ id: s.id, createdAt: s.createdAt.toISOString(), payload: s.payload }))}
+      drafts={drafts.map((d) => ({
+        id: d.id,
+        targetChannelUsername: d.targetChannelUsername,
+        postLink: d.postLink,
+        postExcerpt: d.postExcerpt,
+        draftComment: d.draftComment,
+        status: d.status,
+        errorMessage: d.errorMessage,
+        createdAt: d.createdAt.toISOString(),
+        sentAt: d.sentAt?.toISOString() ?? null,
       }))}
     />
   );

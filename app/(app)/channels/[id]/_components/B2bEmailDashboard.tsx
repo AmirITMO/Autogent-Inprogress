@@ -13,8 +13,9 @@ import {
 } from "recharts";
 import { formatMoney } from "@/lib/constants";
 import { AgentManagementPanel } from "./AgentManagementPanel";
+import { B2bEmailParsedTab } from "./B2bEmailParsedTab";
 
-type ContactStatus = "WRITTEN" | "REPLIED" | "CALL_SCHEDULED" | "LEAD_CREATED" | "DECLINED";
+type ContactStatus = "WRITTEN" | "FOUND" | "SENT" | "REPLIED" | "CALL_SCHEDULED" | "LEAD_CREATED" | "DECLINED";
 
 type DialogueMessage = { from?: string; text?: string; at?: string };
 
@@ -24,6 +25,7 @@ type Contact = {
   website: string | null;
   contactEmail: string | null;
   triggerReason: string | null;
+  draftMessage: string | null;
   dialogue: unknown;
   status: ContactStatus;
   followUpCount: number;
@@ -48,6 +50,7 @@ type Financials = {
 };
 
 type KbMessage = { id: string; role: "user" | "assistant"; content: string; createdAt: string };
+type KbCard = { id: string; topic: string; content: string; discussedAt: string };
 
 type SnapshotPayload = {
   companiesParsed?: number;
@@ -56,7 +59,9 @@ type SnapshotPayload = {
 };
 
 const STATUS_LABEL: Record<ContactStatus, string> = {
-  WRITTEN: "Отправили",
+  WRITTEN: "Отправили", // legacy — новые записи получают FOUND/SENT
+  FOUND: "Черновик готов",
+  SENT: "Отправили",
   REPLIED: "Ответил",
   CALL_SCHEDULED: "Созвон назначен",
   LEAD_CREATED: "Стал сделкой",
@@ -65,6 +70,8 @@ const STATUS_LABEL: Record<ContactStatus, string> = {
 
 const STATUS_ACCENT: Record<ContactStatus, "success" | "danger" | "warning" | "accent"> = {
   WRITTEN: "accent",
+  FOUND: "warning",
+  SENT: "accent",
   REPLIED: "warning",
   CALL_SCHEDULED: "warning",
   LEAD_CREATED: "success",
@@ -110,6 +117,7 @@ export function B2bEmailDashboard({
   kbContent,
   kbUpdatedAt,
   kbMessages,
+  kbCards,
 }: {
   channelId: string;
   snapshots: Snapshot[];
@@ -118,10 +126,13 @@ export function B2bEmailDashboard({
   kbContent: string;
   kbUpdatedAt: string | null;
   kbMessages: KbMessage[];
+  kbCards: KbCard[];
 }) {
   const [topTab, setTopTab] = useState<"manage" | "analytics" | "details">("analytics");
-  const [tab, setTab] = useState<"contacts" | "summary">("contacts");
+  const [tab, setTab] = useState<"parsed" | "contacts" | "summary">("parsed");
   const [period, setPeriod] = useState<(typeof PERIODS)[number]["id"]>("7d");
+
+  const parsedContacts = useMemo(() => contacts.filter((c) => c.status === "FOUND"), [contacts]);
 
   const filteredContacts = useMemo(() => {
     const cutoff = periodCutoff(period);
@@ -185,6 +196,7 @@ export function B2bEmailDashboard({
           initialContent={kbContent}
           initialUpdatedAt={kbUpdatedAt}
           initialMessages={kbMessages}
+          initialCards={kbCards}
         />
       )}
 
@@ -217,6 +229,9 @@ export function B2bEmailDashboard({
     <div className="flex-1 overflow-y-auto p-5">
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex rounded-lg border border-border p-0.5">
+          <TabButton active={tab === "parsed"} onClick={() => setTab("parsed")}>
+            Спаршено ({parsedContacts.length})
+          </TabButton>
           <TabButton active={tab === "contacts"} onClick={() => setTab("contacts")}>
             Контакты ({contacts.length})
           </TabButton>
@@ -241,7 +256,9 @@ export function B2bEmailDashboard({
         </div>
       </div>
 
-      {tab === "summary" ? (
+      {tab === "parsed" ? (
+        <B2bEmailParsedTab channelId={channelId} contacts={parsedContacts} />
+      ) : tab === "summary" ? (
         <div className="mt-4">
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <StatTile label="Отправили" value={String(stats.written)} />
@@ -418,7 +435,7 @@ function ContactCard({ contact: c }: { contact: Contact }) {
               <span className="text-foreground">{c.triggerReason}</span>
             </div>
           )}
-          {c.status === "WRITTEN" && (
+          {(c.status === "WRITTEN" || c.status === "SENT") && (
             <div className="mb-2 text-xs text-muted">
               Фоллоу-апов отправлено: {c.followUpCount}
               {c.nextFollowUpAt &&

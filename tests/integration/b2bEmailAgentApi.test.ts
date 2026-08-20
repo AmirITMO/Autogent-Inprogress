@@ -81,10 +81,10 @@ describe("POST /api/integrations/b2b-email-agent/contacts", () => {
     expect(res.status).toBe(400);
   });
 
-  it("создаёт контакт со статусом WRITTEN по умолчанию и нулевым followUpCount", async () => {
+  it("создаёт контакт со статусом FOUND по умолчанию и нулевым followUpCount", async () => {
     const res = await contactsPost(req({ channelId, externalId: "c1", companyName: "ООО Ромашка" }));
     const body = await res.json();
-    expect(body.status).toBe("WRITTEN");
+    expect(body.status).toBe("FOUND");
 
     const saved = await prisma.b2bEmailContact.findUniqueOrThrow({ where: { id: body.id } });
     expect(saved.followUpCount).toBe(0);

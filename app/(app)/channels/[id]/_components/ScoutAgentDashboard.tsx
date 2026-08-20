@@ -48,6 +48,7 @@ type Financials = {
 };
 
 type KbMessage = { id: string; role: "user" | "assistant"; content: string; createdAt: string };
+type KbCard = { id: string; topic: string; content: string; discussedAt: string };
 
 type SnapshotPayload = {
   messagesScanned?: number;
@@ -112,6 +113,7 @@ export function ScoutAgentDashboard({
   kbContent,
   kbUpdatedAt,
   kbMessages,
+  kbCards,
 }: {
   channelId: string;
   snapshots: Snapshot[];
@@ -120,6 +122,7 @@ export function ScoutAgentDashboard({
   kbContent: string;
   kbUpdatedAt: string | null;
   kbMessages: KbMessage[];
+  kbCards: KbCard[];
 }) {
   const [topTab, setTopTab] = useState<"manage" | "analytics" | "details">("analytics");
   const [tab, setTab] = useState<"contacts" | "summary">("contacts");
@@ -188,6 +191,7 @@ export function ScoutAgentDashboard({
           initialContent={kbContent}
           initialUpdatedAt={kbUpdatedAt}
           initialMessages={kbMessages}
+          initialCards={kbCards}
         />
       )}
 

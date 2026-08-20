@@ -29,6 +29,7 @@ export type PermissionFlags = {
   viewChannels: boolean;
   editCrm: boolean;
   editTasksOthers: boolean;
+  viewSupport: boolean;
 };
 
 const ADMIN_PERMISSIONS: PermissionFlags = {
@@ -37,6 +38,7 @@ const ADMIN_PERMISSIONS: PermissionFlags = {
   viewChannels: true,
   editCrm: true,
   editTasksOthers: true,
+  viewSupport: true,
 };
 
 // Права читаются напрямую из БД (не из JWT-сессии), чтобы их смена админом
@@ -51,6 +53,7 @@ export async function getPermissions(userId: string, role: "ADMIN" | "EMPLOYEE")
       viewChannels: true,
       editCrm: true,
       editTasksOthers: true,
+      viewSupport: true,
     },
   });
 }

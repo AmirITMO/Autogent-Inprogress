@@ -38,6 +38,7 @@ export default async function SettingsPage() {
     viewChannels: u.viewChannels,
     editCrm: u.editCrm,
     editTasksOthers: u.editTasksOthers,
+    viewSupport: u.viewSupport,
     projectIds: u.projectAccess.map((a) => a.projectId),
   }));
 

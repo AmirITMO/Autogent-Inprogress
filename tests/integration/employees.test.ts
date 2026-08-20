@@ -18,6 +18,7 @@ const DEFAULT_PERMISSIONS = {
   viewChannels: true,
   editCrm: false,
   editTasksOthers: false,
+  viewSupport: false,
 };
 
 beforeEach(async () => {

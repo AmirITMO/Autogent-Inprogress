@@ -29,13 +29,17 @@ const SAVE_PROFILE_TOOL = {
             keywords: {
               type: "array",
               items: { type: "string" },
-              description: "Ключевые слова/хэштеги для поиска (без решётки), минимум одно.",
+              description: "Ключевые слова/хэштеги для поиска по постам (без решётки).",
             },
-            niche: { type: "string", description: "Ниша/сфера бизнеса." },
-            city: { type: "string", description: "Город/регион, если важен." },
+            niche: {
+              type: "string",
+              description: "Ниша/сфера бизнеса — используется как отдельная ось поиска (текстовый поиск по bio), а не только для текста оффера.",
+            },
+            city: { type: "string", description: "Город/регион, если важен — тоже отдельная ось поиска." },
             excludeIf: { type: "string", description: "Кого точно не считать целевым." },
+            minFollowers: { type: "integer", description: "Минимум подписчиков, если это важно." },
+            maxFollowers: { type: "integer", description: "Максимум подписчиков, если это важно." },
           },
-          required: ["keywords"],
         },
       },
       required: ["name", "criteria"],
@@ -65,6 +69,8 @@ function systemPrompt() {
 3. Примерный размер аккаунта (подписчики) — если не важно, пропусти вопрос.
 4. Ключевые слова/хэштеги для поиска.
 5. Кого точно НЕ считать целевым (исключения).
+
+Ниша, гео и диапазон подписчиков — это не просто описание для текста оффера, а реальные оси поиска (используются напрямую при подборе аккаунтов), поэтому старайся получить их максимально конкретными.
 
 Когда данных достаточно — вызови save_search_profile. Сразу после этого спроси, сколько аккаунтов искать (меньше 50), и как только пользователь назовёт число — вызови create_scrape_job.`;
 }
@@ -168,7 +174,17 @@ async function sendSearchSetupMessageInner(
 
   for (const call of msg.tool_calls) {
     if (call.function.name === "save_search_profile") {
-      const args = JSON.parse(call.function.arguments) as { name: string; criteria: { keywords: string[] } };
+      const args = JSON.parse(call.function.arguments) as {
+        name: string;
+        criteria: {
+          keywords?: string[];
+          niche?: string;
+          city?: string;
+          excludeIf?: string;
+          minFollowers?: number;
+          maxFollowers?: number;
+        };
+      };
       const profile = await prisma.instagramSearchProfile.create({
         data: { channelId, name: args.name, criteria: args.criteria },
       });

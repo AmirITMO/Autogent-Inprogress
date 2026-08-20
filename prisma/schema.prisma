@@ -40,17 +40,25 @@ enum TransactionType {
 enum NotificationType {
   TASK_ASSIGNED
   CALL_INVITED
+  INCIDENT_ALERT
+}
+
+enum DeploymentStatus {
+  UNKNOWN
+  OK
+  DEGRADED
+  DOWN
 }
 
 model User {
-  id           String   @id @default(cuid())
-  name         String
-  email        String   @unique
-  avatarUrl    String?
+  id                 String  @id @default(cuid())
+  name               String
+  email              String  @unique
+  avatarUrl          String?
   motivationPhotoKey String?
-  passwordHash String
-  role         Role     @default(EMPLOYEE)
-  isBlocked    Boolean  @default(false)
+  passwordHash       String
+  role               Role    @default(EMPLOYEE)
+  isBlocked          Boolean @default(false)
 
   // Гранулярные права сотрудника (для ADMIN игнорируются — админ может всё).
   editTasksSelf   Boolean @default(true)
@@ -58,28 +66,32 @@ model User {
   viewChannels    Boolean @default(true)
   editCrm         Boolean @default(false)
   editTasksOthers Boolean @default(false)
+  viewSupport     Boolean @default(false)
 
   failedLoginAttempts Int       @default(0)
   lockedUntil         DateTime?
-  createdAt    DateTime @default(now())
+  createdAt           DateTime  @default(now())
 
-  telegramChatId          BigInt?   @unique
+  telegramChatId          BigInt? @unique
   telegramUsername        String?
   telegramMorningSentDate String?
   telegramEveningSentDate String?
 
-  leads          Lead[]
-  leadActivity   LeadActivity[]
-  tasks          Task[]          @relation("TaskAssignee")
-  taskComments   TaskComment[]
+  leads           Lead[]
+  leadActivity    LeadActivity[]
+  tasks           Task[]           @relation("TaskAssignee")
+  taskComments    TaskComment[]
   taskAttachments TaskAttachment[]
-  transactions   Transaction[]
-  projectAccess  ProjectMember[]
-  channelSpends  ChannelSpend[]
-  calendarEvents CalendarEvent[]
-  attendingEvents CalendarEvent[] @relation("EventAttendees")
+  transactions    Transaction[]
+  projectAccess   ProjectMember[]
+  channelSpends   ChannelSpend[]
+  calendarEvents  CalendarEvent[]
+  attendingEvents CalendarEvent[]  @relation("EventAttendees")
   taskCompletions TaskCompletion[]
   notifications   Notification[]
+
+  assignedDeployments SupportedDeployment[] @relation("SupportAssignee")
+  resolvedIncidents   SupportIncident[]     @relation("IncidentResolver")
 }
 
 model Project {
@@ -124,14 +136,15 @@ model Lead {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  channelId   String?
-  channel     TrafficChannel? @relation(fields: [channelId], references: [id])
+  channelId String?
+  channel   TrafficChannel? @relation(fields: [channelId], references: [id])
 
-  activity      LeadActivity[]
-  transactions  Transaction[]
-  scoutContact  ScoutAgentContact?
+  activity         LeadActivity[]
+  transactions     Transaction[]
+  scoutContact     ScoutAgentContact?
   instagramContact InstagramContact?
   b2bEmailContact  B2bEmailContact?
+  supportedDeployment SupportedDeployment?
 
   @@index([stage])
   @@index([channelId])
@@ -145,6 +158,7 @@ enum TrafficChannelType {
   SCOUT_TELEGRAM
   INSTAGRAM
   B2B_EMAIL
+  TG_AUTOCOMMENT
 }
 
 model TrafficChannel {
@@ -155,18 +169,22 @@ model TrafficChannel {
   order     Int                @default(0)
   createdAt DateTime           @default(now())
 
-  leads              Lead[]
-  spends             ChannelSpend[]
-  metricSnapshots    ScoutAgentMetricSnapshot[]
-  scoutContacts      ScoutAgentContact[]
-  instagramContacts  InstagramContact[]
-  instagramSnapshots InstagramMetricSnapshot[]
-  b2bEmailContacts   B2bEmailContact[]
-  b2bEmailSnapshots  B2bEmailMetricSnapshot[]
-  knowledgeBase      AgentKnowledgeBase?
-  kbMessages         AgentKbMessage[]
+  leads                   Lead[]
+  spends                  ChannelSpend[]
+  metricSnapshots         ScoutAgentMetricSnapshot[]
+  scoutContacts           ScoutAgentContact[]
+  instagramContacts       InstagramContact[]
+  instagramSnapshots      InstagramMetricSnapshot[]
+  b2bEmailContacts        B2bEmailContact[]
+  b2bEmailSnapshots       B2bEmailMetricSnapshot[]
+  knowledgeBase           AgentKnowledgeBase?
+  kbMessages              AgentKbMessage[]
+  knowledgeCards          AgentKnowledgeCard[]
   instagramSearchProfiles InstagramSearchProfile[]
   instagramScrapeJobs     InstagramScrapeJob[]
+  b2bEmailSearchJobs      B2bEmailSearchJob[]
+  tgCommentDrafts         TgCommentDraft[]
+  tgCommentSnapshots      TgCommentMetricSnapshot[]
 }
 
 // Единая база знаний/правил на канал, редактируемая через чат в разделе
@@ -180,6 +198,26 @@ model AgentKnowledgeBase {
   channel   TrafficChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
   content   String         @default("") @db.Text
   updatedAt DateTime       @updatedAt
+}
+
+// Одна тема базы знаний с датой последнего обсуждения — заменяет плоский
+// текст структурированными карточками, обновляемыми по одной за раз
+// (tool-call save_knowledge_card), а не полной перезаписью всего файла.
+// AgentKnowledgeBase.content остаётся и пересобирается из карточек
+// автоматически — внешние агенты (Python) как читали один текстовый content
+// через GET .../knowledge-base, так и продолжают, ничего не меняя у себя.
+model AgentKnowledgeCard {
+  id          String         @id @default(cuid())
+  channelId   String
+  channel     TrafficChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  topic       String
+  content     String         @db.Text
+  discussedAt DateTime       @default(now())
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@unique([channelId, topic])
+  @@index([channelId, discussedAt])
 }
 
 model AgentKbMessage {
@@ -253,23 +291,23 @@ enum InstagramContactStatus {
 // массовый автообзвон в Instagram сознательно не делаем). Статус двигает
 // сотрудник в CRM, не агент.
 model InstagramContact {
-  id          String                  @id @default(cuid())
-  channelId   String
-  channel     TrafficChannel          @relation(fields: [channelId], references: [id], onDelete: Cascade)
-  externalId  String
-  username    String
-  fullName    String?
-  bio         String?
-  category    String?
-  followers   Int?
-  contactInfo String?
-  sourceTag   String?
+  id           String                 @id @default(cuid())
+  channelId    String
+  channel      TrafficChannel         @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  externalId   String
+  username     String
+  fullName     String?
+  bio          String?
+  category     String?
+  followers    Int?
+  contactInfo  String?
+  sourceTag    String?
   draftMessage String?
-  status      InstagramContactStatus  @default(FOUND)
-  leadId      String?                 @unique
-  lead        Lead?                   @relation(fields: [leadId], references: [id], onDelete: SetNull)
-  foundAt     DateTime                @default(now())
-  updatedAt   DateTime                @updatedAt
+  status       InstagramContactStatus @default(FOUND)
+  leadId       String?                @unique
+  lead         Lead?                  @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  foundAt      DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
 
   @@unique([channelId, externalId])
   @@index([channelId, foundAt])
@@ -280,12 +318,12 @@ model InstagramContact {
 // в CRM (5 вопросов), даёт повторно запускать парсинг по тем же критериям
 // без нового интервью.
 model InstagramSearchProfile {
-  id        String   @id @default(cuid())
+  id        String         @id @default(cuid())
   channelId String
   channel   TrafficChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
   name      String
   criteria  Json
-  createdAt DateTime @default(now())
+  createdAt DateTime       @default(now())
 
   jobs InstagramScrapeJob[]
 
@@ -332,39 +370,118 @@ model InstagramMetricSnapshot {
 }
 
 enum B2bEmailContactStatus {
-  WRITTEN
+  WRITTEN // legacy-значение, новые записи в него не пишутся — см. FOUND/SENT
+  FOUND
+  SENT
   REPLIED
   CALL_SCHEDULED
   LEAD_CREATED
   DECLINED
 }
 
-// Компания, которой агент отправляет холодные email — полностью автоматизировано
-// (парсинг сайта, персонализация, отправка, фоллоу-апы), в отличие от Instagram.
+// Компания, найденная агентом парсинга — черновик письма (draftMessage) агент
+// пишет сам, но НЕ отправляет: по решению после инцидента с автообзвоном в
+// других каналах отправка требует ручного одобрения сотрудником в CRM
+// (см. lib/actions/b2bEmailSend.ts). FOUND — распарсили и составили черновик,
+// SENT — сотрудник одобрил и письмо реально ушло через SMTP.
 model B2bEmailContact {
-  id             String                 @id @default(cuid())
+  id             String                @id @default(cuid())
   channelId      String
-  channel        TrafficChannel         @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  channel        TrafficChannel        @relation(fields: [channelId], references: [id], onDelete: Cascade)
   externalId     String
   companyName    String?
   website        String?
   contactEmail   String?
   triggerReason  String?
+  draftMessage   String?               @db.Text
   dialogue       Json?
-  status         B2bEmailContactStatus  @default(WRITTEN)
-  followUpCount  Int                    @default(0)
+  status         B2bEmailContactStatus @default(FOUND)
+  followUpCount  Int                   @default(0)
   nextFollowUpAt DateTime?
-  leadId         String?                @unique
-  lead           Lead?                  @relation(fields: [leadId], references: [id], onDelete: SetNull)
-  contactedAt    DateTime               @default(now())
-  updatedAt      DateTime               @updatedAt
+  sentAt         DateTime?
+  sentById       String?
+  leadId         String?               @unique
+  lead           Lead?                 @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  contactedAt    DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
 
   @@unique([channelId, externalId])
   @@index([channelId, contactedAt])
   @@index([status])
 }
 
+enum B2bEmailJobStatus {
+  PENDING
+  IN_PROGRESS
+  DONE
+  FAILED
+}
+
+// Задание на поиск компаний — CRM инициирует (кнопка «Спарсить N»), но, в
+// отличие от Instagram, отдельного профиля поиска здесь нет: критерии агент
+// берёт из общей базы знаний канала (AgentKnowledgeCard) через тот же
+// GET .../knowledge-base, что уже читает и генерирует черновики писем.
+model B2bEmailSearchJob {
+  id             String            @id @default(cuid())
+  channelId      String
+  channel        TrafficChannel    @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  requestedCount Int
+  status         B2bEmailJobStatus @default(PENDING)
+  foundCount     Int               @default(0)
+  errorMessage   String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([channelId, status])
+}
+
 model B2bEmailMetricSnapshot {
+  id        String         @id @default(cuid())
+  channelId String
+  channel   TrafficChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  payload   Json
+  createdAt DateTime       @default(now())
+
+  @@index([channelId, createdAt])
+}
+
+enum TgCommentDraftStatus {
+  PENDING // черновик от бота, ждёт решения сотрудника
+  APPROVED // сотрудник одобрил (возможно отредактировал текст) — бот заберёт и отправит
+  IN_PROGRESS // "claim on read" — бот забрал APPROVED-черновик, отправка в процессе
+  SENT // бот реально опубликовал комментарий
+  SKIPPED // сотрудник отклонил
+  FAILED // бот попытался отправить и словил ошибку (см. errorMessage)
+}
+
+// Черновик комментария под конкретный пост в целевом Telegram-канале.
+// Namespaced по (channelId, externalId), где externalId — детерминированный
+// id поста ("<юзернейм_канала>:<message_id>"), чтобы повторный обход того же
+// поста ботом не плодил дубликаты. Публикация — ТОЛЬКО после ручного
+// approve: автокомментинг детектится Telegram агрессивнее, чем чтение
+// (см. docs/pipeline/decisions.md), поэтому полного автопостинга нет.
+model TgCommentDraft {
+  id                    String               @id @default(cuid())
+  channelId             String
+  channel               TrafficChannel       @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  externalId            String
+  targetChannelUsername String
+  postLink              String
+  postExcerpt           String?              @db.Text
+  draftComment          String               @db.Text
+  status                TgCommentDraftStatus @default(PENDING)
+  errorMessage          String?
+  sentAt                DateTime?
+  sentById              String?
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+
+  @@unique([channelId, externalId])
+  @@index([channelId, status])
+  @@index([channelId, createdAt])
+}
+
+model TgCommentMetricSnapshot {
   id        String         @id @default(cuid())
   channelId String
   channel   TrafficChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
@@ -405,7 +522,7 @@ model TaskBoard {
 }
 
 model TaskColumn {
-  id      String @id @default(cuid())
+  id      String    @id @default(cuid())
   boardId String
   board   TaskBoard @relation(fields: [boardId], references: [id], onDelete: Cascade)
   name    String
@@ -414,25 +531,25 @@ model TaskColumn {
 }
 
 model Task {
-  id             String       @id @default(cuid())
-  columnId       String
-  column         TaskColumn   @relation(fields: [columnId], references: [id], onDelete: Cascade)
-  projectId      String?
-  project        Project?     @relation(fields: [projectId], references: [id])
-  title          String
-  description    String?
-  assigneeId     String?
-  assignee       User?        @relation("TaskAssignee", fields: [assigneeId], references: [id])
-  priority       TaskPriority @default(P2)
-  isBug          Boolean      @default(false)
-  estimateHours  Decimal?     @db.Decimal(6, 1)
-  dueDate        DateTime?
-  order          Int          @default(0)
-  archived       Boolean      @default(false)
-  completedAt    DateTime?
+  id                     String       @id @default(cuid())
+  columnId               String
+  column                 TaskColumn   @relation(fields: [columnId], references: [id], onDelete: Cascade)
+  projectId              String?
+  project                Project?     @relation(fields: [projectId], references: [id])
+  title                  String
+  description            String?
+  assigneeId             String?
+  assignee               User?        @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  priority               TaskPriority @default(P2)
+  isBug                  Boolean      @default(false)
+  estimateHours          Decimal?     @db.Decimal(6, 1)
+  dueDate                DateTime?
+  order                  Int          @default(0)
+  archived               Boolean      @default(false)
+  completedAt            DateTime?
   deadlineReminderSentAt DateTime?
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
 
   comments    TaskComment[]
   nodes       TaskNode[]
@@ -448,13 +565,13 @@ model Task {
 // "выполнено суммарно" не должен теряться. taskId/userId ставятся в NULL
 // при удалении задачи/пользователя, а не каскадно удаляются.
 model TaskCompletion {
-  id          String    @id @default(cuid())
+  id          String   @id @default(cuid())
   taskId      String?
-  task        Task?     @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  task        Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
   userId      String?
-  user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   taskTitle   String
-  completedAt DateTime  @default(now())
+  completedAt DateTime @default(now())
 
   @@index([userId])
 }
@@ -505,18 +622,18 @@ model TaskComment {
 }
 
 model TaskNode {
-  id        String    @id @default(cuid())
+  id        String     @id @default(cuid())
   taskId    String
-  task      Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  task      Task       @relation(fields: [taskId], references: [id], onDelete: Cascade)
   parentId  String?
-  parent    TaskNode? @relation("NodeChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  parent    TaskNode?  @relation("NodeChildren", fields: [parentId], references: [id], onDelete: Cascade)
   children  TaskNode[] @relation("NodeChildren")
   title     String
   dueDate   DateTime?
-  done      Boolean   @default(false)
-  x         Float     @default(0)
-  y         Float     @default(0)
-  createdAt DateTime  @default(now())
+  done      Boolean    @default(false)
+  x         Float      @default(0)
+  y         Float      @default(0)
+  createdAt DateTime   @default(now())
 }
 
 model Kpi {
@@ -537,18 +654,18 @@ model TelegramLinkToken {
 }
 
 model Settings {
-  id                     String @id @default("singleton")
-  morningSummaryTime     String @default("09:00")
-  eveningSummaryTime     String @default("19:00")
-  deadlineCheckInterval  Int    @default(60)
-  timezone               String @default("Europe/Moscow")
+  id                    String @id @default("singleton")
+  morningSummaryTime    String @default("09:00")
+  eveningSummaryTime    String @default("19:00")
+  deadlineCheckInterval Int    @default(60)
+  timezone              String @default("Europe/Moscow")
 }
 
 model TransactionCategory {
-  id          String            @id @default(cuid())
-  name        String
-  type        TransactionType
-  isRecurring Boolean           @default(false)
+  id           String          @id @default(cuid())
+  name         String
+  type         TransactionType
+  isRecurring  Boolean         @default(false)
   transactions Transaction[]
 }
 
@@ -568,16 +685,76 @@ model CalendarEvent {
 }
 
 model Transaction {
-  id          String               @id @default(cuid())
+  id          String              @id @default(cuid())
   categoryId  String
-  category    TransactionCategory  @relation(fields: [categoryId], references: [id])
+  category    TransactionCategory @relation(fields: [categoryId], references: [id])
   leadId      String?
-  lead        Lead?                @relation(fields: [leadId], references: [id])
-  amount      Decimal              @db.Decimal(12, 2)
+  lead        Lead?               @relation(fields: [leadId], references: [id])
+  amount      Decimal             @db.Decimal(12, 2)
   type        TransactionType
   description String?
-  date        DateTime             @default(now())
+  date        DateTime            @default(now())
   createdById String
-  createdBy   User                 @relation(fields: [createdById], references: [id])
-  createdAt   DateTime             @default(now())
+  createdBy   User                @relation(fields: [createdById], references: [id])
+  createdAt   DateTime            @default(now())
+}
+
+// Раздел "Управление Поддержкой" — проект клиента после сдачи (Lead на
+// этапе SUPPORT/POSTPAY), за которым числится реально работающий у клиента
+// сервис. heartbeatToken — секрет для пути пинга (см. app/api/support/heartbeat/[token]),
+// генерируется приложением (не Prisma-дефолтом), проверяется прямым
+// поиском по уникальному индексу, как и остальные интеграционные токены в проекте.
+model SupportedDeployment {
+  id     String @id @default(cuid())
+  leadId String @unique
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  serverHost String?
+  services   String[]
+  // Ручной runbook (например команда рестарта контейнера) — платформа его
+  // только показывает, не выполняет: выполнение произвольных команд на
+  // серверах клиентов с платформы — отдельная задача с отдельным периметром
+  // безопасности (bastion/agent на стороне клиента), сознательно вне MVP.
+  runbook String?
+
+  heartbeatToken        String  @unique
+  heartbeatEverySeconds Int     @default(300)
+
+  status           DeploymentStatus @default(UNKNOWN)
+  lastHeartbeatAt  DateTime?
+  lastStatusDetail String?
+
+  assignedToId String?
+  assignedTo   User?   @relation("SupportAssignee", fields: [assignedToId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  incidents SupportIncident[]
+
+  @@index([status])
+}
+
+model SupportIncident {
+  id           String              @id @default(cuid())
+  deploymentId String
+  deployment   SupportedDeployment @relation(fields: [deploymentId], references: [id], onDelete: Cascade)
+
+  severity TaskPriority @default(P1)
+  title    String
+  detail   String?
+
+  // autoDetected: true — заведён либо приёмом heartbeat со статусом
+  // DEGRADED/DOWN, либо детектором "пропали пинги" (check-stale route).
+  autoDetected Boolean @default(false)
+
+  detectedAt   DateTime  @default(now())
+  resolvedAt   DateTime?
+  resolvedById String?
+  resolvedBy   User?     @relation("IncidentResolver", fields: [resolvedById], references: [id])
+  rootCause    String?
+
+  createdAt DateTime @default(now())
+
+  @@index([deploymentId, resolvedAt])
 }

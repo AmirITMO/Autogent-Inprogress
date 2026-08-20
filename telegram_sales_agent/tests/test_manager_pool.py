@@ -172,3 +172,44 @@ def test_account_with_capacity_none_when_all_exhausted(pool, cfg):
         for _ in range(cfg.max_outbound_per_account_per_day):
             storage.increment_outbound(cfg.sqlite_path, name)
     assert pool.account_with_capacity() is None
+
+
+# scout_only-аккаунт продолжает слушать группы (account_names()), но
+# никогда не должен попадать в пул для исходящих — это единственная
+# гарантия "скаут никогда не пишет сам" на уровне кода.
+def test_outbound_account_names_excludes_scout_only(tmp_path):
+    cfg = AppConfig(
+        managers=[
+            ManagerAccount(name="scout", session="sessions/scout", api_id=1, api_hash="h1", scout_only=True),
+            ManagerAccount(name="outreach", session="sessions/outreach", api_id=2, api_hash="h2"),
+        ],
+        sqlite_path=str(tmp_path / "pool.db"),
+    )
+    pool = ManagerPool(cfg)
+
+    assert pool.account_names() == ["scout", "outreach"]
+    assert pool.outbound_account_names() == ["outreach"]
+
+
+def test_assign_lead_never_picks_scout_only_account(tmp_path):
+    cfg = AppConfig(
+        managers=[
+            ManagerAccount(name="scout", session="sessions/scout", api_id=1, api_hash="h1", scout_only=True),
+            ManagerAccount(name="outreach", session="sessions/outreach", api_id=2, api_hash="h2"),
+        ],
+        sqlite_path=str(tmp_path / "pool.db"),
+    )
+    pool = ManagerPool(cfg)
+
+    for _ in range(20):
+        assert pool.assign_lead(f"chat-{_}") == "outreach"
+
+
+def test_account_with_capacity_skips_scout_only_even_with_capacity(tmp_path):
+    cfg = AppConfig(
+        managers=[ManagerAccount(name="scout", session="sessions/scout", api_id=1, api_hash="h1", scout_only=True)],
+        sqlite_path=str(tmp_path / "pool.db"),
+    )
+    pool = ManagerPool(cfg)
+
+    assert pool.account_with_capacity() is None

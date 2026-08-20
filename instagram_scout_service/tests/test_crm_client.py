@@ -54,8 +54,7 @@ def _cfg(**overrides) -> Config:
         crm_api_url="https://crm.example.com",
         crm_api_key="test-key",
         openai_api_key="sk-test",
-        ig_username="testuser",
-        ig_password="testpass",
+        apify_token="apify-test",
     )
     defaults.update(overrides)
     return Config(**defaults)

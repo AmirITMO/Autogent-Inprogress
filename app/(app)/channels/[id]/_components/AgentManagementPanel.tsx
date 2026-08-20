@@ -4,20 +4,24 @@ import { useState, useRef, useEffect } from "react";
 import { sendManagementMessage } from "@/lib/actions/agentKnowledgeBase";
 
 type Message = { id: string; role: "user" | "assistant"; content: string; createdAt: string };
+type KnowledgeCard = { id: string; topic: string; content: string; discussedAt: string };
 
 export function AgentManagementPanel({
   channelId,
   initialContent,
   initialUpdatedAt,
   initialMessages,
+  initialCards,
 }: {
   channelId: string;
   initialContent: string;
   initialUpdatedAt: string | null;
   initialMessages: Message[];
+  initialCards: KnowledgeCard[];
 }) {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [kbContent] = useState(initialContent);
+  const [kbCards] = useState(initialCards);
   const [kbUpdatedAt, setKbUpdatedAt] = useState(initialUpdatedAt);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -92,9 +96,27 @@ export function AgentManagementPanel({
       </div>
 
       {showKb && (
-        <pre className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap rounded-lg bg-surface-2 p-3 text-xs text-foreground">
-          {kbContent || "База знаний пока пустая — пройди опрос или просто напиши агенту, что нужно занести."}
-        </pre>
+        <div className="mt-3 max-h-64 overflow-auto rounded-lg bg-surface-2 p-3">
+          {kbCards.length === 0 ? (
+            <p className="text-xs text-muted">
+              {kbContent || "База знаний пока пустая — пройди опрос или просто напиши агенту, что нужно занести."}
+            </p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {kbCards.map((c) => (
+                <div key={c.id} className="rounded-lg border border-border bg-surface p-2">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="text-xs font-medium text-foreground">{c.topic}</span>
+                    <span className="shrink-0 text-[11px] text-muted">
+                      обсуждали {new Date(c.discussedAt).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                    </span>
+                  </div>
+                  <p className="mt-1 whitespace-pre-wrap text-xs text-foreground">{c.content}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       )}
 
       <div className="mt-4 flex-1 overflow-y-auto rounded-xl border border-border bg-surface p-4">

@@ -17,7 +17,7 @@ type ChannelMetrics = {
   id: string;
   name: string;
   isActive: boolean;
-  type: "MANUAL" | "SCOUT_TELEGRAM" | "INSTAGRAM" | "B2B_EMAIL";
+  type: "MANUAL" | "SCOUT_TELEGRAM" | "INSTAGRAM" | "B2B_EMAIL" | "TG_AUTOCOMMENT";
   totalLeads: number;
   lostLeads: number;
   paidLeads: number;
@@ -34,6 +34,7 @@ const CHANNEL_TYPE_LINK_LABEL: Record<string, string> = {
   SCOUT_TELEGRAM: "Аналитика скаут-агента",
   INSTAGRAM: "База контактов Instagram",
   B2B_EMAIL: "Аналитика email-рассылок",
+  TG_AUTOCOMMENT: "Черновики комментариев",
 };
 
 function pct(v: number) {

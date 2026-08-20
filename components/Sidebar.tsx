@@ -16,6 +16,7 @@ const links = [
   { href: "/calendar", label: "Календарь", perm: null, icon: IconCalendar },
   { href: "/accounting", label: "Бухгалтерия", perm: "viewAccounting" as const, icon: IconMoney },
   { href: "/channels", label: "Каналы трафика", perm: "viewChannels" as const, icon: IconChannels },
+  { href: "/support", label: "Поддержка", perm: "viewSupport" as const, icon: IconSupport },
   { href: "/settings", label: "Настройки", perm: null, icon: IconSettings },
 ];
 
@@ -37,7 +38,7 @@ export function Sidebar({
   role: "ADMIN" | "EMPLOYEE";
   userName: string;
   avatarUrl?: string | null;
-  permissions: { viewAccounting: boolean; viewChannels: boolean };
+  permissions: { viewAccounting: boolean; viewChannels: boolean; viewSupport: boolean };
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -204,6 +205,15 @@ function IconChannels({ className }: IconProps) {
     <svg viewBox="0 0 24 24" fill="none" className={className}>
       <path d="M3 10v4a1.5 1.5 0 0 0 1.5 1.5H7l5 3.5v-13L7 9.5H4.5A1.5 1.5 0 0 0 3 11Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
       <path d="M16 9c1 1 1 5 0 6M19 6.5c2 2.3 2 8.7 0 11" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconSupport({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M12 8.5v4l2.5 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

@@ -59,6 +59,7 @@ const DEFAULT_PERMISSIONS: EmployeePermissions = {
   viewChannels: true,
   editCrm: false,
   editTasksOthers: false,
+  viewSupport: false,
 };
 
 const PERMISSION_LABELS: { key: keyof EmployeePermissions; label: string }[] = [
@@ -67,6 +68,7 @@ const PERMISSION_LABELS: { key: keyof EmployeePermissions; label: string }[] = [
   { key: "viewChannels", label: "Просматривать каналы трафика" },
   { key: "editCrm", label: "Редактировать CRM" },
   { key: "editTasksOthers", label: "Редактировать задачи сотрудникам" },
+  { key: "viewSupport", label: "Управление поддержкой" },
 ];
 
 export function TeamSection({
@@ -188,6 +190,7 @@ function EmployeeRow({
     viewChannels: user.viewChannels,
     editCrm: user.editCrm,
     editTasksOthers: user.editTasksOthers,
+    viewSupport: user.viewSupport,
   });
 
   function toggleProject(id: string) {

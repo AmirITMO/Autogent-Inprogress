@@ -1,0 +1,7 @@
+services:
+  b2b-email-agent:
+    build: .
+    container_name: b2b_email_agent
+    restart: unless-stopped
+    env_file:
+      - .env
