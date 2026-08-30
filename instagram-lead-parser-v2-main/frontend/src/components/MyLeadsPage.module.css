@@ -1,0 +1,275 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.search {
+  background: #0f0f23;
+  border: 1px solid #1e1e35;
+  border-radius: 8px;
+  color: #e2e8f0;
+  padding: 8px 14px;
+  font-size: 13px;
+  width: 260px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.search:focus {
+  border-color: #6366f1;
+}
+
+.tierBtns {
+  display: flex;
+  gap: 4px;
+}
+
+.tierBtn {
+  background: #0f0f23;
+  border: 1px solid #1e1e35;
+  border-radius: 6px;
+  color: #94a3b8;
+  padding: 6px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.tierBtn:hover {
+  border-color: #6366f1;
+  color: #e2e8f0;
+}
+
+.tierBtnActive {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: #6366f1;
+  color: #a5b4fc;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.count {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.clearBtn {
+  background: rgba(244, 63, 94, 0.1);
+  border: 1px solid rgba(244, 63, 94, 0.3);
+  border-radius: 6px;
+  color: #f43f5e;
+  padding: 6px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.clearBtn:hover {
+  background: rgba(244, 63, 94, 0.18);
+}
+
+.empty {
+  text-align: center;
+  color: #64748b;
+  font-size: 14px;
+  padding: 60px 0;
+}
+
+.tableWrap {
+  overflow-x: auto;
+  border-radius: 10px;
+  border: 1px solid #1e1e35;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 900px;
+}
+
+.table thead tr {
+  background: #0f0f23;
+  border-bottom: 2px solid #1e1e35;
+}
+
+.table th {
+  padding: 10px 12px;
+  text-align: left;
+  color: #64748b;
+  font-weight: 600;
+  white-space: nowrap;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.rowEven {
+  background: #0f0f23;
+}
+
+.rowOdd {
+  background: #0a0a14;
+}
+
+.table tbody tr:hover {
+  background: rgba(99, 102, 241, 0.06);
+}
+
+.table td {
+  padding: 10px 12px;
+  vertical-align: middle;
+  border-bottom: 1px solid #1e1e35;
+  color: #e2e8f0;
+}
+
+.num {
+  color: #64748b;
+  width: 36px;
+  text-align: center;
+}
+
+.profileCell {
+  min-width: 150px;
+}
+
+.username {
+  color: #a5b4fc;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.username:hover {
+  color: #6366f1;
+  text-decoration: underline;
+}
+
+.fullName {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.bioCell {
+  max-width: 220px;
+  color: #94a3b8;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.numCell {
+  white-space: nowrap;
+  color: #94a3b8;
+}
+
+.tierCell {
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tier {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.tierA {
+  background: rgba(74, 222, 128, 0.15);
+  color: #4ade80;
+}
+
+.tierB {
+  background: rgba(99, 102, 241, 0.15);
+  color: #a5b4fc;
+}
+
+.tierC {
+  background: rgba(148, 163, 184, 0.12);
+  color: #94a3b8;
+}
+
+.score {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.checkCell {
+  text-align: center;
+  width: 72px;
+}
+
+.check {
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  accent-color: #4ade80;
+}
+
+.dateCell {
+  white-space: nowrap;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.deleteCell {
+  width: 40px;
+  text-align: center;
+}
+
+.deleteBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  opacity: 0.4;
+  transition: opacity 0.15s;
+  padding: 2px;
+}
+
+.deleteBtn:hover {
+  opacity: 1;
+}
+
+.importBtn {
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: 6px;
+  color: #a5b4fc;
+  padding: 6px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.importBtn:hover {
+  background: rgba(99, 102, 241, 0.18);
+}
+
+.importOk {
+  font-size: 13px;
+  color: #4ade80;
+  padding: 4px 2px;
+}
+
+.importErr {
+  font-size: 13px;
+  color: #f43f5e;
+  padding: 4px 2px;
+}

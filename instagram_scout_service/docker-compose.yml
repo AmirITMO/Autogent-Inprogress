@@ -5,3 +5,8 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    volumes:
+      # data/seen_usernames.json — дедуп между запусками поиска (seen_store.py),
+      # стейт, не часть образа: без volume перезапуск контейнера обнулял бы
+      # кэш и заново тратил бы enrichment-вызовы на уже виденных кандидатов.
+      - ./data:/app/data

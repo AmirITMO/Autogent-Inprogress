@@ -1,0 +1,89 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "username": "testuser",
+      "password_hash": "$2a$10$KEDI88V03cLbklYw9kUp2.m.zBd7jKxNojz5rz.tWKTvlhpbSM99G",
+      "created_at": 1776962039
+    },
+    {
+      "id": 2,
+      "username": "Deci1337",
+      "password_hash": "$2a$10$jy8nVoZuHfu/35nwb36eIugCDBEa9XR/b0j7NnqDo8g8yACmXiW2S",
+      "created_at": 1776962237
+    }
+  ],
+  "user_settings": [
+    {
+      "user_id": 1,
+      "apify_token_enc": null,
+      "openai_key_enc": null,
+      "google_sheet_id": null
+    },
+    {
+      "user_id": 2,
+      "apify_token_enc": "9eb4188af46c23ade139d458:53cdc32fb164e797fdfd7b36e8e96ec8:48c070609ded9d5139f14dc4786b57ae6e4dab252f9e15719ebc530e016c78ca83e97bb6c97dfcae726a432c127b",
+      "openai_key_enc": null,
+      "google_sheet_id": null
+    }
+  ],
+  "promo_codes": [
+    {
+      "id": 1,
+      "code": "QQBYCFFXRTQ3",
+      "duration_hours": 48,
+      "used_by": 1,
+      "used_at": 1776962055,
+      "expires_at": null,
+      "created_at": 1776962048
+    },
+    {
+      "id": 2,
+      "code": "2LQBKOD0X1LD",
+      "duration_hours": 720,
+      "used_by": 2,
+      "used_at": 1776972563,
+      "expires_at": null,
+      "created_at": 1776972548
+    },
+    {
+      "id": 3,
+      "code": "VWLMDQR8GMX2",
+      "duration_hours": 720,
+      "used_by": null,
+      "used_at": null,
+      "expires_at": null,
+      "created_at": 1776972548
+    },
+    {
+      "id": 4,
+      "code": "8OD3ZVX8O18B",
+      "duration_hours": 720,
+      "used_by": null,
+      "used_at": null,
+      "expires_at": null,
+      "created_at": 1776972548
+    }
+  ],
+  "subscriptions": [
+    {
+      "id": 1,
+      "user_id": 1,
+      "expires_at": 1777134855,
+      "promo_code_id": 1,
+      "created_at": 1776962055
+    },
+    {
+      "id": 2,
+      "user_id": 2,
+      "expires_at": 1779564563,
+      "promo_code_id": 2,
+      "created_at": 1776972563
+    }
+  ],
+  "_seq": {
+    "users": 2,
+    "promo_codes": 4,
+    "subscriptions": 2
+  }
+}

@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 async def process_job(cfg: Config, job: crm_client.ScrapeJob) -> None:
     logger.info("Обрабатываю задание %s (%s, до %d аккаунтов)", job.id, job.search_profile.name, job.requested_count)
     try:
-        accounts = await search_accounts(cfg, job.search_profile.criteria, job.requested_count)
+        accounts = await search_accounts(cfg, job.channel_id, job.search_profile.criteria, job.requested_count)
     except Exception as e:
         logger.exception("Парсинг задания %s упал", job.id)
         await crm_client.complete_job(cfg, job.id, found_count=0, error=str(e))

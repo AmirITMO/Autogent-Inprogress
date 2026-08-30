@@ -27,16 +27,15 @@ class Config:
     crm_api_key: str = field(default_factory=lambda: os.environ.get("INSTAGRAM_AGENT_API_KEY", ""))
     openai_api_key: str = field(default_factory=lambda: os.environ.get("OPENAI_API_KEY", ""))
     apify_token: str = field(default_factory=lambda: os.environ.get("APIFY_TOKEN", ""))
-    # Дефолт — официальный actor apify/instagram-scraper (поиск по хэштегам
-    # и свободному тексту, отдаёт bio/followers/category без нашего логина).
-    # Точный input schema актора может отличаться версия от версии — при
-    # смене актора сверяйся с его Input tab в Apify Store и правь
-    # scraper.py::_discover_by_hashtags/_discover_by_search под него.
-    apify_instagram_actor: str = field(
-        default_factory=lambda: os.environ.get("APIFY_INSTAGRAM_ACTOR", "apify/instagram-scraper")
-    )
     poll_interval_seconds: int = field(
         default_factory=lambda: int(os.environ.get("POLL_INTERVAL_SECONDS", "30") or "30")
+    )
+    # Юзернеймы, уже обработанные хоть раз (найдены и отправлены в CRM ИЛИ
+    # отсеяны при обогащении/ранжировании) — не тратим повторно платный
+    # enrichment-вызов на того же кандидата при повторном запуске поиска по
+    # тому же каналу. Один файл на канал, см. seen_store.py.
+    seen_store_path: str = field(
+        default_factory=lambda: os.environ.get("SEEN_STORE_PATH", "data/seen_usernames.json")
     )
 
 
