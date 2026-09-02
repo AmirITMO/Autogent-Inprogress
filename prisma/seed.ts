@@ -60,22 +60,25 @@ async function main() {
     },
   });
 
+  // Скрыты из упрощённого списка «Каналы трафика» (архивированы по просьбе
+  // пользователя) — сами каналы и вся история/автоматика по ним не тронуты,
+  // страницы /channels/[id] продолжают работать как раньше.
   await prisma.trafficChannel.upsert({
     where: { id: "channel-scout-agent-marketai" },
-    update: { type: "SCOUT_TELEGRAM" },
-    create: { id: "channel-scout-agent-marketai", name: "Скаут-агент", type: "SCOUT_TELEGRAM" },
+    update: { type: "SCOUT_TELEGRAM", isActive: false },
+    create: { id: "channel-scout-agent-marketai", name: "Скаут-агент", type: "SCOUT_TELEGRAM", isActive: false },
   });
 
   await prisma.trafficChannel.upsert({
     where: { id: "channel-instagram-marketai" },
-    update: { type: "INSTAGRAM" },
-    create: { id: "channel-instagram-marketai", name: "Instagram — холодная база", type: "INSTAGRAM" },
+    update: { type: "INSTAGRAM", isActive: false },
+    create: { id: "channel-instagram-marketai", name: "Instagram — холодная база", type: "INSTAGRAM", isActive: false },
   });
 
   await prisma.trafficChannel.upsert({
     where: { id: "channel-b2b-email-marketai" },
-    update: { type: "B2B_EMAIL" },
-    create: { id: "channel-b2b-email-marketai", name: "B2B email-рассылки", type: "B2B_EMAIL" },
+    update: { type: "B2B_EMAIL", isActive: false },
+    create: { id: "channel-b2b-email-marketai", name: "B2B email-рассылки", type: "B2B_EMAIL", isActive: false },
   });
 
   await prisma.trafficChannel.upsert({
@@ -83,6 +86,30 @@ async function main() {
     update: { type: "TG_AUTOCOMMENT" },
     create: { id: "channel-tg-autocomment", name: "Автокомментинг в Telegram", type: "TG_AUTOCOMMENT" },
   });
+
+  // Упрощённый список «Каналы трафика» — просто именованные бакеты без
+  // отдельного агента/автоматики за ними (пока), порядок сверху вниз задан
+  // полем order. Переход на детальную страницу каждого канала — отдельная
+  // задача на будущее.
+  const SIMPLE_TRAFFIC_CHANNELS = [
+    { id: "channel-reels", name: "Рилс" },
+    { id: "channel-youtube", name: "Ютуб" },
+    { id: "channel-hh-mailings", name: "Рассылки по hh" },
+    { id: "channel-email-mailings", name: "Рассылки по email" },
+    { id: "channel-instagram-mailings", name: "Рассылки по инсте" },
+    { id: "channel-events", name: "Мероприятия" },
+    { id: "channel-chat-scout", name: "Скаут в чатах" },
+    { id: "channel-partnerships", name: "Партнёрство" },
+    { id: "channel-word-of-mouth", name: "Сарафан" },
+  ];
+  for (let i = 0; i < SIMPLE_TRAFFIC_CHANNELS.length; i++) {
+    const { id, name } = SIMPLE_TRAFFIC_CHANNELS[i];
+    await prisma.trafficChannel.upsert({
+      where: { id },
+      update: { name, order: i },
+      create: { id, name, type: "MANUAL", order: i },
+    });
+  }
 
   for (const cat of INCOME_CATEGORIES) {
     await prisma.transactionCategory.upsert({
