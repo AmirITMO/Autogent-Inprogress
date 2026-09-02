@@ -8,6 +8,7 @@ export function NewLeadModal({
   channels,
   initialStage,
   fixedChannelId,
+  partners,
   onClose,
   onCreated,
 }: {
@@ -16,6 +17,9 @@ export function NewLeadModal({
   // Открыто со страницы конкретного канала (например «Мероприятия») — канал
   // уже известен, не нужно повторно выбирать его из общего списка на каждый лид.
   fixedChannelId?: string;
+  // Только для канала «Партнёрство» — кто из партнёров привёл лида, для
+  // расчёта комиссии. Не передан — поле не показывается вовсе.
+  partners?: { id: string; name: string }[];
   onClose: () => void;
   onCreated?: () => void;
 }) {
@@ -27,6 +31,7 @@ export function NewLeadModal({
     contactName: "",
     contact: "",
     channelId: fixedChannelId ?? "",
+    partnerId: "",
   });
   const [saving, setSaving] = useState(false);
 
@@ -40,6 +45,7 @@ export function NewLeadModal({
       contactName: form.contactName.trim() || undefined,
       contact: form.contact.trim() || undefined,
       channelId: form.channelId || undefined,
+      partnerId: form.partnerId || undefined,
       stage: initialStage,
     });
     setSaving(false);
@@ -99,6 +105,23 @@ export function NewLeadModal({
                 {channels.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          {partners && partners.length > 0 && (
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-muted">Партнёр</label>
+              <select
+                value={form.partnerId}
+                onChange={(e) => setForm((f) => ({ ...f, partnerId: e.target.value }))}
+                className="rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-sm text-foreground outline-none focus:border-accent"
+              >
+                <option value="">—</option>
+                {partners.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
                   </option>
                 ))}
               </select>

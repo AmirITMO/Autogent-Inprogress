@@ -21,6 +21,7 @@ export async function createLeadCore(
     contactName?: string;
     contact?: string;
     channelId?: string;
+    partnerId?: string;
     stage?: LeadStageId;
   }
 ) {
@@ -39,6 +40,7 @@ export async function createLeadCore(
       contactName: data.contactName,
       contact: data.contact,
       channelId: data.channelId || undefined,
+      partnerId: data.partnerId || undefined,
       stage,
       order: (last?.order ?? 0) + 1,
       ownerId: actor.id,

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { NewLeadModal } from "@/app/(app)/crm/_components/NewLeadModal";
 import { addOutreachBatch } from "@/lib/actions/channelOutreach";
+import { createPartner, deactivatePartner, type PartnerWithStats } from "@/lib/actions/partners";
 import { formatMoney } from "@/lib/constants";
 
 type LeadRow = {
@@ -47,6 +48,7 @@ export function ManualChannelDashboard({
   leads,
   outreachBatches,
   showOutreachForm,
+  partners,
 }: {
   channelId: string;
   channelName: string;
@@ -58,6 +60,8 @@ export function ManualChannelDashboard({
   // сообщения сам и заносит сюда только итоговые цифры за раз (см.
   // ChannelOutreachBatch) — остальные каналы этой формы не показывают.
   showOutreachForm: boolean;
+  // Только для канала «Партнёрство» — не передан на остальных каналах.
+  partners?: PartnerWithStats[];
 }) {
   const [tab, setTab] = useState<"analytics" | "reports">("analytics");
   const [showNewLead, setShowNewLead] = useState(false);
@@ -115,6 +119,7 @@ export function ManualChannelDashboard({
       {tab === "reports" && (
         <div className="flex-1 overflow-y-auto p-5">
           {showOutreachForm && <OutreachForm channelId={channelId} onSaved={() => router.refresh()} />}
+          {partners && <PartnersSection partners={partners} onChanged={() => router.refresh()} />}
 
           <div className="mt-5 flex items-center justify-between">
             <h3 className="text-sm font-medium text-foreground">Лиды с этого канала ({leads.length})</h3>
@@ -151,6 +156,7 @@ export function ManualChannelDashboard({
         <NewLeadModal
           channels={allChannels}
           fixedChannelId={channelId}
+          partners={partners?.filter((p) => p.isActive).map((p) => ({ id: p.id, name: p.name }))}
           initialStage="FIRST_TOUCH"
           onCreated={() => router.refresh()}
           onClose={() => setShowNewLead(false)}
@@ -228,6 +234,118 @@ function OutreachForm({ channelId, onSaved }: { channelId: string; onSaved: () =
         </button>
       </div>
       {error && <div className="mt-2 text-xs text-danger">{error}</div>}
+    </div>
+  );
+}
+
+function PartnersSection({ partners, onChanged }: { partners: PartnerWithStats[]; onChanged: () => void }) {
+  const [name, setName] = useState("");
+  const [commissionType, setCommissionType] = useState<"PERCENT" | "FIXED">("PERCENT");
+  const [commissionValue, setCommissionValue] = useState("");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const savingRef = useRef(false);
+
+  async function handleCreate() {
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setError("");
+    setSaving(true);
+    const result = await createPartner({ name, commissionType, commissionValue: Number(commissionValue) });
+    if (result.error) {
+      setError(result.error);
+    } else {
+      setName("");
+      setCommissionValue("");
+      onChanged();
+    }
+    savingRef.current = false;
+    setSaving(false);
+  }
+
+  function referralLink(code: string) {
+    return typeof window !== "undefined" ? `${window.location.origin}/r/${code}` : `/r/${code}`;
+  }
+
+  async function copyLink(partner: PartnerWithStats) {
+    await navigator.clipboard.writeText(referralLink(partner.referralCode));
+    setCopiedId(partner.id);
+    setTimeout(() => setCopiedId(null), 1500);
+  }
+
+  return (
+    <div className="rounded-xl border border-border bg-surface p-4">
+      <h3 className="mb-3 text-sm font-medium text-foreground">Партнёры</h3>
+
+      <div className="flex flex-wrap items-end gap-2">
+        <Field label="Имя партнёра">
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-40 rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-sm outline-none focus:border-accent"
+          />
+        </Field>
+        <Field label="Комиссия">
+          <select
+            value={commissionType}
+            onChange={(e) => setCommissionType(e.target.value as "PERCENT" | "FIXED")}
+            className="rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-sm outline-none focus:border-accent"
+          >
+            <option value="PERCENT">% от сделки</option>
+            <option value="FIXED">фикс за лида</option>
+          </select>
+        </Field>
+        <Field label={commissionType === "PERCENT" ? "Процент" : "Сумма, ₽"}>
+          <input
+            type="number"
+            value={commissionValue}
+            onChange={(e) => setCommissionValue(e.target.value)}
+            className="w-28 rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-sm outline-none focus:border-accent"
+          />
+        </Field>
+        <button
+          onClick={handleCreate}
+          disabled={saving || !name.trim() || !Number(commissionValue)}
+          className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-50"
+        >
+          Добавить партнёра
+        </button>
+      </div>
+      {error && <div className="mt-2 text-xs text-danger">{error}</div>}
+
+      <div className="mt-4 flex flex-col gap-1.5">
+        {partners.length === 0 ? (
+          <p className="text-sm text-muted">Партнёров пока нет</p>
+        ) : (
+          partners.map((p) => (
+            <div
+              key={p.id}
+              className={`rounded-lg bg-surface-2 px-3 py-2 text-sm ${!p.isActive ? "opacity-50" : ""}`}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-medium text-foreground">{p.name}</span>
+                <span className="text-xs text-muted">
+                  {p.commissionType === "PERCENT" ? `${p.commissionValue}%` : `${formatMoney(p.commissionValue)} / лид`}
+                </span>
+              </div>
+              <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-muted">
+                <button onClick={() => copyLink(p)} className="text-accent hover:underline">
+                  {copiedId === p.id ? "Скопировано ✓" : "Скопировать ссылку"}
+                </button>
+                <span>Переходов: {p.clickCount}</span>
+                <span>Лидов: {p.leadsCount}</span>
+                <span className="font-medium text-foreground">Комиссия: {formatMoney(p.commissionOwed)}</span>
+                {p.isActive && (
+                  <button onClick={() => deactivatePartner(p.id).then(onChanged)} className="text-danger hover:underline">
+                    Деактивировать
+                  </button>
+                )}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 }

@@ -20,12 +20,15 @@ export async function createLead(data: {
   contactName?: string;
   contact?: string;
   channelId?: string;
+  partnerId?: string;
   stage?: LeadStageId;
 }) {
   const user = await requireUser();
   const lead = await createLeadCore(user, data);
   revalidatePath("/crm");
   revalidatePath("/accounting");
+  revalidatePath("/channels");
+  if (data.channelId) revalidatePath(`/channels/${data.channelId}`);
   return lead;
 }
 

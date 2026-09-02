@@ -141,6 +141,11 @@ model Lead {
   channelId String?
   channel   TrafficChannel? @relation(fields: [channelId], references: [id])
 
+  // Только для канала "Партнёрство" — кто из партнёров привёл этого лида,
+  // для расчёта комиссии (см. Partner).
+  partnerId String?
+  partner   Partner? @relation(fields: [partnerId], references: [id])
+
   activity            LeadActivity[]
   transactions        Transaction[]
   scoutContact        ScoutAgentContact?
@@ -150,6 +155,32 @@ model Lead {
 
   @@index([stage])
   @@index([channelId])
+  @@index([partnerId])
+}
+
+enum PartnerCommissionType {
+  PERCENT // commissionValue — проценты от суммы сделки (prepay+postpay), 0-100
+  FIXED // commissionValue — фиксированная сумма за каждого оплатившего лида
+}
+
+// Партнёр с персональной реферальной ссылкой (см. /r/[code]) — комиссия
+// настраивается индивидуально на каждого партнёра при создании, не общим
+// правилом на всех. Ссылка — публичный редирект-роут без авторизации
+// (партнёр не пользователь CRM), считает переходы и пробрасывает дальше.
+model Partner {
+  id              String                @id @default(cuid())
+  name            String
+  commissionType  PartnerCommissionType @default(PERCENT)
+  commissionValue Decimal               @db.Decimal(10, 2)
+  referralCode    String                @unique
+  destinationUrl  String                @default("https://t.me/autogentgroup")
+  clickCount      Int                   @default(0)
+  isActive        Boolean               @default(true)
+  createdAt       DateTime              @default(now())
+
+  leads Lead[]
+
+  @@index([referralCode])
 }
 
 // MANUAL — обычные каналы (реклама и т.п.), заводятся и ведутся руками,

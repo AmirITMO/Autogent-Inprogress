@@ -8,6 +8,7 @@ import { InstagramDashboard } from "./_components/InstagramDashboard";
 import { B2bEmailDashboard } from "./_components/B2bEmailDashboard";
 import { TgAutoCommentDashboard } from "./_components/TgAutoCommentDashboard";
 import { ManualChannelDashboard } from "./_components/ManualChannelDashboard";
+import { listPartnersWithStats } from "@/lib/actions/partners";
 
 const TYPE_SUBTITLE: Record<string, string> = {
   SCOUT_TELEGRAM: "Аналитика скаут-агента: контакты, диалоги, здоровье аккаунтов",
@@ -21,6 +22,7 @@ const TYPE_SUBTITLE: Record<string, string> = {
 // автоматизируем) — им нужна форма "занести отправку" (ChannelOutreachBatch),
 // остальным MANUAL-каналам эта форма не показывается.
 const OUTREACH_FORM_CHANNEL_IDS = new Set(["channel-hh-mailings"]);
+const PARTNERSHIP_CHANNEL_ID = "channel-partnerships";
 
 export default async function ChannelDetailPage({ params }: { params: Promise<{ id: string }> }) {
   await requirePagePermission("viewChannels");
@@ -67,8 +69,11 @@ async function ManualChannel({ channelId, channelName }: { channelId: string; ch
     spends.map((s) => ({ amount: Number(s.amount) }))
   );
 
+  const partners = channelId === PARTNERSHIP_CHANNEL_ID ? await listPartnersWithStats() : undefined;
+
   return (
     <ManualChannelDashboard
+      partners={partners}
       channelId={channelId}
       channelName={channelName}
       allChannels={allChannels.map((c) => ({ id: c.id, name: c.name }))}
