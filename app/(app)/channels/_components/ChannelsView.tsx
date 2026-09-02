@@ -1,10 +1,10 @@
+import Link from "next/link";
+
 type ChannelRow = { id: string; name: string; leadCount: number };
 
 // Упрощённый список по просьбе пользователя: название канала + счётчик
-// лидов с него справа, плюс один общий счётчик сверху. Ни форм создания/
-// переименования, ни финансовых виджетов, ни архивации здесь больше нет —
-// это отдельная страница за каждым каналом (переход туда — следующий шаг,
-// пока не сделан).
+// лидов с него справа, плюс один общий счётчик сверху. Каждая строка ведёт
+// на страницу канала (Аналитика/Отчётность) — см. /channels/[id].
 export function ChannelsView({ channels, totalLeads }: { channels: ChannelRow[]; totalLeads: number }) {
   return (
     <div className="flex-1 overflow-y-auto p-5">
@@ -18,13 +18,14 @@ export function ChannelsView({ channels, totalLeads }: { channels: ChannelRow[];
       ) : (
         <div className="flex flex-col gap-2">
           {channels.map((c) => (
-            <div
+            <Link
               key={c.id}
+              href={`/channels/${c.id}`}
               className="flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-3 text-sm font-medium text-foreground transition hover:border-accent"
             >
               <span>{c.name}</span>
               <span className="text-xs font-normal text-muted">Лидов с канала {c.leadCount}</span>
-            </div>
+            </Link>
           ))}
         </div>
       )}

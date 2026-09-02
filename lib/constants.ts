@@ -1,4 +1,5 @@
 export const LEAD_STAGES = [
+  { id: "FIRST_TOUCH", title: "1 касание", accent: "#94a3b8" },
   { id: "SCHEDULED_CALL", title: "Назначили созвон", accent: "#3b82f6" },
   { id: "CALL_DONE", title: "Прошел созвон", accent: "#3b82f6" },
   { id: "SECOND_TOUCH_KP", title: "Назначено второе касание и КП", accent: "#eab308" },

@@ -13,6 +13,7 @@ enum Role {
 }
 
 enum LeadStage {
+  FIRST_TOUCH
   SCHEDULED_CALL
   CALL_DONE
   SECOND_TOUCH_KP
@@ -77,18 +78,19 @@ model User {
   telegramMorningSentDate String?
   telegramEveningSentDate String?
 
-  leads           Lead[]
-  leadActivity    LeadActivity[]
-  tasks           Task[]           @relation("TaskAssignee")
-  taskComments    TaskComment[]
-  taskAttachments TaskAttachment[]
-  transactions    Transaction[]
-  projectAccess   ProjectMember[]
-  channelSpends   ChannelSpend[]
-  calendarEvents  CalendarEvent[]
-  attendingEvents CalendarEvent[]  @relation("EventAttendees")
-  taskCompletions TaskCompletion[]
-  notifications   Notification[]
+  leads                  Lead[]
+  leadActivity           LeadActivity[]
+  tasks                  Task[]                 @relation("TaskAssignee")
+  taskComments           TaskComment[]
+  taskAttachments        TaskAttachment[]
+  transactions           Transaction[]
+  projectAccess          ProjectMember[]
+  channelSpends          ChannelSpend[]
+  channelOutreachBatches ChannelOutreachBatch[]
+  calendarEvents         CalendarEvent[]
+  attendingEvents        CalendarEvent[]        @relation("EventAttendees")
+  taskCompletions        TaskCompletion[]
+  notifications          Notification[]
 
   assignedDeployments SupportedDeployment[] @relation("SupportAssignee")
   resolvedIncidents   SupportIncident[]     @relation("IncidentResolver")
@@ -139,11 +141,11 @@ model Lead {
   channelId String?
   channel   TrafficChannel? @relation(fields: [channelId], references: [id])
 
-  activity         LeadActivity[]
-  transactions     Transaction[]
-  scoutContact     ScoutAgentContact?
-  instagramContact InstagramContact?
-  b2bEmailContact  B2bEmailContact?
+  activity            LeadActivity[]
+  transactions        Transaction[]
+  scoutContact        ScoutAgentContact?
+  instagramContact    InstagramContact?
+  b2bEmailContact     B2bEmailContact?
   supportedDeployment SupportedDeployment?
 
   @@index([stage])
@@ -185,6 +187,7 @@ model TrafficChannel {
   b2bEmailSearchJobs      B2bEmailSearchJob[]
   tgCommentDrafts         TgCommentDraft[]
   tgCommentSnapshots      TgCommentMetricSnapshot[]
+  outreachBatches         ChannelOutreachBatch[]
 }
 
 // Единая база знаний/правил на канал, редактируемая через чат в разделе
@@ -505,6 +508,26 @@ model ChannelSpend {
   @@index([channelId])
 }
 
+// Ручная агрегированная отчётность по каналу без собственного агента —
+// сотрудник рассылает сообщения САМ (hh.ru, вручную/через расширение
+// Chrome — не автоматизируем отправку), а сюда заносит итоговые цифры за
+// период: сколько отправлено, сколько ответили положительно. Не привязано
+// к конкретным лидам по имени — по каждому положительному ответу сотрудник
+// отдельно заводит лид на этап FIRST_TOUCH через обычную форму "+ лид".
+model ChannelOutreachBatch {
+  id            String         @id @default(cuid())
+  channelId     String
+  channel       TrafficChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  sentCount     Int
+  positiveCount Int
+  note          String?
+  createdById   String
+  createdBy     User           @relation(fields: [createdById], references: [id])
+  createdAt     DateTime       @default(now())
+
+  @@index([channelId, createdAt])
+}
+
 model LeadActivity {
   id        String   @id @default(cuid())
   leadId    String
@@ -715,10 +738,10 @@ model SupportedDeployment {
   // только показывает, не выполняет: выполнение произвольных команд на
   // серверах клиентов с платформы — отдельная задача с отдельным периметром
   // безопасности (bastion/agent на стороне клиента), сознательно вне MVP.
-  runbook String?
+  runbook    String?
 
-  heartbeatToken        String  @unique
-  heartbeatEverySeconds Int     @default(300)
+  heartbeatToken        String @unique
+  heartbeatEverySeconds Int    @default(300)
 
   status           DeploymentStatus @default(UNKNOWN)
   lastHeartbeatAt  DateTime?

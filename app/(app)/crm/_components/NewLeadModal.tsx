@@ -7,11 +7,17 @@ import { LEAD_STAGES, type LeadStageId } from "@/lib/constants";
 export function NewLeadModal({
   channels,
   initialStage,
+  fixedChannelId,
   onClose,
+  onCreated,
 }: {
   channels: { id: string; name: string }[];
   initialStage?: LeadStageId;
+  // Открыто со страницы конкретного канала (например «Мероприятия») — канал
+  // уже известен, не нужно повторно выбирать его из общего списка на каждый лид.
+  fixedChannelId?: string;
   onClose: () => void;
+  onCreated?: () => void;
 }) {
   const stageTitle = LEAD_STAGES.find((s) => s.id === initialStage)?.title;
   const [form, setForm] = useState({
@@ -20,7 +26,7 @@ export function NewLeadModal({
     description: "",
     contactName: "",
     contact: "",
-    channelId: "",
+    channelId: fixedChannelId ?? "",
   });
   const [saving, setSaving] = useState(false);
 
@@ -37,6 +43,7 @@ export function NewLeadModal({
       stage: initialStage,
     });
     setSaving(false);
+    onCreated?.();
     onClose();
   }
 
@@ -73,21 +80,30 @@ export function NewLeadModal({
           {field("company", "Компания")}
           {field("contactName", "Имя ЛПР")}
           {field("contact", "Контакт ЛПР", "телефон, telegram…")}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-muted">Канал трафика</label>
-            <select
-              value={form.channelId}
-              onChange={(e) => setForm((f) => ({ ...f, channelId: e.target.value }))}
-              className="rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-sm text-foreground outline-none focus:border-accent"
-            >
-              <option value="">—</option>
-              {channels.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          {fixedChannelId ? (
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-muted">Канал трафика</label>
+              <div className="rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-sm text-muted">
+                {channels.find((c) => c.id === fixedChannelId)?.name ?? "—"}
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-muted">Канал трафика</label>
+              <select
+                value={form.channelId}
+                onChange={(e) => setForm((f) => ({ ...f, channelId: e.target.value }))}
+                className="rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-sm text-foreground outline-none focus:border-accent"
+              >
+                <option value="">—</option>
+                {channels.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="flex flex-col gap-1">
             <label className="text-xs text-muted">Дополнительное описание</label>
             <textarea

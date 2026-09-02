@@ -7,20 +7,27 @@ import { ScoutAgentDashboard } from "./_components/ScoutAgentDashboard";
 import { InstagramDashboard } from "./_components/InstagramDashboard";
 import { B2bEmailDashboard } from "./_components/B2bEmailDashboard";
 import { TgAutoCommentDashboard } from "./_components/TgAutoCommentDashboard";
+import { ManualChannelDashboard } from "./_components/ManualChannelDashboard";
 
 const TYPE_SUBTITLE: Record<string, string> = {
   SCOUT_TELEGRAM: "Аналитика скаут-агента: контакты, диалоги, здоровье аккаунтов",
   INSTAGRAM: "База контактов, собранная агентом — переписку ведут сотрудники вручную",
   B2B_EMAIL: "Аналитика email-рассылок: контакты, диалоги, фоллоу-апы",
   TG_AUTOCOMMENT: "Черновики комментариев под чужими постами — публикация только после одобрения",
+  MANUAL: "Аналитика и отчётность по каналу",
 };
+
+// Каналы без своего агента, где отправку делает сотрудник сам вручную (не
+// автоматизируем) — им нужна форма "занести отправку" (ChannelOutreachBatch),
+// остальным MANUAL-каналам эта форма не показывается.
+const OUTREACH_FORM_CHANNEL_IDS = new Set(["channel-hh-mailings"]);
 
 export default async function ChannelDetailPage({ params }: { params: Promise<{ id: string }> }) {
   await requirePagePermission("viewChannels");
   const { id } = await params;
 
   const channel = await prisma.trafficChannel.findUnique({ where: { id } });
-  if (!channel || channel.type === "MANUAL") notFound();
+  if (!channel) notFound();
 
   return (
     <div className="flex h-full flex-col">
@@ -35,7 +42,53 @@ export default async function ChannelDetailPage({ params }: { params: Promise<{ 
       {channel.type === "INSTAGRAM" && <InstagramChannel channelId={id} />}
       {channel.type === "B2B_EMAIL" && <B2bEmailChannel channelId={id} />}
       {channel.type === "TG_AUTOCOMMENT" && <TgAutoCommentChannel channelId={id} />}
+      {channel.type === "MANUAL" && <ManualChannel channelId={id} channelName={channel.name} />}
     </div>
+  );
+}
+
+async function ManualChannel({ channelId, channelName }: { channelId: string; channelName: string }) {
+  const [leads, spends, allChannels, outreachBatches] = await Promise.all([
+    prisma.lead.findMany({
+      where: { channelId },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, title: true, company: true, stage: true, lost: true, prepay: true, postpay: true, createdAt: true },
+    }),
+    prisma.channelSpend.findMany({ where: { channelId } }),
+    prisma.trafficChannel.findMany({ where: { type: "MANUAL", isActive: true }, orderBy: { order: "asc" } }),
+    // Запрашиваем всегда, не только для hh.ru — для остальных каналов строк
+    // просто не будет (форма отправки показывается только по showOutreachForm),
+    // зато без тернарника внутри Promise.all не ломается вывод типов кортежа.
+    prisma.channelOutreachBatch.findMany({ where: { channelId }, orderBy: { createdAt: "desc" }, take: 100 }),
+  ]);
+
+  const financials = computeChannelFinancials(
+    leads.map((l) => ({ ...l, prepay: Number(l.prepay), postpay: Number(l.postpay) })),
+    spends.map((s) => ({ amount: Number(s.amount) }))
+  );
+
+  return (
+    <ManualChannelDashboard
+      channelId={channelId}
+      channelName={channelName}
+      allChannels={allChannels.map((c) => ({ id: c.id, name: c.name }))}
+      financials={financials}
+      leads={leads.map((l) => ({
+        id: l.id,
+        title: l.title,
+        company: l.company,
+        stage: l.stage,
+        createdAt: l.createdAt.toISOString(),
+      }))}
+      outreachBatches={outreachBatches.map((b) => ({
+        id: b.id,
+        sentCount: b.sentCount,
+        positiveCount: b.positiveCount,
+        note: b.note,
+        createdAt: b.createdAt.toISOString(),
+      }))}
+      showOutreachForm={OUTREACH_FORM_CHANNEL_IDS.has(channelId)}
+    />
   );
 }
 

@@ -101,6 +101,7 @@ async function main() {
     { id: "channel-chat-scout", name: "Скаут в чатах" },
     { id: "channel-partnerships", name: "Партнёрство" },
     { id: "channel-word-of-mouth", name: "Сарафан" },
+    { id: "channel-sales-dept", name: "Отдел продаж" },
   ];
   for (let i = 0; i < SIMPLE_TRAFFIC_CHANNELS.length; i++) {
     const { id, name } = SIMPLE_TRAFFIC_CHANNELS[i];
