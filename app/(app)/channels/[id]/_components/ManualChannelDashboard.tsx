@@ -6,7 +6,19 @@ import Link from "next/link";
 import { NewLeadModal } from "@/app/(app)/crm/_components/NewLeadModal";
 import { addOutreachBatch } from "@/lib/actions/channelOutreach";
 import { createPartner, deactivatePartner, type PartnerWithStats } from "@/lib/actions/partners";
+import { syncYoutubeStats } from "@/lib/actions/youtube";
 import { formatMoney } from "@/lib/constants";
+
+type YoutubeVideo = {
+  videoId: string;
+  title: string;
+  thumbnailUrl: string | null;
+  publishedAt: string | null;
+  viewCount: number;
+  likeCount: number;
+  commentCount: number;
+};
+type YoutubeData = { connected: boolean; channelTitle: string | null; videos: YoutubeVideo[] };
 
 type LeadRow = {
   id: string;
@@ -49,6 +61,7 @@ export function ManualChannelDashboard({
   outreachBatches,
   showOutreachForm,
   partners,
+  youtube,
 }: {
   channelId: string;
   channelName: string;
@@ -62,6 +75,8 @@ export function ManualChannelDashboard({
   showOutreachForm: boolean;
   // Только для канала «Партнёрство» — не передан на остальных каналах.
   partners?: PartnerWithStats[];
+  // Только для канала «Ютуб» — не передан на остальных каналах.
+  youtube?: YoutubeData;
 }) {
   const [tab, setTab] = useState<"analytics" | "reports">("analytics");
   const [showNewLead, setShowNewLead] = useState(false);
@@ -120,6 +135,7 @@ export function ManualChannelDashboard({
         <div className="flex-1 overflow-y-auto p-5">
           {showOutreachForm && <OutreachForm channelId={channelId} onSaved={() => router.refresh()} />}
           {partners && <PartnersSection partners={partners} onChanged={() => router.refresh()} />}
+          {youtube && <YoutubeSection data={youtube} onSynced={() => router.refresh()} />}
 
           <div className="mt-5 flex items-center justify-between">
             <h3 className="text-sm font-medium text-foreground">Лиды с этого канала ({leads.length})</h3>
@@ -343,6 +359,85 @@ function PartnersSection({ partners, onChanged }: { partners: PartnerWithStats[]
                 )}
               </div>
             </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function YoutubeSection({ data, onSynced }: { data: YoutubeData; onSynced: () => void }) {
+  const [syncing, setSyncing] = useState(false);
+  const [error, setError] = useState("");
+  const syncingRef = useRef(false);
+
+  async function handleSync() {
+    if (syncingRef.current) return;
+    syncingRef.current = true;
+    setError("");
+    setSyncing(true);
+    const result = await syncYoutubeStats();
+    if (result.error) setError(result.error);
+    else onSynced();
+    syncingRef.current = false;
+    setSyncing(false);
+  }
+
+  if (!data.connected) {
+    return (
+      <div className="rounded-xl border border-border bg-surface p-4">
+        <h3 className="mb-2 text-sm font-medium text-foreground">YouTube не подключён</h3>
+        <p className="mb-3 text-xs text-muted">
+          Подключите канал через Google — дальше можно будет обновлять статистику по всем видео одной кнопкой.
+        </p>
+        <a
+          href="/api/integrations/youtube/connect"
+          className="inline-block rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent-hover"
+        >
+          Подключить YouTube
+        </a>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border border-border bg-surface p-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-medium text-foreground">
+          Канал: {data.channelTitle ?? "подключён"}
+        </h3>
+        <button
+          onClick={handleSync}
+          disabled={syncing}
+          className="rounded-lg border border-accent px-3 py-1.5 text-xs font-medium text-accent hover:bg-accent-soft disabled:opacity-50"
+        >
+          {syncing ? "Обновляю…" : "Обновить статистику"}
+        </button>
+      </div>
+      {error && <div className="mt-2 text-xs text-danger">{error}</div>}
+
+      <div className="mt-3 flex flex-col gap-1.5">
+        {data.videos.length === 0 ? (
+          <p className="text-sm text-muted">Статистики пока нет — нажмите «Обновить статистику»</p>
+        ) : (
+          data.videos.map((v) => (
+            <a
+              key={v.videoId}
+              href={`https://youtube.com/watch?v=${v.videoId}`}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-3 rounded-lg bg-surface-2 px-3 py-2 text-sm hover:border hover:border-accent"
+            >
+              {v.thumbnailUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={v.thumbnailUrl} alt="" className="h-10 w-16 shrink-0 rounded object-cover" />
+              )}
+              <span className="flex-1 truncate text-foreground">{v.title}</span>
+              <span className="shrink-0 text-xs text-muted">
+                {v.viewCount.toLocaleString("ru-RU")} просмотров · {v.likeCount.toLocaleString("ru-RU")} лайков ·{" "}
+                {v.commentCount.toLocaleString("ru-RU")} коммент.
+              </span>
+            </a>
           ))
         )}
       </div>

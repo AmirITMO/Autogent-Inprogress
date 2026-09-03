@@ -9,6 +9,7 @@ import { B2bEmailDashboard } from "./_components/B2bEmailDashboard";
 import { TgAutoCommentDashboard } from "./_components/TgAutoCommentDashboard";
 import { ManualChannelDashboard } from "./_components/ManualChannelDashboard";
 import { listPartnersWithStats } from "@/lib/actions/partners";
+import { getYoutubeConnectionStatus } from "@/lib/actions/youtube";
 
 const TYPE_SUBTITLE: Record<string, string> = {
   SCOUT_TELEGRAM: "Аналитика скаут-агента: контакты, диалоги, здоровье аккаунтов",
@@ -23,6 +24,7 @@ const TYPE_SUBTITLE: Record<string, string> = {
 // остальным MANUAL-каналам эта форма не показывается.
 const OUTREACH_FORM_CHANNEL_IDS = new Set(["channel-hh-mailings"]);
 const PARTNERSHIP_CHANNEL_ID = "channel-partnerships";
+const YOUTUBE_CHANNEL_ID = "channel-youtube";
 
 export default async function ChannelDetailPage({ params }: { params: Promise<{ id: string }> }) {
   await requirePagePermission("viewChannels");
@@ -71,9 +73,33 @@ async function ManualChannel({ channelId, channelName }: { channelId: string; ch
 
   const partners = channelId === PARTNERSHIP_CHANNEL_ID ? await listPartnersWithStats() : undefined;
 
+  let youtube: { connected: boolean; channelTitle: string | null; videos: {
+    videoId: string; title: string; thumbnailUrl: string | null; publishedAt: string | null;
+    viewCount: number; likeCount: number; commentCount: number;
+  }[] } | undefined;
+  if (channelId === YOUTUBE_CHANNEL_ID) {
+    const [status, videos] = await Promise.all([
+      getYoutubeConnectionStatus(),
+      prisma.youtubeVideoStat.findMany({ orderBy: { viewCount: "desc" }, take: 100 }),
+    ]);
+    youtube = {
+      ...status,
+      videos: videos.map((v) => ({
+        videoId: v.videoId,
+        title: v.title,
+        thumbnailUrl: v.thumbnailUrl,
+        publishedAt: v.publishedAt?.toISOString() ?? null,
+        viewCount: v.viewCount,
+        likeCount: v.likeCount,
+        commentCount: v.commentCount,
+      })),
+    };
+  }
+
   return (
     <ManualChannelDashboard
       partners={partners}
+      youtube={youtube}
       channelId={channelId}
       channelName={channelName}
       allChannels={allChannels.map((c) => ({ id: c.id, name: c.name }))}
