@@ -586,6 +586,37 @@ model YoutubeVideoStat {
   fetchedAt    DateTime  @default(now())
 }
 
+// Instagram-аккаунт, за которым следим (Амир/Арсений/общий Autogent и
+// т.п.) — через Apify (apify/instagram-profile-scraper, тот же актор, что
+// уже используется в instagram_scout_service), только публичные метрики:
+// нет доступа к бизнес-аккаунту → нет impressions/reach/retention, только
+// views/likes/comments с самого поста.
+model InstagramReelsAccount {
+  id        String   @id @default(cuid())
+  label     String // человекочитаемое имя, например "Амир"
+  username  String   @unique
+  createdAt DateTime @default(now())
+
+  posts InstagramReelsPost[]
+}
+
+model InstagramReelsPost {
+  id           String                @id @default(cuid())
+  accountId    String
+  account      InstagramReelsAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  shortcode    String
+  caption      String?               @db.Text
+  postedAt     DateTime?
+  viewCount    Int?
+  likeCount    Int                   @default(0)
+  commentCount Int                   @default(0)
+  thumbnailUrl String?
+  fetchedAt    DateTime              @default(now())
+
+  @@unique([accountId, shortcode])
+  @@index([accountId, viewCount])
+}
+
 model LeadActivity {
   id        String   @id @default(cuid())
   leadId    String

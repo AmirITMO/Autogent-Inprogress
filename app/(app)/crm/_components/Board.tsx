@@ -13,10 +13,14 @@ export function CrmBoard({
   initialLeads,
   channels,
   canEdit,
+  totalOutreachSent,
 }: {
   initialLeads: LeadCardData[];
   channels: { id: string; name: string }[];
   canEdit: boolean;
+  // Сумма "отправлено" по всем каналам и всем ChannelOutreachBatch-записям —
+  // показывается над колонкой "1 касание", растёт с каждым занесённым отчётом.
+  totalOutreachSent: number;
 }) {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -53,12 +57,25 @@ export function CrmBoard({
       (sum, l) => sum + l.prepay + l.postpay + l.monthlySub,
       0
     );
+    // "1 касание" — не про деньги (лиды сюда попадают ещё до оплаты), тут
+    // вместо суммы сделок показываем общее число отправленных рассылок по
+    // всем каналам разом (см. ChannelOutreachBatch) — растёт с каждым
+    // занесённым отчётом на любом канале.
+    const summary =
+      stage.id === "FIRST_TOUCH"
+        ? totalOutreachSent > 0
+          ? `Отправлено всего: ${totalOutreachSent}`
+          : undefined
+        : total > 0
+          ? formatMoney(total)
+          : undefined;
+
     return {
       id: stage.id,
       title: stage.title,
       accent: stage.accent,
       items,
-      summary: total > 0 ? formatMoney(total) : undefined,
+      summary,
       headerExtra: canEdit ? (
         <button
           onClick={() => setCreatingStage(stage.id)}

@@ -7,12 +7,15 @@ export default async function CrmPage() {
   const flags = await getPermissions(sessionUser.id, sessionUser.role);
   const canEditCrm = sessionUser.role === "ADMIN" || flags.editCrm;
 
-  const [leads, channels] = await Promise.all([
+  const [leads, channels, outreachTotal] = await Promise.all([
     prisma.lead.findMany({
       include: { owner: true, channel: { select: { name: true } } },
       orderBy: { order: "asc" },
     }),
     prisma.trafficChannel.findMany({ where: { isActive: true }, orderBy: { order: "asc" } }),
+    // Сумма "отправлено" по ВСЕМ каналам и ВСЕМ записям ChannelOutreachBatch —
+    // показывается общим числом над колонкой "1 касание" в доске.
+    prisma.channelOutreachBatch.aggregate({ _sum: { sentCount: true } }),
   ]);
 
   const serialized = leads.map((l) => ({
@@ -46,7 +49,12 @@ export default async function CrmPage() {
         <h1 className="text-lg font-semibold text-foreground">CRM</h1>
         <p className="text-sm text-muted">Воронка сделок команды</p>
       </div>
-      <CrmBoard initialLeads={serialized} channels={channelOptions} canEdit={canEditCrm} />
+      <CrmBoard
+        initialLeads={serialized}
+        channels={channelOptions}
+        canEdit={canEditCrm}
+        totalOutreachSent={outreachTotal._sum.sentCount ?? 0}
+      />
     </div>
   );
 }

@@ -16,6 +16,7 @@ const links = [
   { href: "/calendar", label: "Календарь", perm: null, icon: IconCalendar },
   { href: "/accounting", label: "Бухгалтерия", perm: "viewAccounting" as const, icon: IconMoney },
   { href: "/channels", label: "Каналы трафика", perm: "viewChannels" as const, icon: IconChannels },
+  { href: "/knowledge-base", label: "База знаний", perm: null, icon: IconKnowledge },
   { href: "/support", label: "Поддержка", perm: "viewSupport" as const, icon: IconSupport },
   { href: "/settings", label: "Настройки", perm: null, icon: IconSettings },
 ];
@@ -205,6 +206,25 @@ function IconChannels({ className }: IconProps) {
     <svg viewBox="0 0 24 24" fill="none" className={className}>
       <path d="M3 10v4a1.5 1.5 0 0 0 1.5 1.5H7l5 3.5v-13L7 9.5H4.5A1.5 1.5 0 0 0 3 11Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
       <path d="M16 9c1 1 1 5 0 6M19 6.5c2 2.3 2 8.7 0 11" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconKnowledge({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <path
+        d="M4 5.5C4 4.7 4.7 4 5.5 4H12v16H5.5A1.5 1.5 0 0 1 4 18.5v-13Z"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M20 5.5c0-.8-.7-1.5-1.5-1.5H12v16h6.5a1.5 1.5 0 0 0 1.5-1.5v-13Z"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }

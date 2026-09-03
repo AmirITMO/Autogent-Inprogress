@@ -7,6 +7,7 @@ import { NewLeadModal } from "@/app/(app)/crm/_components/NewLeadModal";
 import { addOutreachBatch } from "@/lib/actions/channelOutreach";
 import { createPartner, deactivatePartner, type PartnerWithStats } from "@/lib/actions/partners";
 import { syncYoutubeStats } from "@/lib/actions/youtube";
+import { addReelsAccount, removeReelsAccount, syncReelsAccount, type ReelsAccountWithPosts } from "@/lib/actions/instagramReels";
 import { formatMoney } from "@/lib/constants";
 
 type YoutubeVideo = {
@@ -62,6 +63,7 @@ export function ManualChannelDashboard({
   showOutreachForm,
   partners,
   youtube,
+  reelsAccounts,
 }: {
   channelId: string;
   channelName: string;
@@ -77,6 +79,8 @@ export function ManualChannelDashboard({
   partners?: PartnerWithStats[];
   // Только для канала «Ютуб» — не передан на остальных каналах.
   youtube?: YoutubeData;
+  // Только для канала «Рилс» — не передан на остальных каналах.
+  reelsAccounts?: ReelsAccountWithPosts[];
 }) {
   const [tab, setTab] = useState<"analytics" | "reports">("analytics");
   const [showNewLead, setShowNewLead] = useState(false);
@@ -136,6 +140,7 @@ export function ManualChannelDashboard({
           {showOutreachForm && <OutreachForm channelId={channelId} onSaved={() => router.refresh()} />}
           {partners && <PartnersSection partners={partners} onChanged={() => router.refresh()} />}
           {youtube && <YoutubeSection data={youtube} onSynced={() => router.refresh()} />}
+          {reelsAccounts && <ReelsSection accounts={reelsAccounts} onChanged={() => router.refresh()} />}
 
           <div className="mt-5 flex items-center justify-between">
             <h3 className="text-sm font-medium text-foreground">Лиды с этого канала ({leads.length})</h3>
@@ -438,6 +443,131 @@ function YoutubeSection({ data, onSynced }: { data: YoutubeData; onSynced: () =>
                 {v.commentCount.toLocaleString("ru-RU")} коммент.
               </span>
             </a>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ReelsSection({ accounts, onChanged }: { accounts: ReelsAccountWithPosts[]; onChanged: () => void }) {
+  const [label, setLabel] = useState("");
+  const [username, setUsername] = useState("");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [syncingId, setSyncingId] = useState<string | null>(null);
+  const savingRef = useRef(false);
+
+  async function handleAdd() {
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setError("");
+    setSaving(true);
+    const result = await addReelsAccount(label, username);
+    if (result.error) {
+      setError(result.error);
+    } else {
+      setLabel("");
+      setUsername("");
+      onChanged();
+    }
+    savingRef.current = false;
+    setSaving(false);
+  }
+
+  async function handleSync(accountId: string) {
+    setSyncingId(accountId);
+    setError("");
+    const result = await syncReelsAccount(accountId);
+    if (result.error) setError(result.error);
+    else onChanged();
+    setSyncingId(null);
+  }
+
+  return (
+    <div className="rounded-xl border border-border bg-surface p-4">
+      <h3 className="mb-3 text-sm font-medium text-foreground">Instagram-аккаунты</h3>
+
+      <div className="flex flex-wrap items-end gap-2">
+        <Field label="Подпись">
+          <input
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder="например, Амир"
+            className="w-32 rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-sm outline-none focus:border-accent"
+          />
+        </Field>
+        <Field label="Юзернейм Instagram">
+          <input
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="без @"
+            className="w-40 rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-sm outline-none focus:border-accent"
+          />
+        </Field>
+        <button
+          onClick={handleAdd}
+          disabled={saving || !label.trim() || !username.trim()}
+          className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-50"
+        >
+          Добавить аккаунт
+        </button>
+      </div>
+      {error && <div className="mt-2 text-xs text-danger">{error}</div>}
+
+      <div className="mt-4 flex flex-col gap-4">
+        {accounts.length === 0 ? (
+          <p className="text-sm text-muted">Аккаунтов пока нет — добавьте хотя бы один выше</p>
+        ) : (
+          accounts.map((acc) => (
+            <div key={acc.id} className="rounded-lg bg-surface-2 p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-foreground">
+                  {acc.label} <span className="text-muted">@{acc.username}</span>
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleSync(acc.id)}
+                    disabled={syncingId === acc.id}
+                    className="rounded-lg border border-accent px-2.5 py-1 text-xs font-medium text-accent hover:bg-accent-soft disabled:opacity-50"
+                  >
+                    {syncingId === acc.id ? "Обновляю…" : "Обновить"}
+                  </button>
+                  <button
+                    onClick={() => removeReelsAccount(acc.id).then(onChanged)}
+                    className="text-xs text-danger hover:underline"
+                  >
+                    Убрать
+                  </button>
+                </div>
+              </div>
+
+              {acc.posts.length === 0 ? (
+                <p className="mt-2 text-xs text-muted">Пока нет данных — нажмите «Обновить»</p>
+              ) : (
+                <div className="mt-2 flex flex-col gap-1">
+                  {acc.posts.map((p) => (
+                    <a
+                      key={p.id}
+                      href={`https://instagram.com/reel/${p.shortcode}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-2 rounded-lg bg-surface px-2 py-1.5 text-xs hover:border hover:border-accent"
+                    >
+                      {p.thumbnailUrl && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={p.thumbnailUrl} alt="" className="h-8 w-8 shrink-0 rounded object-cover" />
+                      )}
+                      <span className="flex-1 truncate text-foreground">{p.caption || "(без подписи)"}</span>
+                      <span className="shrink-0 text-muted">
+                        {p.viewCount != null ? `${p.viewCount.toLocaleString("ru-RU")} просмотров · ` : ""}
+                        {p.likeCount.toLocaleString("ru-RU")} лайков · {p.commentCount.toLocaleString("ru-RU")} коммент.
+                      </span>
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
           ))
         )}
       </div>

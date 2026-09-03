@@ -10,6 +10,7 @@ import { TgAutoCommentDashboard } from "./_components/TgAutoCommentDashboard";
 import { ManualChannelDashboard } from "./_components/ManualChannelDashboard";
 import { listPartnersWithStats } from "@/lib/actions/partners";
 import { getYoutubeConnectionStatus } from "@/lib/actions/youtube";
+import { listReelsAccounts } from "@/lib/actions/instagramReels";
 
 const TYPE_SUBTITLE: Record<string, string> = {
   SCOUT_TELEGRAM: "Аналитика скаут-агента: контакты, диалоги, здоровье аккаунтов",
@@ -19,12 +20,9 @@ const TYPE_SUBTITLE: Record<string, string> = {
   MANUAL: "Аналитика и отчётность по каналу",
 };
 
-// Каналы без своего агента, где отправку делает сотрудник сам вручную (не
-// автоматизируем) — им нужна форма "занести отправку" (ChannelOutreachBatch),
-// остальным MANUAL-каналам эта форма не показывается.
-const OUTREACH_FORM_CHANNEL_IDS = new Set(["channel-hh-mailings"]);
 const PARTNERSHIP_CHANNEL_ID = "channel-partnerships";
 const YOUTUBE_CHANNEL_ID = "channel-youtube";
+const REELS_CHANNEL_ID = "channel-reels";
 
 export default async function ChannelDetailPage({ params }: { params: Promise<{ id: string }> }) {
   await requirePagePermission("viewChannels");
@@ -96,10 +94,13 @@ async function ManualChannel({ channelId, channelName }: { channelId: string; ch
     };
   }
 
+  const reelsAccounts = channelId === REELS_CHANNEL_ID ? await listReelsAccounts() : undefined;
+
   return (
     <ManualChannelDashboard
       partners={partners}
       youtube={youtube}
+      reelsAccounts={reelsAccounts}
       channelId={channelId}
       channelName={channelName}
       allChannels={allChannels.map((c) => ({ id: c.id, name: c.name }))}
@@ -118,7 +119,10 @@ async function ManualChannel({ channelId, channelName }: { channelId: string; ch
         note: b.note,
         createdAt: b.createdAt.toISOString(),
       }))}
-      showOutreachForm={OUTREACH_FORM_CHANNEL_IDS.has(channelId)}
+      // Форма "занести отправку" доступна на всех простых каналах — не
+      // только hh.ru — так занесённое на любом канале суммируется в общий
+      // счётчик над колонкой "1 касание" в CRM (см. app/(app)/crm/_components/Board.tsx).
+      showOutreachForm={true}
     />
   );
 }
