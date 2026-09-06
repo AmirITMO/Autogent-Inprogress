@@ -47,6 +47,35 @@ export async function listCalendarEvents(monthStart: string, monthEnd: string) {
   }));
 }
 
+// Личные задачи текущего пользователя с дедлайном, пересекающим видимый
+// месяц — для линии дедлайна в CalendarView (см. lib/calendar/deadlineLine).
+export async function listPersonalDeadlineTasks(monthStart: string, monthEnd: string) {
+  const user = await requireUser();
+  const start = new Date(monthStart);
+  const end = new Date(monthEnd);
+  const tasks = await prisma.task.findMany({
+    where: {
+      assigneeId: user.id,
+      archived: false,
+      dueDate: { not: null, gte: start },
+      createdAt: { lt: end },
+    },
+    select: { id: true, title: true, createdAt: true, dueDate: true },
+    orderBy: { dueDate: "asc" },
+  });
+
+  const startKey = toMoscowParts(start).dateKey;
+  return tasks.map((t) => {
+    const createdKey = toMoscowParts(t.createdAt).dateKey;
+    return {
+      id: t.id,
+      title: t.title,
+      startDate: createdKey > startKey ? createdKey : startKey,
+      dueDate: toMoscowParts(t.dueDate!).dateKey,
+    };
+  });
+}
+
 export async function createCalendarEvent(data: {
   title: string;
   description?: string;

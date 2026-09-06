@@ -16,11 +16,13 @@ import {
 import { ru } from "date-fns/locale";
 import {
   listCalendarEvents,
+  listPersonalDeadlineTasks,
   createCalendarEvent,
   updateCalendarEvent,
   deleteCalendarEvent,
 } from "@/lib/actions/calendar";
 import { mskInputToUtcIso, toMoscowParts, addOneHour } from "@/lib/moscowTime";
+import { chunkWeeks, weekSegment, colorForTaskId, type PersonalDeadlineTask } from "@/lib/calendar/deadlineLine";
 
 type Attendee = { id: string; name: string; avatarUrl: string | null };
 type CalEvent = {
@@ -39,13 +41,16 @@ export function CalendarView({
   initialMonth,
   initialEvents,
   users,
+  initialPersonalDeadlineTasks,
 }: {
   initialMonth: string;
   initialEvents: CalEvent[];
   users: { id: string; name: string }[];
+  initialPersonalDeadlineTasks: PersonalDeadlineTask[];
 }) {
   const [monthCursor, setMonthCursor] = useState(() => new Date(initialMonth));
   const [events, setEvents] = useState(initialEvents);
+  const [personalDeadlineTasks, setPersonalDeadlineTasks] = useState(initialPersonalDeadlineTasks);
   const [loading, setLoading] = useState(false);
   const [modalDate, setModalDate] = useState<Date | null>(null);
   const [editingEvent, setEditingEvent] = useState<CalEvent | null>(null);
@@ -56,14 +61,21 @@ export function CalendarView({
   const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 });
   const gridEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
   const days = useMemo(() => eachDayOfInterval({ start: gridStart, end: gridEnd }), [gridStart, gridEnd]);
+  const weeks = useMemo(() => chunkWeeks(days), [days]);
 
   useEffect(() => {
     setLoading(true);
     const start = startOfMonth(monthCursor);
     const end = new Date(endOfMonth(monthCursor));
     end.setDate(end.getDate() + 1);
-    listCalendarEvents(start.toISOString(), end.toISOString())
-      .then(setEvents)
+    Promise.all([
+      listCalendarEvents(start.toISOString(), end.toISOString()),
+      listPersonalDeadlineTasks(start.toISOString(), end.toISOString()),
+    ])
+      .then(([evs, tasks]) => {
+        setEvents(evs);
+        setPersonalDeadlineTasks(tasks);
+      })
       .finally(() => setLoading(false));
   }, [monthCursor]);
 
@@ -120,49 +132,85 @@ export function CalendarView({
         </button>
       </div>
 
-      <div className={`mt-4 grid grid-cols-7 gap-2 transition-opacity ${loading ? "opacity-60" : ""}`}>
-        {WEEKDAYS.map((d) => (
-          <div key={d} className="px-1 pb-1 text-center text-xs font-medium text-muted">
-            {d}
-          </div>
-        ))}
-        {days.map((day) => {
-          const key = format(day, "yyyy-MM-dd");
-          const dayEvents = eventsByDay.get(key) ?? [];
-          const inMonth = isSameMonth(day, monthCursor);
-          const isToday = isSameDay(day, today);
+      <div className={`mt-4 flex flex-col gap-2 transition-opacity ${loading ? "opacity-60" : ""}`}>
+        <div className="grid grid-cols-7 gap-2">
+          {WEEKDAYS.map((d) => (
+            <div key={d} className="px-1 pb-1 text-center text-xs font-medium text-muted">
+              {d}
+            </div>
+          ))}
+        </div>
+        {weeks.map((week, weekIndex) => {
+          const weekKeys = week.map((day) => format(day, "yyyy-MM-dd"));
+          const deadlineSegments = personalDeadlineTasks.flatMap((task) => {
+            const seg = weekSegment(weekKeys, task);
+            return seg ? [{ task, ...seg }] : [];
+          });
           return (
-            <div
-              key={key}
-              onClick={() => setDayDetailDate(day)}
-              className={`group flex min-h-[92px] cursor-pointer flex-col gap-1 rounded-lg border p-1.5 transition hover:border-accent/50 ${
-                inMonth ? "border-border bg-surface" : "border-border/50 bg-surface-2/40"
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span
-                  className={`text-xs ${
-                    isToday
-                      ? "flex h-5 w-5 items-center justify-center rounded-full bg-accent font-semibold text-white"
-                      : inMonth
-                        ? "text-foreground"
-                        : "text-muted/50"
-                  }`}
-                >
-                  {format(day, "d")}
-                </span>
-                <span className="hidden text-xs text-accent group-hover:inline">+</span>
-              </div>
-              {dayEvents.length > 0 && (
-                <div className="flex flex-wrap items-center gap-1 px-0.5">
-                  {dayEvents.slice(0, 5).map((ev) => (
-                    <span key={ev.id} className="h-1.5 w-1.5 rounded-full bg-accent-2" title={ev.title} />
-                  ))}
-                  {dayEvents.length > 5 && (
-                    <span className="text-[10px] text-muted">+{dayEvents.length - 5}</span>
-                  )}
-                </div>
-              )}
+            <div key={weekIndex} className="relative grid grid-cols-7 gap-2">
+              {week.map((day) => {
+                const key = format(day, "yyyy-MM-dd");
+                const dayEvents = eventsByDay.get(key) ?? [];
+                const inMonth = isSameMonth(day, monthCursor);
+                const isToday = isSameDay(day, today);
+                return (
+                  <div
+                    key={key}
+                    onClick={() => setDayDetailDate(day)}
+                    className={`group flex min-h-[92px] cursor-pointer flex-col gap-1 rounded-lg border p-1.5 transition hover:border-accent/50 ${
+                      inMonth ? "border-border bg-surface" : "border-border/50 bg-surface-2/40"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span
+                        className={`text-xs ${
+                          isToday
+                            ? "flex h-5 w-5 items-center justify-center rounded-full bg-accent font-semibold text-white"
+                            : inMonth
+                              ? "text-foreground"
+                              : "text-muted/50"
+                        }`}
+                      >
+                        {format(day, "d")}
+                      </span>
+                      <span className="hidden text-xs text-accent group-hover:inline">+</span>
+                    </div>
+                    {dayEvents.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-1 px-0.5">
+                        {dayEvents.slice(0, 5).map((ev) => (
+                          <span key={ev.id} className="h-1.5 w-1.5 rounded-full bg-accent-2" title={ev.title} />
+                        ))}
+                        {dayEvents.length > 5 && (
+                          <span className="text-[10px] text-muted">+{dayEvents.length - 5}</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              {/* Персональная линия дедлайна — растянута через ячейки недели, у нижнего
+                  края (под чипами/кружками созвонов), не задевает номер дня. */}
+              {deadlineSegments.map(({ task, startCol, endCol }, stackIndex) => {
+                const span = endCol - startCol + 1;
+                const color = colorForTaskId(task.id);
+                return (
+                  <div
+                    key={task.id}
+                    className="pointer-events-none absolute flex flex-col items-start overflow-hidden"
+                    style={{
+                      left: `calc(${startCol} * (100% + 0.5rem) / 7)`,
+                      width: `calc((${span} * 100% - ${7 - span} * 0.5rem) / 7)`,
+                      bottom: `${4 + stackIndex * 11}px`,
+                    }}
+                    title={`${task.title}: до ${task.dueDate}`}
+                  >
+                    <span className="max-w-full truncate text-[9px] leading-none" style={{ color }}>
+                      {task.title}
+                    </span>
+                    <span className="mt-0.5 h-[2px] w-full rounded-full" style={{ backgroundColor: color }} />
+                  </div>
+                );
+              })}
             </div>
           );
         })}
