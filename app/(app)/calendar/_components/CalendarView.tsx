@@ -49,6 +49,7 @@ export function CalendarView({
   const [loading, setLoading] = useState(false);
   const [modalDate, setModalDate] = useState<Date | null>(null);
   const [editingEvent, setEditingEvent] = useState<CalEvent | null>(null);
+  const [dayDetailDate, setDayDetailDate] = useState<Date | null>(null);
 
   const monthStart = startOfMonth(monthCursor);
   const monthEnd = endOfMonth(monthCursor);
@@ -133,7 +134,7 @@ export function CalendarView({
           return (
             <div
               key={key}
-              onClick={() => setModalDate(day)}
+              onClick={() => setDayDetailDate(day)}
               className={`group flex min-h-[92px] cursor-pointer flex-col gap-1 rounded-lg border p-1.5 transition hover:border-accent/50 ${
                 inMonth ? "border-border bg-surface" : "border-border/50 bg-surface-2/40"
               }`}
@@ -152,29 +153,36 @@ export function CalendarView({
                 </span>
                 <span className="hidden text-xs text-accent group-hover:inline">+</span>
               </div>
-              <div className="flex flex-col gap-0.5">
-                {dayEvents.slice(0, 3).map((ev) => (
-                  <button
-                    key={ev.id}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setEditingEvent(ev);
-                    }}
-                    className="truncate rounded bg-accent-2/15 px-1.5 py-0.5 text-left text-[11px] text-accent-2 hover:bg-accent-2/25"
-                    title={`${ev.title}${ev.attendees.length ? " — " + ev.attendees.map((a) => a.name).join(", ") : ""}`}
-                  >
-                    {toMoscowParts(ev.startAt).timeLabel} {ev.title}
-                  </button>
-                ))}
-                {dayEvents.length > 3 && (
-                  <span className="px-1.5 text-[10px] text-muted">+{dayEvents.length - 3} ещё</span>
-                )}
-              </div>
+              {dayEvents.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1 px-0.5">
+                  {dayEvents.slice(0, 5).map((ev) => (
+                    <span key={ev.id} className="h-1.5 w-1.5 rounded-full bg-accent-2" title={ev.title} />
+                  ))}
+                  {dayEvents.length > 5 && (
+                    <span className="text-[10px] text-muted">+{dayEvents.length - 5}</span>
+                  )}
+                </div>
+              )}
             </div>
           );
         })}
       </div>
 
+      {dayDetailDate && (
+        <DayDetailModal
+          date={dayDetailDate}
+          events={eventsByDay.get(format(dayDetailDate, "yyyy-MM-dd")) ?? []}
+          onClose={() => setDayDetailDate(null)}
+          onEdit={(ev) => {
+            setDayDetailDate(null);
+            setEditingEvent(ev);
+          }}
+          onCreateNew={() => {
+            setDayDetailDate(null);
+            setModalDate(dayDetailDate);
+          }}
+        />
+      )}
       {modalDate && (
         <EventModal
           date={modalDate}
@@ -198,6 +206,79 @@ export function CalendarView({
           }}
         />
       )}
+    </div>
+  );
+}
+
+function DayDetailModal({
+  date,
+  events,
+  onClose,
+  onEdit,
+  onCreateNew,
+}: {
+  date: Date;
+  events: CalEvent[];
+  onClose: () => void;
+  onEdit: (ev: CalEvent) => void;
+  onCreateNew: () => void;
+}) {
+  const sorted = [...events].sort((a, b) => a.startAt.localeCompare(b.startAt));
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="w-full max-w-md rounded-xl border border-border bg-surface p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold capitalize text-foreground">
+            {format(date, "d MMMM", { locale: ru })}
+          </h2>
+          <button onClick={onClose} className="text-muted hover:text-foreground">
+            ✕
+          </button>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          {sorted.length ? (
+            sorted.map((ev) => (
+              <div
+                key={ev.id}
+                className="flex items-center justify-between gap-2 rounded-lg border border-border bg-surface-2 px-3 py-2"
+              >
+                <div className="min-w-0">
+                  <div className="truncate text-sm text-foreground">
+                    {toMoscowParts(ev.startAt).timeLabel}–{toMoscowParts(ev.endAt).timeLabel} {ev.title}
+                  </div>
+                  {ev.attendees.length > 0 && (
+                    <div className="truncate text-xs text-muted">
+                      {ev.attendees.map((a) => a.name).join(", ")}
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() => onEdit(ev)}
+                  className="shrink-0 rounded-lg border border-border px-2.5 py-1 text-xs text-muted hover:text-foreground"
+                >
+                  Редактировать
+                </button>
+              </div>
+            ))
+          ) : (
+            <div className="py-2 text-center text-sm text-muted">Созвонов нет</div>
+          )}
+        </div>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm text-muted hover:text-foreground">
+            Закрыть
+          </button>
+          <button
+            onClick={onCreateNew}
+            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover"
+          >
+            + Новый созвон
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
