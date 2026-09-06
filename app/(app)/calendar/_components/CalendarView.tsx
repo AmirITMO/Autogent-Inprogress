@@ -38,7 +38,7 @@ type CalEvent = {
 const WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 // Больше линий в одной строке недели просто не помещаются в ячейку (min-h-92px)
 // без наплыва на номер дня следующего ряда — остальные схлопываются в "+N ещё".
-const MAX_DEADLINE_LINES_PER_WEEK = 3;
+const MAX_DEADLINE_LINES_PER_WEEK = 2;
 
 export function CalendarView({
   initialMonth,
@@ -150,7 +150,7 @@ export function CalendarView({
             return seg ? [{ task, ...seg }] : [];
           });
           return (
-            <div key={weekIndex} className="relative grid grid-cols-7 gap-2">
+            <div key={weekIndex} className="relative grid min-h-[92px] grid-cols-7 gap-2 overflow-hidden">
               {week.map((day) => {
                 const key = format(day, "yyyy-MM-dd");
                 const dayEvents = eventsByDay.get(key) ?? [];
