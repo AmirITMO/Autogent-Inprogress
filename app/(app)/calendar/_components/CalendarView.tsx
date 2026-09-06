@@ -149,9 +149,11 @@ export function CalendarView({
             const seg = weekSegment(weekKeys, task);
             return seg ? [{ task, ...seg }] : [];
           });
+          const visibleSegments = deadlineSegments.slice(0, MAX_DEADLINE_LINES_PER_WEEK);
+          const hiddenCount = deadlineSegments.length - visibleSegments.length;
           return (
-            <div key={weekIndex} className="relative grid min-h-[92px] grid-cols-7 gap-2 overflow-hidden">
-              {week.map((day) => {
+            <div key={weekIndex} className="grid grid-cols-7 gap-x-2 gap-y-1">
+              {week.map((day, dayIndex) => {
                 const key = format(day, "yyyy-MM-dd");
                 const dayEvents = eventsByDay.get(key) ?? [];
                 const inMonth = isSameMonth(day, monthCursor);
@@ -160,6 +162,7 @@ export function CalendarView({
                   <div
                     key={key}
                     onClick={() => setDayDetailDate(day)}
+                    style={{ gridColumn: dayIndex + 1, gridRow: 1 }}
                     className={`group flex min-h-[92px] cursor-pointer flex-col gap-1 rounded-lg border p-1.5 transition hover:border-accent/50 ${
                       inMonth ? "border-border bg-surface" : "border-border/50 bg-surface-2/40"
                     }`}
@@ -191,37 +194,32 @@ export function CalendarView({
                   </div>
                 );
               })}
-              {/* Персональная линия дедлайна — растянута через ячейки недели, у нижнего
-                  края (под чипами/кружками созвонов), не задевает номер дня. Число линий
-                  в строке ограничено — иначе при большом количестве личных задач стек
-                  вылезает за пределы ячейки и перекрывает номер дня. */}
-              {deadlineSegments.slice(0, MAX_DEADLINE_LINES_PER_WEEK).map(({ task, startCol, endCol }, stackIndex) => {
-                const span = endCol - startCol + 1;
+              {/* Персональная линия дедлайна — отдельная grid-строка под ячейками недели,
+                  растянутая через колонки [startCol, endCol] нативным grid-column (без
+                  absolute+calc — так гарантированно не вылезет и не перекроет номер дня).
+                  Число линий ограничено, остальное — "+N ещё". */}
+              {visibleSegments.map(({ task, startCol, endCol }, rowIndex) => {
                 const color = colorForTaskId(task.id);
                 return (
                   <div
                     key={task.id}
-                    className="pointer-events-none absolute flex flex-col items-start overflow-hidden"
-                    style={{
-                      left: `calc(${startCol} * (100% + 0.5rem) / 7)`,
-                      width: `calc((${span} * 100% - ${7 - span} * 0.5rem) / 7)`,
-                      bottom: `${4 + stackIndex * 11}px`,
-                    }}
+                    style={{ gridColumn: `${startCol + 1} / ${endCol + 2}`, gridRow: rowIndex + 2 }}
+                    className="flex min-w-0 flex-col justify-end overflow-hidden px-1.5"
                     title={`${task.title}: до ${task.dueDate}`}
                   >
-                    <span className="max-w-full truncate text-[9px] leading-none" style={{ color }}>
+                    <span className="truncate text-[9px] leading-none" style={{ color }}>
                       {task.title}
                     </span>
                     <span className="mt-0.5 h-[2px] w-full rounded-full" style={{ backgroundColor: color }} />
                   </div>
                 );
               })}
-              {deadlineSegments.length > MAX_DEADLINE_LINES_PER_WEEK && (
+              {hiddenCount > 0 && (
                 <div
-                  className="pointer-events-none absolute text-[9px] leading-none text-muted"
-                  style={{ left: 0, bottom: `${4 + MAX_DEADLINE_LINES_PER_WEEK * 11}px` }}
+                  style={{ gridColumn: "1 / 8", gridRow: visibleSegments.length + 2 }}
+                  className="px-1.5 text-[9px] leading-none text-muted"
                 >
-                  +{deadlineSegments.length - MAX_DEADLINE_LINES_PER_WEEK} ещё
+                  +{hiddenCount} ещё
                 </div>
               )}
             </div>
