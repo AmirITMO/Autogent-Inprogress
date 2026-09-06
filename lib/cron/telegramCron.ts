@@ -1,7 +1,32 @@
 import { prisma } from "@/lib/prisma";
-import { DONE_COLUMN_NAME, IN_PROGRESS_COLUMN_NAME, PAUSED_COLUMN_NAME, TASK_PRIORITY_LABEL } from "@/lib/constants";
+import type { ReminderThreshold } from "@prisma/client";
+import { DONE_COLUMN_NAME, IN_PROGRESS_COLUMN_NAME, PAUSED_COLUMN_NAME } from "@/lib/constants";
 import { sendTelegramMessage } from "@/lib/telegram/send";
 import { escapeHtml, taskLink } from "@/lib/telegram/format";
+
+const DUE_TODAY_DIGEST_TIME = "09:00";
+
+const EVENT_REMINDER_THRESHOLDS: { key: ReminderThreshold; ms: number; hours: number }[] = [
+  { key: "H48", ms: 48 * 60 * 60 * 1000, hours: 48 },
+  { key: "H24", ms: 24 * 60 * 60 * 1000, hours: 24 },
+  { key: "H6", ms: 6 * 60 * 60 * 1000, hours: 6 },
+  { key: "H1", ms: 1 * 60 * 60 * 1000, hours: 1 },
+];
+
+const TASK_DEADLINE_THRESHOLDS = EVENT_REMINDER_THRESHOLDS.filter((t) => t.key === "H48" || t.key === "H24");
+
+function pluralHours(hours: number) {
+  const mod100 = hours % 100;
+  const mod10 = hours % 10;
+  if (mod100 >= 11 && mod100 <= 14) return "часов";
+  if (mod10 === 1) return "час";
+  if (mod10 >= 2 && mod10 <= 4) return "часа";
+  return "часов";
+}
+
+function isUniqueConflict(err: unknown) {
+  return (err as { code?: string } | null)?.code === "P2002";
+}
 
 const SOON_DUE_MS = 2 * 24 * 60 * 60 * 1000; // "горящие" в утреннем отчёте — дедлайн в ближайшие 2 дня
 
@@ -25,7 +50,9 @@ function nowInMoscow() {
   };
 }
 
-let lastDeadlineCheckAt = 0;
+function formatMoscowTime(d: Date) {
+  return d.toLocaleTimeString("ru-RU", { timeZone: TIMEZONE, hour: "2-digit", minute: "2-digit" });
+}
 
 export function startBotCron() {
   if (!process.env.BOT_PUSH_URL) return;
@@ -46,12 +73,12 @@ async function tick() {
   if (time === settings.eveningSummaryTime) {
     await sendEveningSummary(date);
   }
-
-  const intervalMs = settings.deadlineCheckInterval * 60_000;
-  if (Date.now() - lastDeadlineCheckAt >= intervalMs) {
-    lastDeadlineCheckAt = Date.now();
-    await sendDeadlineWarnings();
+  if (time === DUE_TODAY_DIGEST_TIME) {
+    await sendDueTodayDigest(date);
   }
+
+  await sendEventReminders();
+  await sendTaskDeadlineReminders();
 }
 
 // Утренний отчёт — два отдельных сообщения на каждого привязанного сотрудника:
@@ -228,26 +255,98 @@ async function sendEveningSummary(today: string) {
   }
 }
 
-async function sendDeadlineWarnings() {
-  const in24h = new Date(Date.now() + 24 * 60 * 60 * 1000);
+// Напоминания о созвонах всем участникам — за 48/24/6/1 час до начала,
+// дедуп через EventReminderLog (по одной записи на событие+порог).
+async function sendEventReminders() {
+  const now = Date.now();
+  const events = await prisma.calendarEvent.findMany({
+    where: { startAt: { gt: new Date() } },
+    include: { attendees: true, reminderLogs: true },
+  });
+
+  for (const event of events) {
+    for (const threshold of EVENT_REMINDER_THRESHOLDS) {
+      if (now < event.startAt.getTime() - threshold.ms) continue;
+      if (event.reminderLogs.some((l) => l.threshold === threshold.key)) continue;
+
+      const text = `⏰ Через ${threshold.hours} ${pluralHours(threshold.hours)} созвон: «${escapeHtml(event.title)}» в ${formatMoscowTime(event.startAt)}`;
+      for (const attendee of event.attendees) {
+        if (attendee.telegramChatId) await sendTelegramMessage(attendee.telegramChatId, text);
+      }
+
+      try {
+        await prisma.eventReminderLog.create({ data: { eventId: event.id, threshold: threshold.key } });
+      } catch (err) {
+        if (!isUniqueConflict(err)) throw err;
+      }
+    }
+  }
+}
+
+// Напоминания о дедлайне задачи лично исполнителю — за 48/24 часа,
+// дедуп через TaskDeadlineReminderLog (заменяет старую sendDeadlineWarnings()).
+async function sendTaskDeadlineReminders() {
+  const now = Date.now();
   const tasks = await prisma.task.findMany({
     where: {
       archived: false,
-      deadlineReminderSentAt: null,
-      dueDate: { not: null, lte: in24h, gte: new Date() },
+      dueDate: { not: null, gt: new Date() },
       column: { name: { not: DONE_COLUMN_NAME } },
       assignee: { telegramChatId: { not: null } },
     },
-    include: { assignee: true },
+    include: { assignee: true, deadlineReminderLogs: true },
   });
 
   for (const task of tasks) {
-    if (!task.assignee?.telegramChatId) continue;
-    const due = task.dueDate ? task.dueDate.toLocaleString("ru-RU") : "";
-    await sendTelegramMessage(
-      task.assignee.telegramChatId,
-      `🔥 <b>Горит дедлайн!</b>\n«${taskLink(task.id, task.title)}» — срок до ${due} (${TASK_PRIORITY_LABEL[task.priority]})`
-    );
-    await prisma.task.update({ where: { id: task.id }, data: { deadlineReminderSentAt: new Date() } });
+    if (!task.dueDate || !task.assignee?.telegramChatId) continue;
+    for (const threshold of TASK_DEADLINE_THRESHOLDS) {
+      if (now < task.dueDate.getTime() - threshold.ms) continue;
+      if (task.deadlineReminderLogs.some((l) => l.threshold === threshold.key)) continue;
+
+      const text = `🔔 Через ${threshold.hours} ${pluralHours(threshold.hours)} дедлайн: «${taskLink(task.id, task.title)}»`;
+      await sendTelegramMessage(task.assignee.telegramChatId, text);
+
+      try {
+        await prisma.taskDeadlineReminderLog.create({ data: { taskId: task.id, threshold: threshold.key } });
+      } catch (err) {
+        if (!isUniqueConflict(err)) throw err;
+      }
+    }
+  }
+}
+
+// Ежедневный дайджест в 09:00 МСК — отдельный продуктовый пункт, время
+// зафиксировано и не связано с settings.morningSummaryTime. Дедуп по дате,
+// как у telegramMorningSentDate.
+async function sendDueTodayDigest(today: string) {
+  const startOfDay = new Date(`${today}T00:00:00+03:00`);
+  const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
+
+  const users = await prisma.user.findMany({
+    where: {
+      telegramChatId: { not: null },
+      OR: [{ telegramDueTodaySentDate: null }, { telegramDueTodaySentDate: { not: today } }],
+      tasks: {
+        some: { archived: false, dueDate: { gte: startOfDay, lt: endOfDay }, column: { name: { not: DONE_COLUMN_NAME } } },
+      },
+    },
+    select: {
+      id: true,
+      telegramChatId: true,
+      tasks: {
+        where: { archived: false, dueDate: { gte: startOfDay, lt: endOfDay }, column: { name: { not: DONE_COLUMN_NAME } } },
+        select: { id: true, title: true },
+      },
+    },
+  });
+
+  for (const user of users) {
+    if (!user.telegramChatId || !user.tasks.length) continue;
+    const text = [
+      "📌 Сегодня дедлайн — проверь/сдай/актуализируй:",
+      ...user.tasks.map((t) => `• ${taskLink(t.id, t.title)}`),
+    ].join("\n");
+    await sendTelegramMessage(user.telegramChatId, text);
+    await prisma.user.update({ where: { id: user.id }, data: { telegramDueTodaySentDate: today } });
   }
 }
