@@ -257,7 +257,7 @@ async function sendEveningSummary(today: string) {
 
 // Напоминания о созвонах всем участникам — за 48/24/6/1 час до начала,
 // дедуп через EventReminderLog (по одной записи на событие+порог).
-async function sendEventReminders() {
+export async function sendEventReminders() {
   const now = Date.now();
   const events = await prisma.calendarEvent.findMany({
     where: { startAt: { gt: new Date() } },
@@ -285,7 +285,7 @@ async function sendEventReminders() {
 
 // Напоминания о дедлайне задачи лично исполнителю — за 48/24 часа,
 // дедуп через TaskDeadlineReminderLog (заменяет старую sendDeadlineWarnings()).
-async function sendTaskDeadlineReminders() {
+export async function sendTaskDeadlineReminders() {
   const now = Date.now();
   const tasks = await prisma.task.findMany({
     where: {
@@ -318,7 +318,7 @@ async function sendTaskDeadlineReminders() {
 // Ежедневный дайджест в 09:00 МСК — отдельный продуктовый пункт, время
 // зафиксировано и не связано с settings.morningSummaryTime. Дедуп по дате,
 // как у telegramMorningSentDate.
-async function sendDueTodayDigest(today: string) {
+export async function sendDueTodayDigest(today: string) {
   const startOfDay = new Date(`${today}T00:00:00+03:00`);
   const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
 
