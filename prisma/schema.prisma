@@ -51,6 +51,13 @@ enum DeploymentStatus {
   DOWN
 }
 
+enum ReminderThreshold {
+  H48
+  H24
+  H6
+  H1
+}
+
 model User {
   id                 String  @id @default(cuid())
   name               String
@@ -77,6 +84,7 @@ model User {
   telegramUsername        String?
   telegramMorningSentDate String?
   telegramEveningSentDate String?
+  telegramDueTodaySentDate String?
 
   leads                  Lead[]
   leadActivity           LeadActivity[]
@@ -667,9 +675,20 @@ model Task {
   nodes       TaskNode[]
   attachments TaskAttachment[]
   completions TaskCompletion[]
+  deadlineReminderLogs TaskDeadlineReminderLog[]
 
   @@index([projectId])
   @@index([assigneeId])
+}
+
+model TaskDeadlineReminderLog {
+  id        String            @id @default(cuid())
+  taskId    String
+  task      Task              @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  threshold ReminderThreshold
+  sentAt    DateTime          @default(now())
+
+  @@unique([taskId, threshold])
 }
 
 // Отдельный, не зависящий от жизни самой задачи, журнал фактов выполнения.
@@ -792,8 +811,19 @@ model CalendarEvent {
   createdAt   DateTime @default(now())
 
   attendees User[] @relation("EventAttendees")
+  reminderLogs EventReminderLog[]
 
   @@index([startAt])
+}
+
+model EventReminderLog {
+  id        String            @id @default(cuid())
+  eventId   String
+  event     CalendarEvent     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  threshold ReminderThreshold
+  sentAt    DateTime          @default(now())
+
+  @@unique([eventId, threshold])
 }
 
 model Transaction {
