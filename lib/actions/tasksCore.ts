@@ -162,6 +162,13 @@ export async function updateTaskCore(
     },
   });
 
+  // Исполнитель сменился — уже отправленные пороги дедлайна (48ч/24ч) больше не
+  // актуальны для нового человека, сбрасываем лог, чтобы он тоже получил
+  // напоминания за оставшиеся до дедлайна пороги.
+  if (data.assigneeId !== undefined && data.assigneeId !== before.assigneeId) {
+    await prisma.taskDeadlineReminderLog.deleteMany({ where: { taskId } });
+  }
+
   if (data.assigneeId && data.assigneeId !== before.assigneeId && data.assigneeId !== actor.id) {
     const deadlineText = updated.dueDate
       ? `, срок до ${updated.dueDate.toLocaleDateString("ru-RU")}`

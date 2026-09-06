@@ -1,10 +1,26 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { toMoscowParts } from "@/lib/moscowTime";
+import { updateTaskCore } from "@/lib/actions/tasksCore";
 
 const sendTelegramMessage = vi.fn(async (_chatId: bigint | string, _text: string) => {});
 vi.mock("@/lib/telegram/send", () => ({
   sendTelegramMessage: (chatId: bigint | string, text: string) => sendTelegramMessage(chatId, text),
+}));
+
+// tasksCore импортирует getPermissions/assertCanEditTask из lib/roles, а тот
+// модуль тянет next-auth (next/server) — под vitest (не Next.js runtime) это
+// не резолвится. Мокаем как в tests/integration/tasks.test.ts.
+vi.mock("@/lib/roles", () => ({
+  getPermissions: async () => ({
+    editTasksSelf: true,
+    viewAccounting: true,
+    viewChannels: true,
+    editCrm: true,
+    editTasksOthers: true,
+    viewSupport: true,
+  }),
+  assertCanEditTask: async () => {},
 }));
 
 const { sendEventReminders, sendTaskDeadlineReminders, sendDueTodayDigest } = await import(
@@ -149,19 +165,39 @@ describe("sendTaskDeadlineReminders", () => {
     expect(sendTelegramMessage).not.toHaveBeenCalled();
   });
 
-  it("CURRENT BEHAVIOR: reassigning the task after a threshold fired does not reset the log, so the new assignee gets no reminder for that threshold (needs a product decision, see phase 5 note)", async () => {
+  it("resets already-sent threshold logs on reassignment, so the new assignee gets reminded too", async () => {
     const dueDate = new Date(Date.now() + 24 * 60 * 60 * 1000 - 60_000);
     const task = await prisma.task.create({
       data: { columnId, title: "Сдать отчёт", assigneeId: userA.id, dueDate, archived: false },
     });
     await sendTaskDeadlineReminders();
     expect(sendTelegramMessage).toHaveBeenCalledTimes(2); // оба порога (48ч и 24ч) сразу
+    expect(await prisma.taskDeadlineReminderLog.count({ where: { taskId: task.id } })).toBe(2);
 
-    await prisma.task.update({ where: { id: task.id }, data: { assigneeId: userB.id } });
+    await updateTaskCore({ id: "test-admin", role: "ADMIN" }, task.id, { assigneeId: userB.id });
+
+    expect(await prisma.taskDeadlineReminderLog.count({ where: { taskId: task.id } })).toBe(0);
+
     sendTelegramMessage.mockClear();
     await sendTaskDeadlineReminders();
 
-    expect(sendTelegramMessage).not.toHaveBeenCalled();
+    expect(sendTelegramMessage).toHaveBeenCalledTimes(2);
+    for (const call of sendTelegramMessage.mock.calls) {
+      expect(call[0]).toBe(userB.telegramChatId);
+    }
+  });
+
+  it("does not touch threshold logs when the task is updated without changing the assignee", async () => {
+    const dueDate = new Date(Date.now() + 24 * 60 * 60 * 1000 - 60_000);
+    const task = await prisma.task.create({
+      data: { columnId, title: "Сдать отчёт", assigneeId: userA.id, dueDate, archived: false },
+    });
+    await sendTaskDeadlineReminders();
+    expect(await prisma.taskDeadlineReminderLog.count({ where: { taskId: task.id } })).toBe(2);
+
+    await updateTaskCore({ id: "test-admin", role: "ADMIN" }, task.id, { title: "Сдать отчёт (правки)" });
+
+    expect(await prisma.taskDeadlineReminderLog.count({ where: { taskId: task.id } })).toBe(2);
   });
 });
 
