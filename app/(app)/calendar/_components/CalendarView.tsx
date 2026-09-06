@@ -36,6 +36,9 @@ type CalEvent = {
 };
 
 const WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+// Больше линий в одной строке недели просто не помещаются в ячейку (min-h-92px)
+// без наплыва на номер дня следующего ряда — остальные схлопываются в "+N ещё".
+const MAX_DEADLINE_LINES_PER_WEEK = 3;
 
 export function CalendarView({
   initialMonth,
@@ -189,8 +192,10 @@ export function CalendarView({
                 );
               })}
               {/* Персональная линия дедлайна — растянута через ячейки недели, у нижнего
-                  края (под чипами/кружками созвонов), не задевает номер дня. */}
-              {deadlineSegments.map(({ task, startCol, endCol }, stackIndex) => {
+                  края (под чипами/кружками созвонов), не задевает номер дня. Число линий
+                  в строке ограничено — иначе при большом количестве личных задач стек
+                  вылезает за пределы ячейки и перекрывает номер дня. */}
+              {deadlineSegments.slice(0, MAX_DEADLINE_LINES_PER_WEEK).map(({ task, startCol, endCol }, stackIndex) => {
                 const span = endCol - startCol + 1;
                 const color = colorForTaskId(task.id);
                 return (
@@ -211,6 +216,14 @@ export function CalendarView({
                   </div>
                 );
               })}
+              {deadlineSegments.length > MAX_DEADLINE_LINES_PER_WEEK && (
+                <div
+                  className="pointer-events-none absolute text-[9px] leading-none text-muted"
+                  style={{ left: 0, bottom: `${4 + MAX_DEADLINE_LINES_PER_WEEK * 11}px` }}
+                >
+                  +{deadlineSegments.length - MAX_DEADLINE_LINES_PER_WEEK} ещё
+                </div>
+              )}
             </div>
           );
         })}
