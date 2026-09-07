@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-type ChannelRow = { id: string; name: string; leadCount: number };
+type ChannelRow = { id: string; name: string; leadCount: number; newCount?: number };
 
 // Упрощённый список по просьбе пользователя: название канала + счётчик
 // лидов с него справа, плюс один общий счётчик сверху. Каждая строка ведёт
@@ -24,7 +24,11 @@ export function ChannelsView({ channels, totalLeads }: { channels: ChannelRow[];
               className="flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-3 text-sm font-medium text-foreground transition hover:border-accent"
             >
               <span>{c.name}</span>
-              <span className="text-xs font-normal text-muted">Лидов с канала {c.leadCount}</span>
+              <span className="text-xs font-normal text-muted">
+                {c.newCount !== undefined
+                  ? `Новых заявок ${c.newCount} · сделок ${c.leadCount}`
+                  : `Лидов с канала ${c.leadCount}`}
+              </span>
             </Link>
           ))}
         </div>

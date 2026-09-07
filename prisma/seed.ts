@@ -7,7 +7,6 @@ import {
   INCOME_CATEGORIES,
   SCOUT_AGENT_USER_ID,
   B2B_EMAIL_AGENT_USER_ID,
-  WEBSITE_AGENT_USER_ID,
 } from "../lib/constants";
 
 const prisma = new PrismaClient();
@@ -61,22 +60,6 @@ async function main() {
     },
   });
 
-  // Сервисный аккаунт для лидов с сайта autogentgroup.ru (гейтвей пушит напрямую,
-  // без контакта в Telegram — см. website-lead-integration.md).
-  await prisma.user.upsert({
-    where: { id: WEBSITE_AGENT_USER_ID },
-    update: {},
-    create: {
-      id: WEBSITE_AGENT_USER_ID,
-      name: "Сайт (лендинг)",
-      email: "website-agent@autogentgroup.ru",
-      passwordHash: await hash(randomUUID(), 10),
-      role: "EMPLOYEE",
-      isBlocked: true,
-      editCrm: true,
-    },
-  });
-
   // Скрыты из упрощённого списка «Каналы трафика» (архивированы по просьбе
   // пользователя) — сами каналы и вся история/автоматика по ним не тронуты,
   // страницы /channels/[id] продолжают работать как раньше.
@@ -104,6 +87,16 @@ async function main() {
     create: { id: "channel-tg-autocomment", name: "Автокомментинг в Telegram", type: "TG_AUTOCOMMENT" },
   });
 
+  // Заявки с лендинга autogentgroup.ru — push от gateway (autogent-react),
+  // фиксированный id захардкожен в его .env. Тип WEBSITE, не MANUAL: заявка
+  // попадает как WebsiteContact, в CRM-воронку — только вручную сотрудником
+  // (см. website-lead-integration.md).
+  await prisma.trafficChannel.upsert({
+    where: { id: "channel-website" },
+    update: { type: "WEBSITE" },
+    create: { id: "channel-website", name: "Сайт", type: "WEBSITE" },
+  });
+
   // Упрощённый список «Каналы трафика» — просто именованные бакеты без
   // отдельного агента/автоматики за ними (пока), порядок сверху вниз задан
   // полем order. Переход на детальную страницу каждого канала — отдельная
@@ -119,9 +112,6 @@ async function main() {
     { id: "channel-partnerships", name: "Партнёрство" },
     { id: "channel-word-of-mouth", name: "Сарафан" },
     { id: "channel-sales-dept", name: "Отдел продаж" },
-    // Фиксированный id — гейтвей на стороне autogent-react хардкодит его в
-    // .env, без похода в UI за сгенерированным cuid (см. website-lead-integration.md).
-    { id: "channel-website", name: "Сайт" },
   ];
   for (let i = 0; i < SIMPLE_TRAFFIC_CHANNELS.length; i++) {
     const { id, name } = SIMPLE_TRAFFIC_CHANNELS[i];

@@ -161,6 +161,7 @@ model Lead {
   scoutContact        ScoutAgentContact?
   instagramContact    InstagramContact?
   b2bEmailContact     B2bEmailContact?
+  websiteContact      WebsiteContact?
   supportedDeployment SupportedDeployment?
 
   @@index([stage])
@@ -202,6 +203,7 @@ enum TrafficChannelType {
   INSTAGRAM
   B2B_EMAIL
   TG_AUTOCOMMENT
+  WEBSITE
 }
 
 model TrafficChannel {
@@ -229,6 +231,7 @@ model TrafficChannel {
   tgCommentDrafts         TgCommentDraft[]
   tgCommentSnapshots      TgCommentMetricSnapshot[]
   outreachBatches         ChannelOutreachBatch[]
+  websiteContacts         WebsiteContact[]
 }
 
 // Единая база знаний/правил на канал, редактируемая через чат в разделе
@@ -372,6 +375,38 @@ model InstagramSearchProfile {
   jobs InstagramScrapeJob[]
 
   @@index([channelId])
+}
+
+enum WebsiteContactStatus {
+  NEW
+  DECLINED
+  LEAD_CREATED
+}
+
+// Заявка/квалификация с лендинга autogentgroup.ru — приходит push'ом от gateway
+// (agent-backend/gateway в autogent-react) при отправке формы или завершении
+// квалификационного чата. В CRM-воронку попадает только вручную: сотрудник
+// открывает /channels/channel-website и сам решает, заводить сделку или
+// отклонить — тот же принцип, что у InstagramContact (контакт != сделка,
+// пока человек не подтвердил).
+model WebsiteContact {
+  id          String               @id @default(cuid())
+  channelId   String
+  channel     TrafficChannel       @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  externalId  String
+  title       String
+  company     String?
+  description String?              @db.Text
+  contactName String?
+  contact     String?
+  status      WebsiteContactStatus @default(NEW)
+  leadId      String?              @unique
+  lead        Lead?                @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  createdAt   DateTime             @default(now())
+
+  @@unique([channelId, externalId])
+  @@index([channelId, createdAt])
+  @@index([status])
 }
 
 enum InstagramJobStatus {

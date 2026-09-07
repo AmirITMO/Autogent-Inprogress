@@ -8,6 +8,7 @@ import { InstagramDashboard } from "./_components/InstagramDashboard";
 import { B2bEmailDashboard } from "./_components/B2bEmailDashboard";
 import { TgAutoCommentDashboard } from "./_components/TgAutoCommentDashboard";
 import { ManualChannelDashboard } from "./_components/ManualChannelDashboard";
+import { WebsiteDashboard } from "./_components/WebsiteDashboard";
 import { listPartnersWithStats } from "@/lib/actions/partners";
 import { getYoutubeConnectionStatus } from "@/lib/actions/youtube";
 import { listReelsAccounts } from "@/lib/actions/instagramReels";
@@ -18,6 +19,7 @@ const TYPE_SUBTITLE: Record<string, string> = {
   B2B_EMAIL: "Аналитика email-рассылок: контакты, диалоги, фоллоу-апы",
   TG_AUTOCOMMENT: "Черновики комментариев под чужими постами — публикация только после одобрения",
   MANUAL: "Аналитика и отчётность по каналу",
+  WEBSITE: "Заявки с лендинга — в сделку превращает сотрудник вручную",
 };
 
 const PARTNERSHIP_CHANNEL_ID = "channel-partnerships";
@@ -45,7 +47,34 @@ export default async function ChannelDetailPage({ params }: { params: Promise<{ 
       {channel.type === "B2B_EMAIL" && <B2bEmailChannel channelId={id} />}
       {channel.type === "TG_AUTOCOMMENT" && <TgAutoCommentChannel channelId={id} />}
       {channel.type === "MANUAL" && <ManualChannel channelId={id} channelName={channel.name} />}
+      {channel.type === "WEBSITE" && <WebsiteChannel channelId={id} />}
     </div>
+  );
+}
+
+async function WebsiteChannel({ channelId }: { channelId: string }) {
+  const contacts = await prisma.websiteContact.findMany({
+    where: { channelId },
+    orderBy: { createdAt: "desc" },
+    take: 500,
+    include: { lead: { select: { id: true, stage: true } } },
+  });
+
+  return (
+    <WebsiteDashboard
+      contacts={contacts.map((c) => ({
+        id: c.id,
+        title: c.title,
+        company: c.company,
+        description: c.description,
+        contactName: c.contactName,
+        contact: c.contact,
+        status: c.status,
+        createdAt: c.createdAt.toISOString(),
+        leadId: c.leadId,
+        leadStage: c.lead?.stage ?? null,
+      }))}
+    />
   );
 }
 
