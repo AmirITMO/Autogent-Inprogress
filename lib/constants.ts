@@ -24,6 +24,10 @@ export const SCOUT_AGENT_USER_ID = "user-scout-agent";
 // своего сервисного User нет: там лид заводит вручную реальный сотрудник через UI.
 export const B2B_EMAIL_AGENT_USER_ID = "user-b2b-email-agent";
 
+// Сервисный User для лидов с сайта — тот же приём, что у скаута и B2B-агента:
+// лид создаётся без участия конкретного сотрудника, сотрудник переназначает вручную.
+export const WEBSITE_AGENT_USER_ID = "user-website-agent";
+
 export const TASK_PRIORITIES = ["P0", "P1", "P2", "P3"] as const;
 
 export const TASK_PRIORITY_LABEL: Record<string, string> = {
