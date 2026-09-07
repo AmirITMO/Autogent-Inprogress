@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { TASK_PRIORITY_COLOR, TASK_PRIORITY_LABEL } from "@/lib/constants";
 import { IconBug, IconComment, IconPaperclip } from "@/components/icons";
+import { toMoscowParts } from "@/lib/moscowTime";
 
 export type TaskCardData = {
   id: string;
@@ -18,6 +19,7 @@ export type TaskCardData = {
   projectName: string | null;
   commentCount: number;
   attachmentCount?: number;
+  updatedAt: string;
 };
 
 export function blankTaskCard(id: string): TaskCardData {
@@ -37,7 +39,17 @@ export function blankTaskCard(id: string): TaskCardData {
     projectName: null,
     commentCount: 0,
     attachmentCount: 0,
+    updatedAt: new Date().toISOString(),
   };
+}
+
+// Время последнего изменения задачи (переезд между колонками, редактирование
+// полей и т.п.) — Prisma сама обновляет Task.updatedAt на каждый update(),
+// так что это уже фактически "время последнего движения" без отдельного поля.
+function formatUpdatedAt(iso: string) {
+  const { dateKey, timeLabel } = toMoscowParts(iso);
+  const [y, m, d] = dateKey.split("-");
+  return `${timeLabel} ${d}.${m}.${y}`;
 }
 
 function initials(name: string) {
@@ -135,6 +147,7 @@ export function TaskCard({
           </span>
         )}
       </div>
+      <div className="mt-1 text-[10px] text-muted/70">Изменено: {formatUpdatedAt(task.updatedAt)}</div>
     </button>
   );
 }

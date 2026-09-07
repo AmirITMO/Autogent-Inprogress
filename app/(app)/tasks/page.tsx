@@ -64,6 +64,7 @@ export default async function TasksPage() {
       projectName: t.project && t.project.name !== "Общий" ? t.project.name : null,
       commentCount: t._count.comments,
       attachmentCount: t._count.attachments,
+      updatedAt: t.updatedAt.toISOString(),
     })),
   }));
 
