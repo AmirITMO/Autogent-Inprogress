@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   DndContext,
   DragOverlay,
+  MeasuringStrategy,
   PointerSensor,
   closestCorners,
   useSensor,
@@ -126,6 +127,7 @@ export function KanbanBoard<T extends KanbanItem>({
     <DndContext
       sensors={sensors}
       collisionDetection={closestCorners}
+      measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
