@@ -74,15 +74,29 @@ export async function moveTaskCore(actor: Actor, taskId: string, toColumnId: str
   await assertCanEditTask(actor.id, actor.role, task.assigneeId);
   const toColumn = await prisma.taskColumn.findUniqueOrThrow({ where: { id: toColumnId } });
 
+  const statusChanged = task.columnId !== toColumnId;
+
   const siblings = await prisma.task.findMany({
     where: { columnId: toColumnId, id: { not: taskId } },
     orderBy: { order: "asc" },
   });
   siblings.splice(toIndex, 0, { ...task, columnId: toColumnId });
 
+  // Переиндексация order пишется для всех соседей колонки, но Prisma бампает
+  // updatedAt на любой update() — а "последнее изменение" должно отражать
+  // только смену статуса (колонки) самой перемещаемой задачи, не чужой
+  // reorder и не собственное перемещение внутри той же колонки. Поэтому
+  // явно возвращаем прежний updatedAt всем, кроме случая реальной смены колонки.
   await prisma.$transaction(
     siblings.map((s, idx) =>
-      prisma.task.update({ where: { id: s.id }, data: { order: idx, columnId: toColumnId } })
+      prisma.task.update({
+        where: { id: s.id },
+        data: {
+          order: idx,
+          columnId: toColumnId,
+          updatedAt: s.id === taskId && statusChanged ? new Date() : s.updatedAt,
+        },
+      })
     )
   );
 

@@ -78,6 +78,40 @@ describe("moveTask", () => {
     expect(inColumnB.map((t) => t.id)).toEqual([t2.id, t1.id]);
     expect(inColumnB.map((t) => t.order)).toEqual([0, 1]);
   });
+
+  it("does not touch updatedAt of tasks already sitting in the destination column", async () => {
+    const t1 = await createTask({ columnId: columnB, title: "T1" });
+    const t2 = await createTask({ columnId: columnA, title: "T2" });
+    const t1Before = await prisma.task.findUniqueOrThrow({ where: { id: t1.id } });
+
+    await moveTask(t2.id, columnB, 0);
+
+    const t1After = await prisma.task.findUniqueOrThrow({ where: { id: t1.id } });
+    expect(t1After.updatedAt.getTime()).toBe(t1Before.updatedAt.getTime());
+  });
+
+  it("bumps updatedAt of the moved task only when its column actually changes", async () => {
+    const task = await createTask({ columnId: columnA, title: "T1" });
+    const before = await prisma.task.findUniqueOrThrow({ where: { id: task.id } });
+
+    await moveTask(task.id, columnB, 0);
+
+    const afterColumnChange = await prisma.task.findUniqueOrThrow({ where: { id: task.id } });
+    expect(afterColumnChange.updatedAt.getTime()).toBeGreaterThan(before.updatedAt.getTime());
+  });
+
+  it("does not bump updatedAt when reordering within the same column", async () => {
+    const t1 = await createTask({ columnId: columnA, title: "T1" });
+    const t2 = await createTask({ columnId: columnA, title: "T2" });
+    const t2Before = await prisma.task.findUniqueOrThrow({ where: { id: t2.id } });
+
+    // Переставляем t2 перед t1 внутри той же колонки — статус (columnId) не меняется.
+    await moveTask(t2.id, columnA, 0);
+
+    const t2After = await prisma.task.findUniqueOrThrow({ where: { id: t2.id } });
+    expect(t2After.order).toBe(0);
+    expect(t2After.updatedAt.getTime()).toBe(t2Before.updatedAt.getTime());
+  });
 });
 
 describe("updateTask", () => {
