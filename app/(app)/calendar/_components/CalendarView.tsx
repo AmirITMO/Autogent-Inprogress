@@ -184,7 +184,7 @@ export function CalendarView({
                     {dayEvents.length > 0 && (
                       <div className="flex flex-wrap items-center gap-1 px-0.5">
                         {dayEvents.slice(0, 5).map((ev) => (
-                          <span key={ev.id} className="h-1.5 w-1.5 rounded-full bg-accent-2" title={ev.title} />
+                          <span key={ev.id} className="h-2.5 w-2.5 rounded-full bg-accent-2" title={ev.title} />
                         ))}
                         {dayEvents.length > 5 && (
                           <span className="text-[10px] text-muted">+{dayEvents.length - 5}</span>
