@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/roles";
+import { notifyUser } from "@/lib/notify";
 import {
   createTaskCore,
   moveTaskCore,
@@ -11,6 +12,8 @@ import {
   archiveTaskCore,
   unarchiveTaskCore,
 } from "./tasksCore";
+
+const COMMENT_PREVIEW_MAX_LENGTH = 140;
 
 export async function createTask(data: {
   columnId: string;
@@ -126,6 +129,11 @@ export async function addTaskComment(
   attachmentIds?: string[]
 ) {
   const user = await requireUser();
+  const task = await prisma.task.findUniqueOrThrow({
+    where: { id: taskId },
+    select: { title: true, assigneeId: true },
+  });
+
   const comment = await prisma.taskComment.create({
     data: { taskId, userId: user.id, text, attachmentUrl },
   });
@@ -142,7 +150,23 @@ export async function addTaskComment(
     include: { user: COMMENT_AUTHOR_SELECT, attachments: COMMENT_ATTACHMENTS_SELECT },
   });
 
+  // Уведомляем исполнителя задачи о новом комментарии — но не самого себя,
+  // если комментирует он же. Тот же канал (Notification + Telegram-пуш),
+  // что и для TASK_ASSIGNED.
+  if (task.assigneeId && task.assigneeId !== user.id) {
+    const preview =
+      text.length > COMMENT_PREVIEW_MAX_LENGTH ? `${text.slice(0, COMMENT_PREVIEW_MAX_LENGTH)}…` : text;
+    await notifyUser({
+      userId: task.assigneeId,
+      type: "TASK_COMMENT",
+      title: `Новый комментарий к задаче «${task.title}»`,
+      body: `${user.name}: ${preview}`,
+      link: `/tasks?task=${taskId}`,
+    });
+  }
+
   revalidatePath("/tasks");
+  revalidatePath("/my");
   return full;
 }
 

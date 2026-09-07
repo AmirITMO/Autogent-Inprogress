@@ -171,4 +171,36 @@ describe("comments", () => {
     const updated = await prisma.taskAttachment.findUniqueOrThrow({ where: { id: file.id } });
     expect(updated.commentId).toBe(comment.id);
   });
+
+  it("notifies the assignee about a new comment, but not the commenter about their own", async () => {
+    const assignee = await prisma.user.create({
+      data: { name: "Исполнитель", email: `assignee-${Date.now()}@test.local`, passwordHash: "x" },
+    });
+    // createTask сам уже шлёт TASK_ASSIGNED назначенному — комментарий должен
+    // добавить ровно одно новое уведомление именно типа TASK_COMMENT.
+    const task = await createTask({ columnId: columnA, title: "Задача", assigneeId: assignee.id });
+
+    await addTaskComment(task.id, "проверь, пожалуйста");
+
+    const commentNotifications = await prisma.notification.findMany({
+      where: { userId: assignee.id, type: "TASK_COMMENT" },
+    });
+    expect(commentNotifications).toHaveLength(1);
+    expect(commentNotifications[0].link).toBe(`/tasks?task=${task.id}`);
+    expect(commentNotifications[0].body).toContain("проверь, пожалуйста");
+
+    const selfNotifications = await prisma.notification.findMany({
+      where: { userId: testUser.id, type: "TASK_COMMENT" },
+    });
+    expect(selfNotifications).toHaveLength(0);
+  });
+
+  it("does not notify anyone when the assignee comments on their own task", async () => {
+    const task = await createTask({ columnId: columnA, title: "Задача", assigneeId: testUser.id });
+
+    await addTaskComment(task.id, "себе на заметку");
+
+    const notifications = await prisma.notification.findMany({ where: { userId: testUser.id } });
+    expect(notifications).toHaveLength(0);
+  });
 });

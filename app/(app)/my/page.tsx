@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireUser, getPermissions } from "@/lib/roles";
+import { getUnreadCommentTaskIds } from "@/lib/actions/notifications";
 import { MyTasksList } from "./_components/MyTasksList";
 
 export default async function MyTasksPage() {
@@ -27,9 +28,10 @@ export default async function MyTasksPage() {
     select: { avatarUrl: true },
   });
 
-  const [users, projects] = await Promise.all([
+  const [users, projects, unreadCommentTaskIds] = await Promise.all([
     prisma.user.findMany({ where: { isBlocked: false }, select: { id: true, name: true } }),
     prisma.project.findMany({ orderBy: { order: "asc" }, select: { id: true, name: true } }),
+    getUnreadCommentTaskIds(),
   ]);
 
   const serialized = tasks.map((t) => ({
@@ -49,6 +51,7 @@ export default async function MyTasksPage() {
     commentCount: t._count.comments,
     attachmentCount: t._count.attachments,
     updatedAt: t.updatedAt.toISOString(),
+    hasUnreadComment: unreadCommentTaskIds.has(t.id),
     columnName: t.column.name,
   }));
 

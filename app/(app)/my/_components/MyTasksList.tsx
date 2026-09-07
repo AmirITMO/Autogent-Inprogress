@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { TASK_PRIORITY_COLOR, TASK_PRIORITY_LABEL, DONE_COLUMN_NAME } from "@/lib/constants";
+import { markTaskCommentNotificationsRead } from "@/lib/actions/notifications";
 import { TaskModal, type TaskPermFlags } from "../../tasks/_components/TaskModal";
 import type { TaskCardData } from "../../tasks/_components/TaskCard";
 
@@ -22,10 +23,17 @@ export function MyTasksList({
   const open = tasks.filter((t) => t.columnName !== DONE_COLUMN_NAME);
   const done = tasks.filter((t) => t.columnName === DONE_COLUMN_NAME);
 
+  function openTask(t: MyTask) {
+    setActive(t);
+    if (t.hasUnreadComment) {
+      markTaskCommentNotificationsRead(t.id);
+    }
+  }
+
   return (
     <div className="flex-1 overflow-y-auto p-5">
-      <Section title={`Активные (${open.length})`} tasks={open} onOpen={setActive} />
-      <Section title={`Выполненные (${done.length})`} tasks={done} onOpen={setActive} muted />
+      <Section title={`Активные (${open.length})`} tasks={open} onOpen={openTask} />
+      <Section title={`Выполненные (${done.length})`} tasks={done} onOpen={openTask} muted />
 
       {active && (
         <TaskModal
@@ -70,7 +78,12 @@ function Section({
               }`}
             >
               <div>
-                <div className="text-sm font-medium text-foreground">{t.title}</div>
+                <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                  {t.hasUnreadComment && (
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-danger" title="Новый комментарий" />
+                  )}
+                  {t.title}
+                </div>
                 <div className="mt-1 flex items-center gap-2 text-xs text-muted">
                   <span>{t.columnName}</span>
                   {t.projectName && <span>· {t.projectName}</span>}

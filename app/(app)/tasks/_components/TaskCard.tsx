@@ -20,6 +20,7 @@ export type TaskCardData = {
   commentCount: number;
   attachmentCount?: number;
   updatedAt: string;
+  hasUnreadComment?: boolean;
 };
 
 export function blankTaskCard(id: string): TaskCardData {
@@ -128,8 +129,15 @@ export function TaskCard({
           </span>
         )}
         {task.commentCount > 0 && (
-          <span className="flex items-center gap-1 text-[10px] text-muted">
+          <span
+            className={`relative flex items-center gap-1 text-[10px] ${
+              task.hasUnreadComment ? "font-medium text-accent" : "text-muted"
+            }`}
+          >
             <IconComment className="h-3 w-3" /> {task.commentCount}
+            {task.hasUnreadComment && (
+              <span className="absolute -right-1.5 -top-1 h-1.5 w-1.5 rounded-full bg-danger" title="Новый комментарий" />
+            )}
           </span>
         )}
         {!!task.attachmentCount && (

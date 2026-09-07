@@ -42,6 +42,7 @@ enum NotificationType {
   TASK_ASSIGNED
   CALL_INVITED
   INCIDENT_ALERT
+  TASK_COMMENT
 }
 
 enum DeploymentStatus {

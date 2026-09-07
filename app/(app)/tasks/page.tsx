@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireUser, getPermissions } from "@/lib/roles";
+import { getUnreadCommentTaskIds } from "@/lib/actions/notifications";
 import { TasksView } from "./_components/TasksView";
 
 export default async function TasksPage() {
@@ -32,9 +33,10 @@ export default async function TasksPage() {
     },
   });
 
-  const [users, projects] = await Promise.all([
+  const [users, projects, unreadCommentTaskIds] = await Promise.all([
     prisma.user.findMany({ where: { isBlocked: false }, select: { id: true, name: true } }),
     prisma.project.findMany({ orderBy: { order: "asc" }, select: { id: true, name: true } }),
+    getUnreadCommentTaskIds(),
   ]);
 
   if (!board) {
@@ -65,6 +67,7 @@ export default async function TasksPage() {
       commentCount: t._count.comments,
       attachmentCount: t._count.attachments,
       updatedAt: t.updatedAt.toISOString(),
+      hasUnreadComment: unreadCommentTaskIds.has(t.id),
     })),
   }));
 

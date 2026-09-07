@@ -6,6 +6,7 @@ import { useDebouncedCallback } from "use-debounce";
 import { KanbanBoard, type KanbanColumnData } from "@/components/kanban/KanbanBoard";
 import { TASK_PRIORITIES, TASK_PRIORITY_LABEL, DONE_COLUMN_NAME } from "@/lib/constants";
 import { createTask, moveTask } from "@/lib/actions/tasks";
+import { markTaskCommentNotificationsRead } from "@/lib/actions/notifications";
 import { TaskCard, blankTaskCard, type TaskCardData } from "./TaskCard";
 import { TaskModal, type TaskPermFlags } from "./TaskModal";
 
@@ -48,6 +49,9 @@ export function TasksBoard({
   function openTask(task: TaskCardData, columnName: string) {
     setActiveTask(task);
     setActiveColumnName(columnName);
+    if (task.hasUnreadComment) {
+      markTaskCommentNotificationsRead(task.id);
+    }
   }
 
   const searchParams = useSearchParams();
