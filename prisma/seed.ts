@@ -97,6 +97,16 @@ async function main() {
     create: { id: "channel-website", name: "Сайт", type: "WEBSITE" },
   });
 
+  // Тот же gateway обслуживает и autogent.ru (мебельный лендинг) — свой канал,
+  // чтобы заявки с двух разных бизнесов не сливались в одну таблицу под общим
+  // "Сайт". Gateway различает источник по source="furniture-landing"/
+  // profile="furniture" и шлёт сюда через WEBSITE_CHANNEL_ID_FURNITURE.
+  await prisma.trafficChannel.upsert({
+    where: { id: "channel-website-furniture" },
+    update: { type: "WEBSITE" },
+    create: { id: "channel-website-furniture", name: "Сайт (мебель)", type: "WEBSITE" },
+  });
+
   // Упрощённый список «Каналы трафика» — просто именованные бакеты без
   // отдельного агента/автоматики за ними (пока), порядок сверху вниз задан
   // полем order. Переход на детальную страницу каждого канала — отдельная
