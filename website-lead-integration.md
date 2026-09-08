@@ -1,8 +1,23 @@
 # Приём заявок с сайта в «Каналы трафика» → «Сайт»
 
-Лендинг `autogentgroup.ru` (`autogent-react`, `agent-backend/gateway/main.py`) пушит сюда заявки
-с контактом. Реализовано и задеплоено (2026-09-08). Этот файл — теперь просто документация того,
-как это устроено, на случай следующих правок.
+Лендинги `autogentgroup.ru` и `autogent.ru` (оба — один и тот же процесс `agent-backend/gateway`
+из репозитория `autogent-react`, `main.py`) пушат сюда заявки с контактом. Реализовано и задеплоено
+(2026-09-08). Этот файл — теперь просто документация того, как это устроено, на случай следующих
+правок.
+
+## Два канала на один gateway
+
+Один и тот же процесс gateway обслуживает оба лендинга (у каждого свой nginx-сайт с `proxy_pass`
+на один и тот же `127.0.0.1:8000`). Чтобы заявки двух разных бизнесов не сливались в одну таблицу,
+у каждого лендинга свой канал:
+
+- `channel-website` («Сайт») — autogentgroup.ru, `WEBSITE_CHANNEL_ID` в `.env` gateway;
+- `channel-website-furniture` («Сайт (мебель)») — autogent.ru, `WEBSITE_CHANNEL_ID_FURNITURE`.
+
+Gateway выбирает канал в `_channel_for()` (`agent-backend/gateway/main.py`) по полю `source` в
+данных лида: `"furniture"`/`"furniture-landing"` → мебельный канал, всё остальное → `channel-website`.
+Если появится третий лендинг на этом же gateway — по аналогии: свой `TrafficChannel` в
+`prisma/seed.ts`, своя переменная окружения, новая ветка в `_channel_for()`.
 
 ## Как это работает
 
@@ -12,9 +27,11 @@
 2. Gateway шлёт `POST /api/integrations/website/contacts` с `X-Api-Key: WEBSITE_API_KEY` —
    создаёт **`WebsiteContact`**, НЕ `Lead`. Идемпотентно: upsert по `(channelId, externalId)`,
    `externalId` = session_id с сайта.
-3. Админам уходит Telegram-уведомление (`notifyNewWebsiteContact`) — только заголовок и ссылка
-   на `/channels/channel-website`, без контакта/описания в тексте. Шлётся один раз на новый
-   `externalId` (не при апдейте существующего).
+3. Админам уходит Telegram-уведомление (`notifyNewWebsiteContact`) — заголовок «Новый лид с сайта»,
+   название канала (`Канал: Сайт` / `Канал: Сайт (мебель)`) и ссылка на нужный `/channels/<id>`.
+   Тело уведомления НЕ берёт `contact.title` напрямую: gateway кладёт туда имя человека, когда нет
+   названия компании (короткая форма — только имя и телефон), так что `title` тоже потенциальное
+   ПДн, а не безопасный ярлык. Шлётся один раз на новый `externalId` (не при апдейте существующего).
 4. **В CRM-воронку (`Lead`) заявка попадает только вручную.** Сотрудник открывает
    `/channels/channel-website`, видит таблицу заявок (`WebsiteDashboard.tsx`) и жмёт «Создать
    сделку» (`convertWebsiteContactToLead`) или «Отказ» (`declineWebsiteContact`). Тот же принцип,
