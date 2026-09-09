@@ -1,14 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   DndContext,
   DragOverlay,
   MeasuringStrategy,
   PointerSensor,
   closestCorners,
+  pointerWithin,
   useSensor,
   useSensors,
+  type CollisionDetection,
   type DragEndEvent,
   type DragOverEvent,
   type DragStartEvent,
@@ -19,6 +21,17 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { KanbanColumn } from "./KanbanColumn";
+import { HorizontalScrollbar } from "./HorizontalScrollbar";
+
+// closestCorners меряет расстояние от всех 4 углов каждого droppable — в узких
+// колонках с высокими карточками это "скачет" между соседними целями и не даёт
+// карточке магнититься к курсору. pointerWithin (попадание курсора в droppable)
+// работает интуитивно почти всегда; closestCorners — только как фолбэк, когда
+// курсор вышел за пределы всех droppable (например, ниже последней карточки).
+const collisionDetection: CollisionDetection = (args) => {
+  const pointerCollisions = pointerWithin(args);
+  return pointerCollisions.length > 0 ? pointerCollisions : closestCorners(args);
+};
 
 export type KanbanItem = { id: string };
 export type KanbanColumnData<T extends KanbanItem> = {
@@ -44,6 +57,7 @@ export function KanbanBoard<T extends KanbanItem>({
   const [prevColumns, setPrevColumns] = useState(columns);
   const [cols, setCols] = useState(columns);
   const [activeItem, setActiveItem] = useState<T | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   if (columns !== prevColumns) {
     setPrevColumns(columns);
@@ -126,22 +140,26 @@ export function KanbanBoard<T extends KanbanItem>({
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCorners}
+      collisionDetection={collisionDetection}
       measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
-      <div className="flex h-full gap-4 overflow-x-auto p-4">
-        {cols.map((col) => (
-          <SortableContext
-            key={col.id}
-            items={col.items.map((i) => i.id)}
-            strategy={verticalListSortingStrategy}
-          >
-            <KanbanColumn column={col} renderCard={renderCard} canDrag={canDrag} />
-          </SortableContext>
-        ))}
+      <div className="flex h-full flex-col">
+        <HorizontalScrollbar targetRef={scrollRef} />
+        <div ref={scrollRef} className="flex min-h-0 flex-1 gap-4 overflow-x-auto p-4">
+          {cols.map((col) => (
+            <SortableContext
+              key={col.id}
+              items={col.items.map((i) => i.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <KanbanColumn column={col} renderCard={renderCard} canDrag={canDrag} />
+            </SortableContext>
+          ))}
+        </div>
+        <HorizontalScrollbar targetRef={scrollRef} />
       </div>
       <DragOverlay>
         {activeItem ? renderCard(activeItem, true) : null}
