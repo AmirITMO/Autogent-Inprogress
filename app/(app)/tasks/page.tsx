@@ -55,6 +55,7 @@ export default async function TasksPage() {
       title: t.title,
       description: t.description,
       priority: t.priority,
+      color: t.color,
       isBug: t.isBug,
       estimateHours: t.estimateHours ? Number(t.estimateHours) : null,
       dueDate: t.dueDate ? t.dueDate.toISOString() : null,

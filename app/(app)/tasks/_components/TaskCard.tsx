@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { TASK_PRIORITY_COLOR, TASK_PRIORITY_LABEL } from "@/lib/constants";
+import { TASK_PRIORITY_COLOR, TASK_PRIORITY_LABEL, TASK_COLOR_STYLE, type TaskColorId } from "@/lib/constants";
 import { IconBug, IconComment, IconPaperclip } from "@/components/icons";
 import { toMoscowParts } from "@/lib/moscowTime";
 
@@ -8,6 +8,7 @@ export type TaskCardData = {
   title: string;
   description: string | null;
   priority: string;
+  color: TaskColorId | null;
   isBug: boolean;
   estimateHours: number | null;
   dueDate: string | null;
@@ -29,6 +30,7 @@ export function blankTaskCard(id: string): TaskCardData {
     title: "",
     description: null,
     priority: "P2",
+    color: null,
     isBug: false,
     estimateHours: null,
     dueDate: null,
@@ -95,12 +97,15 @@ export function TaskCard({
 }) {
   // Выполненная задача не может считаться просроченной, даже если дедлайн уже прошёл.
   const overdue = !done && task.dueDate && new Date(task.dueDate) < new Date();
+  const colorStyle = task.color ? TASK_COLOR_STYLE[task.color] : null;
 
   return (
     <button
       onClick={onOpen}
-      className={`w-full rounded-xl border border-border bg-surface p-3.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-accent/50 hover:shadow-md ${
-        dragging ? "shadow-xl" : ""
+      style={colorStyle ? { backgroundColor: colorStyle.bg, borderColor: colorStyle.border } : undefined}
+      className={`w-full rounded-xl border p-3.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${
+        colorStyle ? "" : "border-border bg-surface hover:border-accent/50"
+      } ${dragging ? "shadow-xl" : ""
       }`}
     >
       <div className="flex items-start justify-between gap-2">

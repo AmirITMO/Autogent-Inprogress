@@ -9,7 +9,14 @@ import {
   deleteTaskAttachment,
 } from "@/lib/actions/attachments";
 import { listTaskNodes } from "@/lib/actions/taskNodes";
-import { TASK_PRIORITIES, TASK_PRIORITY_LABEL, DONE_COLUMN_NAME } from "@/lib/constants";
+import {
+  TASK_PRIORITIES,
+  TASK_PRIORITY_LABEL,
+  DONE_COLUMN_NAME,
+  TASK_COLORS,
+  TASK_COLOR_STYLE,
+  type TaskColorId,
+} from "@/lib/constants";
 import type { TaskCardData } from "./TaskCard";
 import { TaskMindMap, type MindNodeRow } from "./TaskMindMap";
 import { IconBug, IconPaperclip, IconLink } from "@/components/icons";
@@ -91,6 +98,7 @@ export function TaskModal({
     description: task.description ?? "",
     assigneeId: task.assigneeId ?? "",
     priority: task.priority,
+    color: task.color,
     isBug: task.isBug,
     estimateHours: task.estimateHours != null ? String(task.estimateHours) : "",
     projectId: (task as unknown as { projectId?: string }).projectId ?? "",
@@ -152,6 +160,7 @@ export function TaskModal({
       description: form.description,
       assigneeId: form.assigneeId || null,
       priority: form.priority as "P0" | "P1" | "P2" | "P3",
+      color: form.color,
       isBug: form.isBug,
       estimateHours: hoursNum,
       projectId: form.projectId || null,
@@ -408,6 +417,38 @@ export function TaskModal({
                 <IconBug className="h-4 w-4" /> {form.isBug ? "Это баг" : "Отметить как баг"}
               </button>
             </Field>
+          </div>
+
+          <div className="mt-3 flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-muted">Цвет карточки</label>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                disabled={!canEdit}
+                onClick={() => setForm((f) => ({ ...f, color: null }))}
+                title="Без цвета"
+                aria-label="Без цвета"
+                className={`flex h-7 w-7 items-center justify-center rounded-full border-2 bg-surface text-xs text-muted disabled:opacity-60 ${
+                  form.color === null ? "border-accent" : "border-border"
+                }`}
+              >
+                ✕
+              </button>
+              {TASK_COLORS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  disabled={!canEdit}
+                  onClick={() => setForm((f) => ({ ...f, color: c as TaskColorId }))}
+                  title={TASK_COLOR_STYLE[c].label}
+                  aria-label={TASK_COLOR_STYLE[c].label}
+                  style={{ background: TASK_COLOR_STYLE[c].bg, borderColor: TASK_COLOR_STYLE[c].border }}
+                  className={`h-7 w-7 rounded-full border-2 disabled:opacity-60 ${
+                    form.color === c ? "ring-2 ring-accent ring-offset-1" : ""
+                  }`}
+                />
+              ))}
+            </div>
           </div>
 
           <div className="mt-2 text-xs text-muted">Колонка: {columnName}</div>

@@ -125,6 +125,20 @@ describe("updateTask", () => {
     expect(Number(updated.estimateHours)).toBe(4);
   });
 
+  it("sets and clears the card color; defaults to null (no color)", async () => {
+    const task = await createTask({ columnId: columnA, title: "Задача" });
+    const created = await prisma.task.findUniqueOrThrow({ where: { id: task.id } });
+    expect(created.color).toBeNull();
+
+    await updateTask(task.id, { color: "MINT" });
+    let updated = await prisma.task.findUniqueOrThrow({ where: { id: task.id } });
+    expect(updated.color).toBe("MINT");
+
+    await updateTask(task.id, { color: null });
+    updated = await prisma.task.findUniqueOrThrow({ where: { id: task.id } });
+    expect(updated.color).toBeNull();
+  });
+
   it("clears the due date when explicitly set to null", async () => {
     const task = await createTask({ columnId: columnA, title: "Задача" });
     await updateTask(task.id, { dueDate: "2030-01-01" });

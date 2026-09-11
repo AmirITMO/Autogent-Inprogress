@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/roles";
 import { notifyUser } from "@/lib/notify";
+import type { TaskColorId } from "@/lib/constants";
 import {
   createTaskCore,
   moveTaskCore,
@@ -43,6 +44,7 @@ export async function updateTask(
     description?: string;
     assigneeId?: string | null;
     priority?: "P0" | "P1" | "P2" | "P3";
+    color?: TaskColorId | null;
     isBug?: boolean;
     estimateHours?: number | null;
     projectId?: string | null;
@@ -99,6 +101,7 @@ export async function listArchivedTasks() {
     title: t.title,
     description: t.description,
     priority: t.priority,
+    color: t.color,
     isBug: t.isBug,
     estimateHours: t.estimateHours ? Number(t.estimateHours) : null,
     dueDate: t.dueDate ? t.dueDate.toISOString() : null,

@@ -40,6 +40,22 @@ export const TASK_PRIORITY_COLOR: Record<string, string> = {
   P3: "#7a7268",
 };
 
+export const TASK_COLORS = ["ROSE", "PEACH", "AMBER", "MINT", "TEAL", "SKY", "LAVENDER", "SLATE"] as const;
+export type TaskColorId = (typeof TASK_COLORS)[number];
+
+// Мягкая пастельная подсветка карточки на доске задач — акцент/группировка
+// "на глаз". bg — фон карточки, border — акцентная кайма снизу/слева.
+export const TASK_COLOR_STYLE: Record<TaskColorId, { label: string; bg: string; border: string }> = {
+  ROSE: { label: "Розовый", bg: "#fdeaea", border: "#f3b8b8" },
+  PEACH: { label: "Персиковый", bg: "#fdead9", border: "#f3c397" },
+  AMBER: { label: "Жёлтый", bg: "#fdf2cf", border: "#eeda8f" },
+  MINT: { label: "Зелёный", bg: "#e2f5e4", border: "#a8dcae" },
+  TEAL: { label: "Бирюзовый", bg: "#dcf3ef", border: "#9cd9d0" },
+  SKY: { label: "Голубой", bg: "#e0edfc", border: "#a9c9f2" },
+  LAVENDER: { label: "Сиреневый", bg: "#ebe4fb", border: "#c6b3f0" },
+  SLATE: { label: "Серый", bg: "#eceae6", border: "#cfc9bd" },
+};
+
 export const DEFAULT_TASK_COLUMNS = [
   "Бэклог",
   "К выполнению",

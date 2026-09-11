@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getPermissions, assertCanEditTask } from "@/lib/roles";
-import { DONE_COLUMN_NAME, TASK_PRIORITY_LABEL } from "@/lib/constants";
+import { DONE_COLUMN_NAME, TASK_PRIORITY_LABEL, type TaskColorId } from "@/lib/constants";
 import { notifyUser } from "@/lib/notify";
 
 export type Actor = { id: string; role: "ADMIN" | "EMPLOYEE" };
@@ -20,6 +20,7 @@ export async function createTaskCore(
     projectId?: string;
     assigneeId?: string;
     priority?: "P0" | "P1" | "P2" | "P3";
+    color?: TaskColorId | null;
     isBug?: boolean;
     estimateHours?: number | null;
     dueDate?: string | null;
@@ -48,6 +49,7 @@ export async function createTaskCore(
       projectId: data.projectId,
       assigneeId,
       priority: data.priority,
+      color: data.color ?? undefined,
       isBug: data.isBug,
       estimateHours: data.estimateHours ?? undefined,
       dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
@@ -130,6 +132,7 @@ export async function updateTaskCore(
     description?: string;
     assigneeId?: string | null;
     priority?: "P0" | "P1" | "P2" | "P3";
+    color?: TaskColorId | null;
     isBug?: boolean;
     estimateHours?: number | null;
     projectId?: string | null;

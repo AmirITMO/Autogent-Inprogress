@@ -60,6 +60,19 @@ enum ReminderThreshold {
   H1
 }
 
+// Мягкая пастельная подсветка карточки задачи на доске — акцент/группировка
+// задач "на глаз". null = обычный вид карточки (текущий дефолт).
+enum TaskColor {
+  ROSE
+  PEACH
+  AMBER
+  MINT
+  TEAL
+  SKY
+  LAVENDER
+  SLATE
+}
+
 model User {
   id                 String  @id @default(cuid())
   name               String
@@ -698,6 +711,7 @@ model Task {
   assigneeId             String?
   assignee               User?        @relation("TaskAssignee", fields: [assigneeId], references: [id])
   priority               TaskPriority @default(P2)
+  color                  TaskColor?
   isBug                  Boolean      @default(false)
   estimateHours          Decimal?     @db.Decimal(6, 1)
   dueDate                DateTime?
