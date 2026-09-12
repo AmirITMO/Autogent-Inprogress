@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getPermissions } from "@/lib/roles";
+import { getSiteStatuses } from "@/lib/siteStatus";
 import { Sidebar } from "@/components/Sidebar";
 
 export default async function AppLayout({
@@ -29,6 +30,8 @@ export default async function AppLayout({
         userName={session.user.name ?? session.user.email ?? ""}
         avatarUrl={dbUser.avatarUrl}
         permissions={permissions}
+        appVersion={process.env.APP_VERSION ?? "dev"}
+        siteStatuses={getSiteStatuses()}
       />
       <main className="min-w-0 flex-1 overflow-auto">{children}</main>
     </div>

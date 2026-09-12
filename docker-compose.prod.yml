@@ -12,7 +12,10 @@ services:
       - internal
 
   app:
-    build: .
+    build:
+      context: .
+      args:
+        APP_VERSION: ${APP_VERSION:-dev}
     restart: always
     depends_on:
       - db

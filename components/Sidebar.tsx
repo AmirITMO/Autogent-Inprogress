@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { signOutAction } from "@/lib/actions/session";
 import { IconCalendar } from "@/components/icons";
 import { NotificationBell } from "@/components/NotificationBell";
+import type { SiteStatus } from "@/lib/siteStatus";
 
 const links = [
   { href: "/dashboard", label: "Дашборд", perm: null, icon: IconDashboard },
@@ -30,16 +31,26 @@ function initials(name: string) {
     .join("");
 }
 
+const SITE_STATUS_DOT: Record<SiteStatus["status"], string> = {
+  ok: "bg-success",
+  warn: "bg-warning",
+  down: "bg-danger",
+};
+
 export function Sidebar({
   role,
   userName,
   avatarUrl,
   permissions,
+  appVersion,
+  siteStatuses,
 }: {
   role: "ADMIN" | "EMPLOYEE";
   userName: string;
   avatarUrl?: string | null;
   permissions: { viewAccounting: boolean; viewChannels: boolean; viewSupport: boolean };
+  appVersion: string;
+  siteStatuses: SiteStatus[];
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -142,6 +153,31 @@ export function Sidebar({
             </form>
           </div>
           <NotificationBell />
+        </div>
+
+        <div className="border-t border-border px-5 py-3">
+          <div className="mb-2 text-[11px] text-muted">CRM · сборка {appVersion}</div>
+          <div className="flex flex-col gap-1.5">
+            {siteStatuses.map((s) => (
+              <div key={s.domain} className="flex items-center gap-2 text-xs">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`https://${s.domain}/favicon.ico`}
+                  alt=""
+                  className="h-3.5 w-3.5 shrink-0 rounded-sm"
+                  onError={(e) => {
+                    e.currentTarget.style.visibility = "hidden";
+                  }}
+                />
+                <span className="min-w-0 flex-1 truncate text-muted">{s.domain}</span>
+                <span
+                  className={`h-1.5 w-1.5 shrink-0 rounded-full ${SITE_STATUS_DOT[s.status]}`}
+                  title={s.status === "down" ? "Недоступен" : s.status === "warn" ? "Высокий пинг" : "Работает"}
+                />
+                <span className="w-11 shrink-0 text-right text-[11px] text-muted">{s.pingMs} ms</span>
+              </div>
+            ))}
+          </div>
         </div>
       </aside>
     </>
