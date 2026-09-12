@@ -71,6 +71,7 @@ export default async function TasksPage() {
       projectName: t.project && t.project.name !== "Общий" ? t.project.name : null,
       commentCount: t._count.comments,
       attachmentCount: t._count.attachments,
+      createdAt: t.createdAt.toISOString(),
       updatedAt: t.updatedAt.toISOString(),
       hasUnreadComment: unreadCommentTaskIds.has(t.id),
       reactions: t.reactions.map((r) => ({ userId: r.userId, name: r.user.name, avatarUrl: r.user.avatarUrl })),

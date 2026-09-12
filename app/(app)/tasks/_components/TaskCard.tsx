@@ -22,6 +22,7 @@ export type TaskCardData = {
   projectName: string | null;
   commentCount: number;
   attachmentCount?: number;
+  createdAt: string;
   updatedAt: string;
   hasUnreadComment?: boolean;
   reactions: TaskReactionData[];
@@ -45,6 +46,7 @@ export function blankTaskCard(id: string): TaskCardData {
     projectName: null,
     commentCount: 0,
     attachmentCount: 0,
+    createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     reactions: [],
   };

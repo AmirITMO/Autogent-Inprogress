@@ -113,6 +113,7 @@ export async function listArchivedTasks() {
     projectName: t.project && t.project.name !== "Общий" ? t.project.name : null,
     commentCount: t._count.comments,
     attachmentCount: t._count.attachments,
+    createdAt: t.createdAt.toISOString(),
     updatedAt: t.updatedAt.toISOString(),
     reactions: [],
     columnName: t.column.name,

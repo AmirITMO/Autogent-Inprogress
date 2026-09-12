@@ -9,6 +9,8 @@ import { createTask, moveTask, toggleTaskReaction } from "@/lib/actions/tasks";
 import { markTaskCommentNotificationsRead } from "@/lib/actions/notifications";
 import { TaskCard, blankTaskCard, type TaskCardData } from "./TaskCard";
 import { TaskModal, type TaskPermFlags } from "./TaskModal";
+import { ColumnExpandModal } from "./ColumnExpandModal";
+import { IconExpand } from "@/components/icons";
 
 type ColumnData = { id: string; title: string; tasks: TaskCardData[] };
 
@@ -34,6 +36,7 @@ export function TasksBoard({
   const [activeTask, setActiveTask] = useState<TaskCardData | null>(null);
   const [activeColumnName, setActiveColumnName] = useState("");
   const [creatingIn, setCreatingIn] = useState<string | null>(null);
+  const [expandedColumnId, setExpandedColumnId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
   const [searchInput, setSearchInput] = useState("");
@@ -110,16 +113,27 @@ export function TasksBoard({
     id: c.id,
     title: c.title,
     items: c.tasks,
-    headerExtra: canCreate ? (
-      <button
-        onClick={() => handleCreate(c.id)}
-        disabled={creatingIn === c.id}
-        title="Добавить задачу"
-        className="flex h-6 w-6 items-center justify-center rounded-full text-muted hover:bg-surface-2 hover:text-foreground disabled:opacity-50"
-      >
-        +
-      </button>
-    ) : undefined,
+    headerExtra: (
+      <div className="flex items-center gap-1">
+        <button
+          onClick={() => setExpandedColumnId(c.id)}
+          title="Развернуть"
+          className="flex h-6 w-6 items-center justify-center rounded-full text-muted hover:bg-surface-2 hover:text-foreground"
+        >
+          <IconExpand className="h-3.5 w-3.5" />
+        </button>
+        {canCreate && (
+          <button
+            onClick={() => handleCreate(c.id)}
+            disabled={creatingIn === c.id}
+            title="Добавить задачу"
+            className="flex h-6 w-6 items-center justify-center rounded-full text-muted hover:bg-surface-2 hover:text-foreground disabled:opacity-50"
+          >
+            +
+          </button>
+        )}
+      </div>
+    ),
   }));
 
   return (
@@ -222,6 +236,22 @@ export function TasksBoard({
           onClose={() => setActiveTask(null)}
         />
       )}
+
+      {expandedColumnId && (() => {
+        const col = columns.find((c) => c.id === expandedColumnId);
+        if (!col) return null;
+        return (
+          <ColumnExpandModal
+            column={col}
+            users={users}
+            viewerId={perms.userId}
+            viewerIsAdmin={perms.role === "ADMIN"}
+            onToggleReaction={(taskId) => toggleTaskReaction(taskId)}
+            onOpenTask={(task) => openTask(task, col.title)}
+            onClose={() => setExpandedColumnId(null)}
+          />
+        );
+      })()}
     </div>
   );
 }
