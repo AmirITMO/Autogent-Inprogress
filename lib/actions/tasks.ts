@@ -114,6 +114,7 @@ export async function listArchivedTasks() {
     commentCount: t._count.comments,
     attachmentCount: t._count.attachments,
     updatedAt: t.updatedAt.toISOString(),
+    reactions: [],
     columnName: t.column.name,
     completedAt: t.completedAt ? t.completedAt.toISOString() : null,
   }));
@@ -180,4 +181,36 @@ export async function getTaskComments(taskId: string) {
     include: { user: COMMENT_AUTHOR_SELECT, attachments: COMMENT_ATTACHMENTS_SELECT },
     orderBy: { createdAt: "asc" },
   });
+}
+
+// Лайк задачи — только ADMIN, тумблер (повторный клик снимает). Уведомляем
+// исполнителя только при постановке лайка (не при снятии), и не самого себя.
+export async function toggleTaskReaction(taskId: string) {
+  const user = await requireUser();
+  if (user.role !== "ADMIN") throw new Error("Forbidden");
+
+  const existing = await prisma.taskReaction.findUnique({
+    where: { taskId_userId: { taskId, userId: user.id } },
+  });
+
+  if (existing) {
+    await prisma.taskReaction.delete({ where: { id: existing.id } });
+  } else {
+    await prisma.taskReaction.create({ data: { taskId, userId: user.id } });
+    const task = await prisma.task.findUniqueOrThrow({
+      where: { id: taskId },
+      select: { title: true, assigneeId: true },
+    });
+    if (task.assigneeId && task.assigneeId !== user.id) {
+      await notifyUser({
+        userId: task.assigneeId,
+        type: "TASK_LIKED",
+        title: `${user.name} оценил(а) вашу задачу «${task.title}»`,
+        link: `/tasks?task=${taskId}`,
+      });
+    }
+  }
+
+  revalidatePath("/tasks");
+  revalidatePath("/my");
 }

@@ -44,6 +44,7 @@ enum NotificationType {
   INCIDENT_ALERT
   TASK_COMMENT
   NEW_LEAD
+  TASK_LIKED
 }
 
 enum DeploymentStatus {
@@ -113,6 +114,7 @@ model User {
   calendarEvents         CalendarEvent[]
   attendingEvents        CalendarEvent[]        @relation("EventAttendees")
   taskCompletions        TaskCompletion[]
+  taskReactions          TaskReaction[]
   notifications          Notification[]
 
   assignedDeployments SupportedDeployment[] @relation("SupportAssignee")
@@ -727,9 +729,24 @@ model Task {
   attachments TaskAttachment[]
   completions TaskCompletion[]
   deadlineReminderLogs TaskDeadlineReminderLog[]
+  reactions   TaskReaction[]
 
   @@index([projectId])
   @@index([assigneeId])
+}
+
+// Лайк/реакция админа на задачу — не сам исполнитель (личный список "нравится
+// мне"), видна на доске всем: неадминам молча, без права ставить свою.
+model TaskReaction {
+  id        String   @id @default(cuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([taskId, userId])
+  @@index([taskId])
 }
 
 model TaskDeadlineReminderLog {

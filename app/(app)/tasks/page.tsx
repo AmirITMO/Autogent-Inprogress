@@ -26,6 +26,10 @@ export default async function TasksPage() {
               assignee: { select: { id: true, name: true, avatarUrl: true } },
               project: true,
               _count: { select: { comments: true, attachments: true } },
+              reactions: {
+                orderBy: { createdAt: "asc" },
+                select: { userId: true, user: { select: { name: true, avatarUrl: true } } },
+              },
             },
           },
         },
@@ -69,6 +73,7 @@ export default async function TasksPage() {
       attachmentCount: t._count.attachments,
       updatedAt: t.updatedAt.toISOString(),
       hasUnreadComment: unreadCommentTaskIds.has(t.id),
+      reactions: t.reactions.map((r) => ({ userId: r.userId, name: r.user.name, avatarUrl: r.user.avatarUrl })),
     })),
   }));
 

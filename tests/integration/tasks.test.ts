@@ -18,7 +18,7 @@ vi.mock("@/lib/roles", () => ({
   assertCanEditTask: async () => {},
 }));
 
-const { createTask, moveTask, updateTask, deleteTask, addTaskComment, getTaskComments } =
+const { createTask, moveTask, updateTask, deleteTask, addTaskComment, getTaskComments, toggleTaskReaction } =
   await import("@/lib/actions/tasks");
 
 let columnA: string;
@@ -249,6 +249,53 @@ describe("comments", () => {
     await addTaskComment(task.id, "себе на заметку");
 
     const notifications = await prisma.notification.findMany({ where: { userId: testUser.id } });
+    expect(notifications).toHaveLength(0);
+  });
+});
+
+describe("toggleTaskReaction", () => {
+  it("rejects non-admins", async () => {
+    const task = await createTask({ columnId: columnA, title: "Задача" });
+    testUser.role = "EMPLOYEE";
+    await expect(toggleTaskReaction(task.id)).rejects.toThrow();
+  });
+
+  it("creates a reaction and notifies the assignee, then removes it on a second toggle", async () => {
+    const assignee = await prisma.user.create({
+      data: { name: "Исполнитель", email: `assignee-${Date.now()}@test.local`, passwordHash: "x" },
+    });
+    const task = await createTask({ columnId: columnA, title: "Задача", assigneeId: assignee.id });
+
+    await toggleTaskReaction(task.id);
+    let reactions = await prisma.taskReaction.findMany({ where: { taskId: task.id } });
+    expect(reactions).toHaveLength(1);
+    expect(reactions[0].userId).toBe(testUser.id);
+
+    const notifications = await prisma.notification.findMany({
+      where: { userId: assignee.id, type: "TASK_LIKED" },
+    });
+    expect(notifications).toHaveLength(1);
+    expect(notifications[0].link).toBe(`/tasks?task=${task.id}`);
+
+    await toggleTaskReaction(task.id);
+    reactions = await prisma.taskReaction.findMany({ where: { taskId: task.id } });
+    expect(reactions).toHaveLength(0);
+
+    // Снятие лайка не должно плодить новых уведомлений.
+    const notificationsAfter = await prisma.notification.findMany({
+      where: { userId: assignee.id, type: "TASK_LIKED" },
+    });
+    expect(notificationsAfter).toHaveLength(1);
+  });
+
+  it("does not notify anyone when an admin likes their own task", async () => {
+    const task = await createTask({ columnId: columnA, title: "Задача", assigneeId: testUser.id });
+
+    await toggleTaskReaction(task.id);
+
+    const notifications = await prisma.notification.findMany({
+      where: { userId: testUser.id, type: "TASK_LIKED" },
+    });
     expect(notifications).toHaveLength(0);
   });
 });

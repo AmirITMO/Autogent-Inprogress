@@ -1,7 +1,9 @@
 import Image from "next/image";
 import { TASK_PRIORITY_COLOR, TASK_PRIORITY_LABEL, TASK_COLOR_STYLE, type TaskColorId } from "@/lib/constants";
-import { IconBug, IconComment, IconPaperclip } from "@/components/icons";
+import { IconBug, IconComment, IconPaperclip, IconHeart } from "@/components/icons";
 import { toMoscowParts } from "@/lib/moscowTime";
+
+export type TaskReactionData = { userId: string; name: string; avatarUrl: string | null };
 
 export type TaskCardData = {
   id: string;
@@ -22,6 +24,7 @@ export type TaskCardData = {
   attachmentCount?: number;
   updatedAt: string;
   hasUnreadComment?: boolean;
+  reactions: TaskReactionData[];
 };
 
 export function blankTaskCard(id: string): TaskCardData {
@@ -43,6 +46,7 @@ export function blankTaskCard(id: string): TaskCardData {
     commentCount: 0,
     attachmentCount: 0,
     updatedAt: new Date().toISOString(),
+    reactions: [],
   };
 }
 
@@ -64,23 +68,60 @@ function initials(name: string) {
     .join("");
 }
 
-function Avatar({ name, avatarUrl }: { name: string; avatarUrl?: string | null }) {
+function Avatar({
+  name,
+  avatarUrl,
+  size = 22,
+  ring,
+}: {
+  name: string;
+  avatarUrl?: string | null;
+  size?: number;
+  ring?: boolean;
+}) {
+  const ringClass = ring ? "ring-2 ring-surface" : "";
   if (avatarUrl) {
     return (
       <Image
         src={avatarUrl}
         alt={name}
-        width={22}
-        height={22}
+        width={size}
+        height={size}
         unoptimized
-        className="h-[22px] w-[22px] shrink-0 rounded-full object-cover"
+        style={{ width: size, height: size }}
+        className={`shrink-0 rounded-full object-cover ${ringClass}`}
       />
     );
   }
   return (
-    <span className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-accent-soft text-[10px] font-semibold text-accent">
+    <span
+      style={{ width: size, height: size, fontSize: size * 0.45 }}
+      className={`flex shrink-0 items-center justify-center rounded-full bg-accent-soft font-semibold text-accent ${ringClass}`}
+    >
       {initials(name)}
     </span>
+  );
+}
+
+// "Домино"-стек аватарок оценивших админов: каждая следующая перекрывает
+// предыдущую на четверть своей ширины (и только предыдущую — следующие за
+// ней аватарки её уже не задевают), так что видно минимум 75% каждой.
+// Последняя (самая новая реакция) — на переднем плане.
+const REACTION_AVATAR_SIZE = 18;
+function ReactionAvatars({ reactions }: { reactions: TaskReactionData[] }) {
+  return (
+    <div className="flex items-center">
+      {reactions.map((r, i) => (
+        <span
+          key={r.userId}
+          style={{ marginLeft: i === 0 ? 0 : -REACTION_AVATAR_SIZE * 0.25, zIndex: i }}
+          className="relative"
+          title={r.name}
+        >
+          <Avatar name={r.name} avatarUrl={r.avatarUrl} size={REACTION_AVATAR_SIZE} ring />
+        </span>
+      ))}
+    </div>
   );
 }
 
@@ -89,21 +130,37 @@ export function TaskCard({
   dragging,
   done,
   onOpen,
+  viewerId,
+  viewerIsAdmin,
+  onToggleReaction,
 }: {
   task: TaskCardData;
   dragging?: boolean;
   done?: boolean;
   onOpen: () => void;
+  viewerId: string;
+  viewerIsAdmin: boolean;
+  onToggleReaction?: (taskId: string) => void;
 }) {
   // Выполненная задача не может считаться просроченной, даже если дедлайн уже прошёл.
   const overdue = !done && task.dueDate && new Date(task.dueDate) < new Date();
   const colorStyle = task.color ? TASK_COLOR_STYLE[task.color] : null;
+  const liked = task.reactions.some((r) => r.userId === viewerId);
+  const showReactionRow = viewerIsAdmin || task.reactions.length > 0;
 
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
       style={colorStyle ? { backgroundColor: colorStyle.bg, borderColor: colorStyle.border } : undefined}
-      className={`w-full rounded-xl border p-3.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${
+      className={`w-full cursor-pointer rounded-xl border p-3.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${
         colorStyle ? "" : "border-border bg-surface hover:border-accent/50"
       } ${dragging ? "shadow-xl" : ""
       }`}
@@ -152,6 +209,28 @@ export function TaskCard({
         )}
       </div>
 
+      {showReactionRow && (
+        <div className="mt-2 flex items-center gap-1.5">
+          {viewerIsAdmin ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleReaction?.(task.id);
+              }}
+              title={liked ? "Убрать оценку" : "Оценить задачу"}
+              aria-label={liked ? "Убрать оценку" : "Оценить задачу"}
+              className="flex h-5 w-5 shrink-0 items-center justify-center"
+            >
+              <IconHeart filled={liked} className={`h-4 w-4 ${liked ? "text-danger" : "text-foreground"}`} />
+            </button>
+          ) : (
+            <IconHeart filled className="h-4 w-4 shrink-0 text-danger" />
+          )}
+          {task.reactions.length > 0 && <ReactionAvatars reactions={task.reactions} />}
+        </div>
+      )}
+
       <div className="mt-2 flex items-center justify-between text-[11px] text-muted">
         <span className="truncate">{task.projectName ?? ""}</span>
         {task.dueDate && (
@@ -161,6 +240,6 @@ export function TaskCard({
         )}
       </div>
       <div className="mt-1 text-[10px] text-muted/70">Изменено: {formatUpdatedAt(task.updatedAt)}</div>
-    </button>
+    </div>
   );
 }

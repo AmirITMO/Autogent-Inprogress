@@ -53,6 +53,7 @@ export default async function MyTasksPage() {
     attachmentCount: t._count.attachments,
     updatedAt: t.updatedAt.toISOString(),
     hasUnreadComment: unreadCommentTaskIds.has(t.id),
+    reactions: [],
     columnName: t.column.name,
   }));
 
