@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { listArchivedTasks, unarchiveTask } from "@/lib/actions/tasks";
-import { TASK_PRIORITY_COLOR, TASK_PRIORITY_LABEL } from "@/lib/constants";
+import { TASK_PRIORITY_COLOR, TASK_PRIORITY_BG, TASK_PRIORITY_LABEL } from "@/lib/constants";
 import { TaskModal, type TaskPermFlags } from "./TaskModal";
 import type { TaskCardData } from "./TaskCard";
 
@@ -66,7 +66,7 @@ export function ArchivedTasksList({
                   className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium"
                   style={{
                     color: TASK_PRIORITY_COLOR[t.priority],
-                    background: `${TASK_PRIORITY_COLOR[t.priority]}1a`,
+                    background: TASK_PRIORITY_BG[t.priority],
                   }}
                 >
                   {TASK_PRIORITY_LABEL[t.priority]}

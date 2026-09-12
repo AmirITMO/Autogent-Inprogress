@@ -1,5 +1,11 @@
 import Image from "next/image";
-import { TASK_PRIORITY_COLOR, TASK_PRIORITY_LABEL, TASK_COLOR_STYLE, type TaskColorId } from "@/lib/constants";
+import {
+  TASK_PRIORITY_COLOR,
+  TASK_PRIORITY_BG,
+  TASK_PRIORITY_LABEL,
+  TASK_COLOR_STYLE,
+  type TaskColorId,
+} from "@/lib/constants";
 import { IconBug, IconComment, IconPaperclip, IconHeart } from "@/components/icons";
 import { toMoscowParts } from "@/lib/moscowTime";
 
@@ -177,7 +183,7 @@ export function TaskCard({
           className="rounded px-1.5 py-0.5 text-[10px] font-medium"
           style={{
             color: TASK_PRIORITY_COLOR[task.priority],
-            background: `${TASK_PRIORITY_COLOR[task.priority]}1a`,
+            background: TASK_PRIORITY_BG[task.priority],
           }}
         >
           {TASK_PRIORITY_LABEL[task.priority]}

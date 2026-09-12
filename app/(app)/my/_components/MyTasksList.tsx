@@ -1,7 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { TASK_PRIORITY_COLOR, TASK_PRIORITY_LABEL, DONE_COLUMN_NAME } from "@/lib/constants";
+import {
+  TASK_PRIORITY_COLOR,
+  TASK_PRIORITY_BG,
+  TASK_PRIORITY_LABEL,
+  DONE_COLUMN_NAME,
+} from "@/lib/constants";
 import { markTaskCommentNotificationsRead } from "@/lib/actions/notifications";
 import { TaskModal, type TaskPermFlags } from "../../tasks/_components/TaskModal";
 import type { TaskCardData } from "../../tasks/_components/TaskCard";
@@ -95,7 +100,7 @@ function Section({
                   className="rounded px-1.5 py-0.5 text-[10px] font-medium"
                   style={{
                     color: TASK_PRIORITY_COLOR[t.priority],
-                    background: `${TASK_PRIORITY_COLOR[t.priority]}1a`,
+                    background: TASK_PRIORITY_BG[t.priority],
                   }}
                 >
                   {TASK_PRIORITY_LABEL[t.priority]}

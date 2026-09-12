@@ -33,27 +33,38 @@ export const TASK_PRIORITY_LABEL: Record<string, string> = {
   P3: "P3 — low",
 };
 
+// Цвета через CSS-переменные (значения на тему — в app/globals.css): бейджи
+// приоритетов должны перекрашиваться вместе со сменой светлой/тёмной темы.
 export const TASK_PRIORITY_COLOR: Record<string, string> = {
-  P0: "#ef4444",
-  P1: "#f97316",
-  P2: "#3b82f6",
-  P3: "#7a7268",
+  P0: "var(--prio-p0)",
+  P1: "var(--prio-p1)",
+  P2: "var(--prio-p2)",
+  P3: "var(--prio-p3)",
+};
+
+export const TASK_PRIORITY_BG: Record<string, string> = {
+  P0: "var(--prio-p0-bg)",
+  P1: "var(--prio-p1-bg)",
+  P2: "var(--prio-p2-bg)",
+  P3: "var(--prio-p3-bg)",
 };
 
 export const TASK_COLORS = ["ROSE", "PEACH", "AMBER", "MINT", "TEAL", "SKY", "LAVENDER", "SLATE"] as const;
 export type TaskColorId = (typeof TASK_COLORS)[number];
 
-// Мягкая пастельная подсветка карточки на доске задач — акцент/группировка
-// "на глаз". bg — фон карточки, border — акцентная кайма снизу/слева.
+// Подсветка карточки на доске задач — акцент/группировка "на глаз". bg — фон
+// карточки, border — акцентная кайма. Конкретные значения живут в
+// app/globals.css по две штуки на цвет: пастель для светлой темы и
+// приглушённый тёмный тинт того же оттенка для тёмной.
 export const TASK_COLOR_STYLE: Record<TaskColorId, { label: string; bg: string; border: string }> = {
-  ROSE: { label: "Розовый", bg: "#fdeaea", border: "#f3b8b8" },
-  PEACH: { label: "Персиковый", bg: "#fdead9", border: "#f3c397" },
-  AMBER: { label: "Жёлтый", bg: "#fdf2cf", border: "#eeda8f" },
-  MINT: { label: "Зелёный", bg: "#e2f5e4", border: "#a8dcae" },
-  TEAL: { label: "Бирюзовый", bg: "#dcf3ef", border: "#9cd9d0" },
-  SKY: { label: "Голубой", bg: "#e0edfc", border: "#a9c9f2" },
-  LAVENDER: { label: "Сиреневый", bg: "#ebe4fb", border: "#c6b3f0" },
-  SLATE: { label: "Серый", bg: "#eceae6", border: "#cfc9bd" },
+  ROSE: { label: "Розовый", bg: "var(--card-rose-bg)", border: "var(--card-rose-bd)" },
+  PEACH: { label: "Персиковый", bg: "var(--card-peach-bg)", border: "var(--card-peach-bd)" },
+  AMBER: { label: "Жёлтый", bg: "var(--card-amber-bg)", border: "var(--card-amber-bd)" },
+  MINT: { label: "Зелёный", bg: "var(--card-mint-bg)", border: "var(--card-mint-bd)" },
+  TEAL: { label: "Бирюзовый", bg: "var(--card-teal-bg)", border: "var(--card-teal-bd)" },
+  SKY: { label: "Голубой", bg: "var(--card-sky-bg)", border: "var(--card-sky-bd)" },
+  LAVENDER: { label: "Сиреневый", bg: "var(--card-lavender-bg)", border: "var(--card-lavender-bd)" },
+  SLATE: { label: "Серый", bg: "var(--card-slate-bg)", border: "var(--card-slate-bd)" },
 };
 
 export const DEFAULT_TASK_COLUMNS = [
