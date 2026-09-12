@@ -22,6 +22,7 @@ export default async function AppLayout({
   });
   if (!dbUser) redirect("/login");
   const permissions = await getPermissions(session.user.id, dbUser.role);
+  const siteStatuses = await getSiteStatuses();
 
   return (
     <div className="flex flex-1 flex-col md:flex-row">
@@ -31,7 +32,7 @@ export default async function AppLayout({
         avatarUrl={dbUser.avatarUrl}
         permissions={permissions}
         appVersion={process.env.APP_VERSION ?? "dev"}
-        siteStatuses={getSiteStatuses()}
+        siteStatuses={siteStatuses}
       />
       <main className="min-w-0 flex-1 overflow-auto">{children}</main>
     </div>

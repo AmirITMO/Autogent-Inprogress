@@ -2,8 +2,17 @@
 // жёстко задан (никакого пользовательского ввода => исключён SSRF), запросы
 // только HEAD с таймаутом, тело ответа никогда не читается и не разбирается,
 // редиректы не проходятся (redirect: "manual") — сам факт ответа (в т.ч. 3xx)
-// уже означает "сайт жив". Результат кэшируется в памяти процесса и отдаётся
-// синхронно — рендер страниц не ждёт сетевых запросов к внешним хостам.
+// уже означает "сайт жив".
+//
+// Результат кладётся в файл (не в module-level переменную): instrumentation.ts
+// импортирует этот модуль динамически, а layout.tsx — статически, и в этой
+// сборке Next.js это оказались два разных экземпляра модуля с независимым
+// in-memory состоянием — фоновая проверка писала в свою копию, рендер читал
+// свою (всегда дефолт). Файл на диске одинаково виден из любого контекста.
+
+import { readFile, writeFile } from "fs/promises";
+import path from "path";
+import os from "os";
 
 export type SiteStatusLevel = "ok" | "warn" | "down";
 
@@ -23,7 +32,9 @@ const CHECK_TIMEOUT_MS = 5000;
 const CHECK_INTERVAL_MS = 60_000;
 const WARN_THRESHOLD_MS = 800;
 
-let latest: SiteStatus[] = SITES.map((s) => ({ domain: s.domain, status: "down", pingMs: 0 }));
+const STATUS_FILE = path.join(os.tmpdir(), "autogent-site-status.json");
+
+const FALLBACK: SiteStatus[] = SITES.map((s) => ({ domain: s.domain, status: "down", pingMs: 0 }));
 
 async function checkOne(domain: string): Promise<SiteStatus> {
   const start = Date.now();
@@ -42,11 +53,17 @@ async function checkOne(domain: string): Promise<SiteStatus> {
 }
 
 async function checkAll() {
-  latest = await Promise.all(SITES.map((s) => checkOne(s.domain)));
+  const results = await Promise.all(SITES.map((s) => checkOne(s.domain)));
+  await writeFile(STATUS_FILE, JSON.stringify(results));
 }
 
-export function getSiteStatuses(): SiteStatus[] {
-  return latest;
+export async function getSiteStatuses(): Promise<SiteStatus[]> {
+  try {
+    const raw = await readFile(STATUS_FILE, "utf-8");
+    return JSON.parse(raw);
+  } catch {
+    return FALLBACK;
+  }
 }
 
 export function startSiteStatusCron() {

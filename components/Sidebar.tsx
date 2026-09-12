@@ -159,7 +159,13 @@ export function Sidebar({
           <div className="mb-2 text-[11px] text-muted">CRM · сборка {appVersion}</div>
           <div className="flex flex-col gap-1.5">
             {siteStatuses.map((s) => (
-              <div key={s.domain} className="flex items-center gap-2 text-xs">
+              <a
+                key={s.domain}
+                href={`https://${s.domain}/`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 rounded-md px-1 -mx-1 text-xs transition hover:bg-surface-2"
+              >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={`https://${s.domain}/favicon.ico`}
@@ -175,7 +181,7 @@ export function Sidebar({
                   title={s.status === "down" ? "Недоступен" : s.status === "warn" ? "Высокий пинг" : "Работает"}
                 />
                 <span className="w-11 shrink-0 text-right text-[11px] text-muted">{s.pingMs} ms</span>
-              </div>
+              </a>
             ))}
           </div>
         </div>
