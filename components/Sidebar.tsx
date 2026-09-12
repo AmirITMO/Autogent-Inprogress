@@ -37,22 +37,23 @@ const SITE_STATUS_DOT: Record<SiteStatus["status"], string> = {
   down: "bg-danger",
 };
 
-// favicon.ico на корне есть не у всех сайтов — пробуем по очереди несколько
-// распространённых путей и молча прячем иконку, если ни один не отдался.
-const FAVICON_PATHS = ["/favicon.ico", "/favicon.png", "/apple-touch-icon.png"];
-
+// /favicon.ico и /favicon.png на корне у части сайтов отдают HTML-заглушку
+// (SPA-фолбэк) с этим же путём, а не саму иконку — угадать путь напрямую не
+// получилось (проверено на всех трёх доменах). Google's favicons-сервис сам
+// парсит <head> сайта и отдаёт нужную иконку по одному только домену
+// (публичная информация, ничего кроме domain= туда не уходит).
 function SiteFavicon({ domain }: { domain: string }) {
-  const [attempt, setAttempt] = useState(0);
-  if (attempt >= FAVICON_PATHS.length) {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
     return <span className="h-3.5 w-3.5 shrink-0" />;
   }
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={`https://${domain}${FAVICON_PATHS[attempt]}`}
+      src={`https://www.google.com/s2/favicons?sz=32&domain=${domain}`}
       alt=""
       className="h-3.5 w-3.5 shrink-0 rounded-sm"
-      onError={() => setAttempt((a) => a + 1)}
+      onError={() => setFailed(true)}
     />
   );
 }

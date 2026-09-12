@@ -30,7 +30,11 @@ const SITES: { domain: string }[] = [
 
 const CHECK_TIMEOUT_MS = 5000;
 const CHECK_INTERVAL_MS = 3 * 60 * 60 * 1000; // раз в 3 часа — сайты стабильные, чаще не нужно
-const WARN_THRESHOLD_MS = 800;
+const WARN_THRESHOLD_MS = 400; // в норме HEAD до своих же сайтов укладывается в десятки-сотню мс
+// Первую проверку откладываем на 15с после старта процесса: сразу при
+// запуске контейнера сеть/CPU заняты стартом Next.js, и "холодный" замер
+// получается завышенным — а с интервалом в 3ч это застревает надолго.
+const INITIAL_DELAY_MS = 15_000;
 
 const STATUS_FILE = path.join(os.tmpdir(), "autogent-site-status.json");
 
@@ -67,8 +71,10 @@ export async function getSiteStatuses(): Promise<SiteStatus[]> {
 }
 
 export function startSiteStatusCron() {
-  checkAll().catch((err) => console.error("siteStatus initial check failed", err));
-  setInterval(() => {
-    checkAll().catch((err) => console.error("siteStatus check failed", err));
-  }, CHECK_INTERVAL_MS);
+  setTimeout(() => {
+    checkAll().catch((err) => console.error("siteStatus initial check failed", err));
+    setInterval(() => {
+      checkAll().catch((err) => console.error("siteStatus check failed", err));
+    }, CHECK_INTERVAL_MS);
+  }, INITIAL_DELAY_MS);
 }
