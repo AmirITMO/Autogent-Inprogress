@@ -5,6 +5,7 @@ import Image from "next/image";
 import { updateProfile, uploadAvatar } from "@/lib/actions/profile";
 import { uploadMotivationPhoto, removeMotivationPhoto } from "@/lib/actions/motivation";
 import { IconSparkles } from "@/components/icons";
+import { AvatarCropModal } from "./AvatarCropModal";
 
 function initials(name: string) {
   return name
@@ -53,6 +54,8 @@ export function ProfileForm({
   const [avatarUrl, setAvatarUrl] = useState(user.avatarUrl);
   const [avatarBusy, setAvatarBusy] = useState(false);
   const [avatarError, setAvatarError] = useState("");
+  const [cropFile, setCropFile] = useState<File | null>(null);
+  const [avatarDragOver, setAvatarDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [hasMotivationPhoto, setHasMotivationPhoto] = useState(user.hasMotivationPhoto);
@@ -90,14 +93,26 @@ export function ProfileForm({
     }
   }
 
-  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (file) setCropFile(file);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function handleAvatarDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setAvatarDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type.startsWith("image/")) setCropFile(file);
+  }
+
+  async function handleAvatarCropped(blob: Blob) {
+    setCropFile(null);
     setAvatarBusy(true);
     setAvatarError("");
     try {
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("file", blob, "avatar.png");
       const result = await uploadAvatar(formData);
       if (result.error) setAvatarError(result.error);
       else if (result.avatarUrl) setAvatarUrl(result.avatarUrl);
@@ -105,7 +120,6 @@ export function ProfileForm({
       setAvatarError("Не удалось загрузить фото");
     } finally {
       setAvatarBusy(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }
 
@@ -144,7 +158,17 @@ export function ProfileForm({
       onSubmit={save}
       className="max-w-xl rounded-xl border border-border bg-surface p-5"
     >
-      <div className="mb-5 flex items-center gap-4">
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          setAvatarDragOver(true);
+        }}
+        onDragLeave={() => setAvatarDragOver(false)}
+        onDrop={handleAvatarDrop}
+        className={`mb-5 flex items-center gap-4 rounded-lg border-2 border-dashed p-2 transition ${
+          avatarDragOver ? "border-accent bg-accent-soft/40" : "border-transparent"
+        }`}
+      >
         {avatarUrl ? (
           <Image
             key={avatarUrl}
@@ -176,10 +200,20 @@ export function ProfileForm({
             onChange={handleAvatarChange}
             className="hidden"
           />
-          <div className="mt-1 text-[11px] text-muted">JPEG, PNG, WEBP или GIF, до 5 МБ</div>
+          <div className="mt-1 text-[11px] text-muted">
+            JPEG, PNG, WEBP или GIF, до 5 МБ — или перетащите файл сюда
+          </div>
           {avatarError && <div className="mt-1 text-[11px] text-danger">{avatarError}</div>}
         </div>
       </div>
+
+      {cropFile && (
+        <AvatarCropModal
+          file={cropFile}
+          onCancel={() => setCropFile(null)}
+          onCropped={handleAvatarCropped}
+        />
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Имя">
