@@ -116,9 +116,23 @@ model User {
   taskCompletions        TaskCompletion[]
   taskReactions          TaskReaction[]
   notifications          Notification[]
+  customRoles            UserCustomRole[]
 
   assignedDeployments SupportedDeployment[] @relation("SupportAssignee")
   resolvedIncidents   SupportIncident[]     @relation("IncidentResolver")
+}
+
+// Кастомная роль-бейдж, которую админ вешает сотруднику на дашборде команды
+// (раздел «База знаний» → «Команда») — произвольный текст, не связан с
+// Role (ADMIN/EMPLOYEE) и правами доступа, чисто витринный лейбл, видимый всем.
+model UserCustomRole {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label     String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 model Project {
