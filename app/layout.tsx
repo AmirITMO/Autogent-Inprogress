@@ -29,6 +29,16 @@ export default function RootLayout({
       lang="ru"
       className={`${golosText.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        {/* Ставим data-theme до первой отрисовки — иначе виден вспышкой
+            светлый фон, пока не отработает клиентский ThemeToggle. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{var t=localStorage.getItem('theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}",
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col bg-background text-foreground">
         {children}
       </body>

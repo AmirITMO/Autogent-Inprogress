@@ -14,6 +14,29 @@
   --success: #16a34a;
   --danger: #ef4444;
   --warning: #eab308;
+  /* Цвет текста активной вкладки/пункта меню — в светлой теме совпадает с
+     акцентом, в тёмной перекрашивается отдельно (см. ниже), не трогая
+     остальные места, где используется --accent. */
+  --nav-active: var(--accent);
+}
+
+/* Тёмная тема: почти чёрный фон, весь "серый" (muted) текст — оранжевый
+   разных оттенков, активный пункт меню — seashell вместо оранжевого. */
+[data-theme="dark"] {
+  --background: #0a0908;
+  --surface: #151210;
+  --surface-2: #201a15;
+  --border: #35291d;
+  --foreground: #f2ece1;
+  --muted: #e8944f;
+  --accent: #fb923c;
+  --accent-hover: #fdba74;
+  --accent-soft: #3a2412;
+  --accent-2: #7fb2ff;
+  --success: #4ade80;
+  --danger: #f87171;
+  --warning: #fbbf24;
+  --nav-active: #fff5ee;
 }
 
 @theme inline {
@@ -30,6 +53,7 @@
   --color-success: var(--success);
   --color-danger: var(--danger);
   --color-warning: var(--warning);
+  --color-nav-active: var(--nav-active);
   --font-sans: var(--font-golos-text);
   --font-mono: var(--font-geist-mono);
 }
@@ -38,11 +62,19 @@ html {
   font-size: 16.5px;
 }
 
+:root {
+  color-scheme: light;
+}
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), "Segoe UI", Arial, Helvetica, sans-serif;
   line-height: 1.5;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 ::-webkit-scrollbar {

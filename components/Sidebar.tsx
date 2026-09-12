@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { signOutAction } from "@/lib/actions/session";
 import { IconCalendar } from "@/components/icons";
 import { NotificationBell } from "@/components/NotificationBell";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import type { SiteStatus } from "@/lib/siteStatus";
 
 const links = [
@@ -141,11 +142,11 @@ export function Sidebar({
                 href={link.href}
                 className={`flex items-center gap-3 rounded-xl px-4 py-3.5 text-[15px] font-medium transition md:py-3 ${
                   active
-                    ? "bg-accent-soft text-accent"
+                    ? "bg-accent-soft text-nav-active"
                     : "text-muted hover:bg-surface-2 hover:text-foreground"
                 }`}
               >
-                <Icon className={`h-5 w-5 shrink-0 ${active ? "text-accent" : "text-muted"}`} />
+                <Icon className={`h-5 w-5 shrink-0 ${active ? "text-nav-active" : "text-muted"}`} />
                 {link.label}
               </Link>
             );
@@ -173,6 +174,7 @@ export function Sidebar({
               <button className="text-xs text-muted hover:text-foreground">Выйти</button>
             </form>
           </div>
+          <ThemeToggle />
           <NotificationBell />
         </div>
 
