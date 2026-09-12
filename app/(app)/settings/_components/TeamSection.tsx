@@ -18,7 +18,13 @@ type Employee = {
   role: "ADMIN" | "EMPLOYEE";
   avatarUrl: string | null;
   projectIds: string[];
+  createdAt: string;
 } & EmployeePermissions;
+
+function formatDate(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
 
 function initials(name: string) {
   return name
@@ -225,6 +231,9 @@ function EmployeeRow({
               </span>
             </div>
             <div className="truncate text-xs text-muted">{user.email}</div>
+            <div className="truncate text-[11px] text-muted/70">
+              В команде с {formatDate(user.createdAt)}
+            </div>
           </div>
         </button>
         <div className="flex gap-2">
@@ -312,6 +321,7 @@ function EmployeeCardModal({ user, onClose }: { user: Employee; onClose: () => v
             <span className="mt-1 inline-block rounded bg-surface-2 px-1.5 py-0.5 text-[10px] text-muted">
               {user.role}
             </span>
+            <div className="mt-1 text-xs text-muted">В команде с {formatDate(user.createdAt)}</div>
           </div>
         </div>
 

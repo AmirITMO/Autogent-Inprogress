@@ -40,6 +40,7 @@ export default async function SettingsPage() {
     editTasksOthers: u.editTasksOthers,
     viewSupport: u.viewSupport,
     projectIds: u.projectAccess.map((a) => a.projectId),
+    createdAt: u.createdAt.toISOString(),
   }));
 
   return (
