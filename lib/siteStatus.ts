@@ -29,7 +29,7 @@ const SITES: { domain: string }[] = [
 ];
 
 const CHECK_TIMEOUT_MS = 5000;
-const CHECK_INTERVAL_MS = 60_000;
+const CHECK_INTERVAL_MS = 3 * 60 * 60 * 1000; // раз в 3 часа — сайты стабильные, чаще не нужно
 const WARN_THRESHOLD_MS = 800;
 
 const STATUS_FILE = path.join(os.tmpdir(), "autogent-site-status.json");

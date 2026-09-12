@@ -19,7 +19,10 @@ fi
 # compose собирает через buildx bake (pipe по stdin), и build-arg из
 # шелл-окружения туда не долетает — версия внутри контейнера оставалась
 # дефолтным "dev".
-APP_VERSION="$(git rev-list --count HEAD).$(git rev-parse --short HEAD)"
+# Формат v{год}.{месяц}.{день}.{порядковый номер сборки} — читаемая дата
+# деплоя + монотонный build number (git rev-list --count), на случай
+# нескольких деплоев в один день.
+APP_VERSION="v$(date -u +%Y.%m.%d).$(git rev-list --count HEAD)"
 if grep -q '^APP_VERSION=' .env.production 2>/dev/null; then
   sed -i "s/^APP_VERSION=.*/APP_VERSION=${APP_VERSION}/" .env.production
 else

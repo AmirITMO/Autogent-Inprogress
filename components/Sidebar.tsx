@@ -37,6 +37,26 @@ const SITE_STATUS_DOT: Record<SiteStatus["status"], string> = {
   down: "bg-danger",
 };
 
+// favicon.ico на корне есть не у всех сайтов — пробуем по очереди несколько
+// распространённых путей и молча прячем иконку, если ни один не отдался.
+const FAVICON_PATHS = ["/favicon.ico", "/favicon.png", "/apple-touch-icon.png"];
+
+function SiteFavicon({ domain }: { domain: string }) {
+  const [attempt, setAttempt] = useState(0);
+  if (attempt >= FAVICON_PATHS.length) {
+    return <span className="h-3.5 w-3.5 shrink-0" />;
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={`https://${domain}${FAVICON_PATHS[attempt]}`}
+      alt=""
+      className="h-3.5 w-3.5 shrink-0 rounded-sm"
+      onError={() => setAttempt((a) => a + 1)}
+    />
+  );
+}
+
 export function Sidebar({
   role,
   userName,
@@ -166,15 +186,7 @@ export function Sidebar({
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 rounded-md px-1 -mx-1 text-xs transition hover:bg-surface-2"
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={`https://${s.domain}/favicon.ico`}
-                  alt=""
-                  className="h-3.5 w-3.5 shrink-0 rounded-sm"
-                  onError={(e) => {
-                    e.currentTarget.style.visibility = "hidden";
-                  }}
-                />
+                <SiteFavicon domain={s.domain} />
                 <span className="min-w-0 flex-1 truncate text-muted">{s.domain}</span>
                 <span
                   className={`h-1.5 w-1.5 shrink-0 rounded-full ${SITE_STATUS_DOT[s.status]}`}
