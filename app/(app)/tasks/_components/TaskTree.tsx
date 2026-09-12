@@ -34,11 +34,14 @@ export type MindNodeRow = {
   y: number;
 };
 
-const NODE_STYLE = { bg: "#ffffff", border: "#d8cfc2", text: "#17140f" };
+// Ноды React Flow красятся инлайн-стилями, поэтому цвета берём из тех же
+// CSS-переменных, что и остальной интерфейс — иначе в тёмной теме остаются
+// белые карточки с чёрным текстом.
+const NODE_STYLE = { bg: "var(--surface)", border: "var(--border-strong)", text: "var(--foreground)" };
 const STATUS_STYLE: Record<NodeStatus, { bg: string; border: string; text: string }> = {
-  done: { bg: "#eafaf0", border: "#16a34a", text: "#166534" },
-  overdue: { bg: "#fef2f2", border: "#ef4444", text: "#991b1b" },
-  pending: { bg: "#ffffff", border: "#d8cfc2", text: "#17140f" },
+  done: { bg: "var(--success-soft)", border: "var(--success)", text: "var(--success-text)" },
+  overdue: { bg: "var(--danger-soft)", border: "var(--danger)", text: "var(--danger-text)" },
+  pending: NODE_STYLE,
 };
 
 function RootNode({ data }: NodeProps) {
@@ -166,7 +169,7 @@ function SubtaskNode({ id, data }: NodeProps) {
               d.onRename(id, title);
             }
           }}
-          className="nodrag w-full rounded border border-border bg-white px-1 py-0.5 text-sm text-foreground outline-none"
+          className="nodrag w-full rounded border border-border bg-input px-1 py-0.5 text-sm text-foreground outline-none"
         />
       ) : (
         <div onDoubleClick={() => setEditing(true)} className="text-sm font-medium">

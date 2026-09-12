@@ -32,7 +32,7 @@ export function TasksView({
         <button
           onClick={() => setView("board")}
           className={`rounded-lg px-3 py-1.5 text-sm transition ${
-            view === "board" ? "bg-accent-soft text-accent" : "text-muted hover:text-foreground"
+            view === "board" ? "bg-accent-soft text-nav-active" : "text-muted hover:text-foreground"
           }`}
         >
           Доска
@@ -40,7 +40,7 @@ export function TasksView({
         <button
           onClick={() => setView("tree")}
           className={`rounded-lg px-3 py-1.5 text-sm transition ${
-            view === "tree" ? "bg-accent-soft text-accent" : "text-muted hover:text-foreground"
+            view === "tree" ? "bg-accent-soft text-nav-active" : "text-muted hover:text-foreground"
           }`}
         >
           Дерево задач
@@ -48,7 +48,7 @@ export function TasksView({
         <button
           onClick={() => setView("archive")}
           className={`rounded-lg px-3 py-1.5 text-sm transition ${
-            view === "archive" ? "bg-accent-soft text-accent" : "text-muted hover:text-foreground"
+            view === "archive" ? "bg-accent-soft text-nav-active" : "text-muted hover:text-foreground"
           }`}
         >
           Архив

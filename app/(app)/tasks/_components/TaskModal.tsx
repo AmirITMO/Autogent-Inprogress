@@ -333,7 +333,7 @@ export function TaskModal({
                 value={form.projectId}
                 disabled={!canEdit}
                 onChange={(e) => setForm((f) => ({ ...f, projectId: e.target.value }))}
-                className="w-full rounded-lg border border-border bg-white px-2 py-2 text-sm outline-none focus:border-accent disabled:opacity-60"
+                className="w-full rounded-lg border border-border bg-input px-2 py-2 text-sm outline-none focus:border-accent disabled:opacity-60"
               >
                 <option value="">—</option>
                 {projects.map((p) => (
@@ -348,7 +348,7 @@ export function TaskModal({
                 value={form.assigneeId}
                 disabled={!canEdit || !canAssignOthers}
                 onChange={(e) => setForm((f) => ({ ...f, assigneeId: e.target.value }))}
-                className="w-full rounded-lg border border-border bg-white px-2 py-2 text-sm outline-none focus:border-accent disabled:opacity-60"
+                className="w-full rounded-lg border border-border bg-input px-2 py-2 text-sm outline-none focus:border-accent disabled:opacity-60"
               >
                 {!canAssignOthers && <option value={perms.userId}>{assigneeOptions[0]?.name ?? "—"}</option>}
                 {canAssignOthers && <option value="">—</option>}
@@ -365,7 +365,7 @@ export function TaskModal({
                 value={form.priority}
                 disabled={!canEdit}
                 onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value }))}
-                className="w-full rounded-lg border border-border bg-white px-2 py-2 text-sm outline-none focus:border-accent disabled:opacity-60"
+                className="w-full rounded-lg border border-border bg-input px-2 py-2 text-sm outline-none focus:border-accent disabled:opacity-60"
               >
                 {TASK_PRIORITIES.map((p) => (
                   <option key={p} value={p}>
@@ -381,7 +381,7 @@ export function TaskModal({
                 value={form.dueDate}
                 disabled={!canEdit}
                 onChange={(e) => setForm((f) => ({ ...f, dueDate: e.target.value }))}
-                className={`w-full rounded-lg border bg-white px-2 py-2 text-sm outline-none focus:border-accent disabled:opacity-60 ${
+                className={`w-full rounded-lg border bg-input px-2 py-2 text-sm outline-none focus:border-accent disabled:opacity-60 ${
                   dateError ? "border-danger" : "border-border"
                 }`}
               />
@@ -398,7 +398,7 @@ export function TaskModal({
                   setForm((f) => ({ ...f, estimateHours: e.target.value.replace(/[^0-9]/g, "") }))
                 }
                 placeholder="0"
-                className={`w-full rounded-lg border bg-white px-2 py-2 text-sm outline-none focus:border-accent disabled:opacity-60 ${
+                className={`w-full rounded-lg border bg-input px-2 py-2 text-sm outline-none focus:border-accent disabled:opacity-60 ${
                   hoursError ? "border-danger" : "border-border"
                 }`}
               />

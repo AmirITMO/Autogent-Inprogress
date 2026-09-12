@@ -1,10 +1,17 @@
 @import "tailwindcss";
 
+/* ── Светлая тема (базовая) ───────────────────────────────────────────── */
 :root {
+  color-scheme: light;
+
   --background: #faf6f1;
   --surface: #ffffff;
   --surface-2: #f4ede4;
   --border: #e8dfd3;
+  /* Более заметная кайма — рамки нод в дереве задач, акцентные обводки. */
+  --border-strong: #d8cfc2;
+  /* Фон полей ввода: в светлой теме белый на кремовой подложке. */
+  --input: #ffffff;
   --foreground: #17140f;
   --muted: #7a7268;
   --accent: #f97316;
@@ -12,31 +19,105 @@
   --accent-soft: #fef1e6;
   --accent-2: #3b82f6;
   --success: #16a34a;
+  --success-soft: #eafaf0;
+  --success-text: #166534;
   --danger: #ef4444;
+  --danger-soft: #fef2f2;
+  --danger-text: #991b1b;
   --warning: #eab308;
-  /* Цвет текста активной вкладки/пункта меню — в светлой теме совпадает с
-     акцентом, в тёмной перекрашивается отдельно (см. ниже), не трогая
-     остальные места, где используется --accent. */
+
+  /* Цвет текста активной вкладки/пункта меню — в светлой теме это акцент,
+     в тёмной перекрашивается отдельно, не задевая остальные места с --accent. */
   --nav-active: var(--accent);
+  /* Заливка "пустого" сердца-реакции: подложка под контур. */
+  --heart-empty: #ffffff;
+
+  /* Приоритеты задач: цвет текста бейджа + его подложка. */
+  --prio-p0: #ef4444;
+  --prio-p0-bg: #ef44441a;
+  --prio-p1: #f97316;
+  --prio-p1-bg: #f973161a;
+  --prio-p2: #3b82f6;
+  --prio-p2-bg: #3b82f61a;
+  --prio-p3: #7a7268;
+  --prio-p3-bg: #7a72681a;
+
+  /* Пастельная подсветка карточек задач (bg — фон, bd — кайма). */
+  --card-rose-bg: #fdeaea;
+  --card-rose-bd: #f3b8b8;
+  --card-peach-bg: #fdead9;
+  --card-peach-bd: #f3c397;
+  --card-amber-bg: #fdf2cf;
+  --card-amber-bd: #eeda8f;
+  --card-mint-bg: #e2f5e4;
+  --card-mint-bd: #a8dcae;
+  --card-teal-bg: #dcf3ef;
+  --card-teal-bd: #9cd9d0;
+  --card-sky-bg: #e0edfc;
+  --card-sky-bd: #a9c9f2;
+  --card-lavender-bg: #ebe4fb;
+  --card-lavender-bd: #c6b3f0;
+  --card-slate-bg: #eceae6;
+  --card-slate-bd: #cfc9bd;
 }
 
-/* Тёмная тема: почти чёрный фон, весь "серый" (muted) текст — оранжевый
-   разных оттенков, активный пункт меню — seashell вместо оранжевого. */
+/* ── Тёмная тема ──────────────────────────────────────────────────────────
+   Основа — тёплый уголь с минимальной насыщенностью (не коричневый):
+   иначе крупные плоскости фона выглядят грязными. Оранжевый живёт в
+   тексте второго плана и акцентах, активный пункт меню — seashell.
+   Цветные карточки задач тут не пастельные, а приглушённые тёмные тинты
+   того же оттенка: светлый пастель на тёмном фоне слепит и убивает текст. */
 [data-theme="dark"] {
-  --background: #0a0908;
-  --surface: #151210;
-  --surface-2: #201a15;
-  --border: #35291d;
-  --foreground: #f2ece1;
-  --muted: #e8944f;
+  color-scheme: dark;
+
+  --background: #121110;
+  --surface: #1a1917;
+  --surface-2: #232120;
+  --border: #302c28;
+  --border-strong: #45403a;
+  --input: #232120;
+  --foreground: #f0ebe4;
+  --muted: #cca174;
   --accent: #fb923c;
   --accent-hover: #fdba74;
-  --accent-soft: #3a2412;
+  --accent-soft: #31261b;
   --accent-2: #7fb2ff;
   --success: #4ade80;
-  --danger: #f87171;
+  --success-soft: #16281c;
+  --success-text: #6ee7a0;
+  --danger: #fb7185;
+  --danger-soft: #2c1719;
+  --danger-text: #fda4af;
   --warning: #fbbf24;
+
   --nav-active: #fff5ee;
+  --heart-empty: #2b2724;
+
+  --prio-p0: #fb7185;
+  --prio-p0-bg: #fb718528;
+  --prio-p1: #fb923c;
+  --prio-p1-bg: #fb923c28;
+  --prio-p2: #7fb2ff;
+  --prio-p2-bg: #7fb2ff28;
+  --prio-p3: #b3a596;
+  --prio-p3-bg: #b3a59628;
+
+  --card-rose-bg: #2d1b1d;
+  --card-rose-bd: #7a4147;
+  --card-peach-bg: #2f2015;
+  --card-peach-bd: #8a5631;
+  --card-amber-bg: #2c2413;
+  --card-amber-bd: #846b2b;
+  --card-mint-bg: #17261a;
+  --card-mint-bd: #3f7a4b;
+  --card-teal-bg: #152524;
+  --card-teal-bd: #377472;
+  --card-sky-bg: #182331;
+  --card-sky-bd: #3d6590;
+  --card-lavender-bg: #231e33;
+  --card-lavender-bd: #5d5192;
+  --card-slate-bg: #24221f;
+  --card-slate-bd: #5d5750;
 }
 
 @theme inline {
@@ -44,6 +125,8 @@
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
   --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);
   --color-accent: var(--accent);
@@ -51,7 +134,9 @@
   --color-accent-soft: var(--accent-soft);
   --color-accent-2: var(--accent-2);
   --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
   --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
   --color-warning: var(--warning);
   --color-nav-active: var(--nav-active);
   --font-sans: var(--font-golos-text);
@@ -62,13 +147,6 @@ html {
   font-size: 16.5px;
 }
 
-:root {
-  color-scheme: light;
-}
-[data-theme="dark"] {
-  color-scheme: dark;
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
@@ -77,12 +155,22 @@ body {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
+/* Выпадающий список нативного select на Windows иначе остаётся белым даже
+   при color-scheme: dark. Фон самого select задаётся классами (bg-surface-2),
+   поэтому правило лежит в base-слое и утилиты его перебивают. */
+@layer base {
+  option {
+    background-color: var(--surface-2);
+    color: var(--foreground);
+  }
+}
+
 ::-webkit-scrollbar {
   height: 8px;
   width: 8px;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
+  background: var(--border-strong);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-track {
